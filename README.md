@@ -9,7 +9,7 @@
   <a href="https://ubiquity-api.readme.io/reference/v1_cluster_list" target="_blank">Management API</a>  •
   <a href="https://ubiquity-api.readme.io/reference/classes_and_constants" target="_blank">ML Client API</a>  •
   <a href="https://ubiquity-api.readme.io/discuss" target="_blank">Community Forum</a>  •
-  <a href="https://github.com/idaaas/ubiquity-client/issues/new" target="_blank">Report an issue</a>
+  <a href="https://github.com/idaaas/ubiquity-mlclient/issues/new" target="_blank">Report an issue</a>
 </p>
 
 The ML client connects to your Machine Learning cluster and let you query predictions and send training data to the models that you deployed on the cluster using the [Management API](ubiquity-api.readme.io/docs/getting-your-api-keys).
@@ -35,8 +35,8 @@ To build the ML client, you need to install the build automation tool, Earthly v
 
 Once the `earthly` command installed, build clients for all supported languages and output the binaries in the `local-output` directory:
 ```bash
-git clone git@github.com:idaaas/ubiquity-client.git
-cd ubiquity-client
+git clone git@github.com:idaaas/ubiquity-mlclient.git
+cd ubiquity-mlclient
 earthly +all --os=ubuntu:22.04
 ls local-output # all binaries for all languages for ubuntu:22.04
 ```
@@ -53,7 +53,7 @@ Specific instructions for programming languages are available:
 - [C++ 11 and above](cpp/README.md)
 - [Java 8 and above](java/README.md)
 
-If your programming language is not in the list, please fill in a [request](https://github.com/idaaas/ubiquity-client/issues/new).
+If your programming language is not in the list, please fill in a [request](https://github.com/idaaas/ubiquity-mlclient/issues/new).
 
 ### Earthfile Options
 
@@ -83,7 +83,7 @@ Use `--disableIdChecks=ON` to enable faster cluster and model IDs serialization 
 - Architectures: 64-bit (x64)
 - Processor architecture: Little Endian
 
-If your OS or architecture is not in the list, please fill in a [request](https://github.com/idaaas/ubiquity-client/issues/new).
+If your OS or architecture is not in the list, please fill in a [request](https://github.com/idaaas/ubiquity-mlclient/issues/new).
 
 ### Dependencies
 
@@ -99,7 +99,7 @@ sudo apt-get install --no-install-recommends -qq libbsd-dev uuid-dev libcurl4-op
 - [Online documentation](https://ubiquity-api.readme.io)
 - [ML client API](https://ubiquity-api.readme.io/reference/classes_and_constants)
 - [Community Forum](https://ubiquity-api.readme.io/discuss)
-- [Reporting an issue](https://github.com/idaaas/ubiquity-client/issues/new)
+- [Reporting an issue](https://github.com/idaaas/ubiquity-mlclient/issues/new)
 
 ## :page_facing_up: License
 
