@@ -1,0 +1,33 @@
+# C++ ML Client
+
+```bash
+earthly +cpp-bindings --os=ubuntu:22.04
+ls local-ouput/cpp
+# Ubiquity.hpp: the header file to include
+# libubiquity_client_static.a: the static library
+# html: the Doxygen documentation
+```
+
+## Compiling on the CLI
+
+```
+/usr/bin/c++  -IUBIQUITY_HPP_PATH -std=c++11 -o main.cpp.o -c main.cpp
+/usr/bin/c++ -std=c++11 main.cpp.o -o main libubiquity_client_static.a -lcurl -lpthread -ldl -lbsd -luuid
+```
+
+## CMake 3.22 or higher
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(ubiquity
+  GIT_REPOSITORY https://github.com/idaaas/ubiquity-client
+  GIT_TAG xxx
+  SOURCE_SUBDIR cpp)
+FetchContent_MakeAvailable(ubiquity)
+
+add_executable(main ${SOURCE})
+
+target_compile_features(main PRIVATE cxx_std_11)
+
+target_link_libraries(main PRIVATE ubiquity_client_static) 
+```
