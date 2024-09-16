@@ -1,0 +1,23 @@
+name: Earthly CI
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: earthly/actions-setup@v1
+      with:
+        version: v0.8.15
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+    - name: Earthly version
+      run: earthly --version
+    - name: Ubuntu 22.04
+      run: earthly --ci +all --os=ubuntu:22.04
