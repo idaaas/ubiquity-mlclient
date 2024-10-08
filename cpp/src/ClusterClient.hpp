@@ -41,9 +41,7 @@ public:
     static std::shared_ptr<aeron::Aeron> s_aeronClient;
     static std::string s_tenantId;
 
-    ClusterClient(const std::string &clusterId) noexcept;
-
-    std::string getStatus(void) noexcept;
+    ClusterClient(void) noexcept;
 
 //shared with NodeClient.cpp:
     size_t boundNcCount = 0;

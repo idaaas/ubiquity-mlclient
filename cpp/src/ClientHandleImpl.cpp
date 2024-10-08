@@ -21,10 +21,6 @@ const char *Ubiquity::ClientHandle::Impl::getStatusString(void) noexcept {
     return Ubiquity::getStatusString(this->statusCode);
 }
 
-const char *Ubiquity::ClientHandle::Impl::getClusterId(void) noexcept {
-    return this->clusterClient->clusterId.c_str();
-}
-
 const char *Ubiquity::ClientHandle::Impl::getModelId(void) noexcept {
     Base32C::encode(this->encodedModelId, &this->message.common.modelId);
     return this->encodedModelId;
@@ -68,10 +64,6 @@ float Ubiquity::ClientHandle::Impl::getProbability(void) noexcept {
 
 int32_t Ubiquity::ClientHandle::Impl::getPredictionType(void) noexcept {
     return static_cast<int32_t>(this->message.common.applicationId);
-}
-
-const char *Ubiquity::ClientHandle::Impl::getStatus(void) noexcept {
-    return this->clusterClient->getStatus().c_str();
 }
 
 static constexpr uint8_t MESSAGE_TYPE_PREDICTION = 0x06;
@@ -227,34 +219,6 @@ void Ubiquity::ClientHandle::Impl::putNumeric(
     this->putFeature32(
             *reinterpret_cast<const int32_t*>(val),
             ClusterClient::Schema::FeatureType::NUMERIC);
-}
-
-void Ubiquity::ClientHandle::Impl::setBidPrice(
-        const float bidPrice
-        ) noexcept
-{
-    this->message.bidShadingFeedback.bidPrice = bidPrice;
-}
-
-void Ubiquity::ClientHandle::Impl::setCreativeId(
-        const int64_t creativeId
-        ) noexcept
-{
-    this->message.lineItemFeedback.creativeId = creativeId;
-}
-
-void Ubiquity::ClientHandle::Impl::setConversionProbability(
-        const float conversionProbability
-        ) noexcept
-{
-    this->message.lineItemFeedback.conversionProba = conversionProbability;
-}
-
-void Ubiquity::ClientHandle::Impl::setWinningProbability(
-        const float winningProbability
-        ) noexcept
-{
-    this->message.bidShadingFeedback.proba = winningProbability;
 }
 
 enum class Ubiquity::ClientHandle::Impl::MessageType : uint8_t {

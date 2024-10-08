@@ -434,11 +434,8 @@ inline bool ClusterClient::loadConfiguration(void) noexcept {
  * CLUSTER CREATION AND MAIN LOOP
  */
 
-ClusterClient::ClusterClient(
-        const std::string &clusterId
-        ) noexcept
+ClusterClient::ClusterClient(void) noexcept
 {
-    this->clusterId = clusterId;
     this->loadBalancer = std::make_shared<LoadBalancer>();
     for (size_t i = 0; i < NODE_CLIENT_POOL_SIZE; ++i) {
         this->ncArray[i].initialize(this);
@@ -474,29 +471,6 @@ void ClusterClient::clusterThreadFunction(
         }
     }
     DBG("ClusterClient(" << cc->clusterId << ") : Terminated");
-}
-
-std::string ClusterClient::getStatus(void) noexcept
-{
-    nlohmann::json json = {
-        {"nodeClient_nbr", this->boundNcCount},
-        {"nodeClients", nlohmann::json::array()}
-    };
-    for (size_t i = 0; i < this->nextUnboundNcIndex; ++i) {
-        auto &nc = this->ncArray[i];
-        if (nc.isUnbound()) {
-            continue;
-        }
-        nlohmann::json ncStatus = {
-            {"clientId", nc.clientId},
-            {"ip", nc.ipString},
-            {"state", nc.getStateString()},
-            {"invalidMessageTypeCount", nc.invalidMessageTypeCount},
-            {"invalidMessageLengthCount", nc.invalidMessageLengthCount},
-        };
-        json["nodeClients"].push_back(ncStatus);
-    }
-    return json.dump();
 }
 
 std::string ClusterClient::s_apiUrlRoot = std::string("https://api.ubiquity.ai/v1");
