@@ -107,8 +107,6 @@ public class Example1 {
             // notifies the cluster that the predicted pair (price, creative) have entered the auction
             // here we suppose that all predictions actually enter the auction
             // if the cluster is not notified of the execution, no feedback will be considered for the given query
-            clientHandle.setConversionProbability(clientHandle.getProbability()); // set the conversion probability
-            clientHandle.setCreativeId(clientHandle.getCreativeId());
             errorCode = clientHandle.train(modelId, queryId, 0);
             while(errorCode == Ubiquity.ErrorCode.BACK_PRESSURED) {
                 Thread.yield();

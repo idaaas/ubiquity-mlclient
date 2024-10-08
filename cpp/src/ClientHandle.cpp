@@ -1,12 +1,15 @@
 #include "ubiquity_client/Ubiquity.hpp"
 #include "ClientHandleImpl.hpp"
 
-Ubiquity::ClientHandle::ClientHandle(std::shared_ptr<Ubiquity::ClientHandle::Impl> &&pimpl) noexcept
-    : pimpl(std::move(pimpl)) {
+Ubiquity::ClientHandle::ClientHandle(void) noexcept {
+    this->pimpl = new Ubiquity::ClientHandle::Impl();
 }
 
 void Ubiquity::ClientHandle::close(void) noexcept {
-    this->pimpl.reset();
+    if (nullptr != this->pimpl) {
+        delete this->pimpl;
+        this->pimpl = nullptr;
+    }
 }
 
 Ubiquity::StatusCode Ubiquity::ClientHandle::getStatusCode(void) noexcept {
@@ -15,10 +18,6 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::getStatusCode(void) noexcept {
 
 const char *Ubiquity::ClientHandle::getStatusString(void) noexcept {
     return this->pimpl->getStatusString();
-}
-
-const char *Ubiquity::ClientHandle::getClusterId() noexcept {
-    return this->pimpl->getClusterId();
 }
 
 int64_t Ubiquity::ClientHandle::getCreativeId(void) noexcept {
@@ -43,10 +42,6 @@ float Ubiquity::ClientHandle::getProbability(void) noexcept {
 
 int32_t Ubiquity::ClientHandle::getPredictionType(void) noexcept {
     return this->pimpl->getPredictionType();
-}
-
-const char *Ubiquity::ClientHandle::getStatus(void) noexcept {
-    return this->pimpl->getStatus();
 }
 
 Ubiquity::StatusCode Ubiquity::ClientHandle::poll(void) noexcept {
@@ -75,22 +70,6 @@ void Ubiquity::ClientHandle::putNominal(const char *value) noexcept {
 
 void Ubiquity::ClientHandle::putNumeric(const float value) noexcept {
     this->pimpl->putNumeric(value);
-}
-
-void Ubiquity::ClientHandle::setBidPrice(const float bidPrice) noexcept {
-    this->pimpl->setBidPrice(bidPrice);
-}
-
-void Ubiquity::ClientHandle::setCreativeId(const int64_t creativeId) noexcept {
-    this->pimpl->setCreativeId(creativeId);
-}
-
-void Ubiquity::ClientHandle::setConversionProbability(const float conversionProbability) noexcept {
-    this->pimpl->setConversionProbability(conversionProbability);
-}
-
-void Ubiquity::ClientHandle::setWinningProbability(const float winningProbability) noexcept {
-    this->pimpl->setWinningProbability(winningProbability);
 }
 
 void Ubiquity::ClientHandle::startBidShading(const char *modelId, const int64_t queryId, const float bidPrice, const float bidFloor) noexcept {

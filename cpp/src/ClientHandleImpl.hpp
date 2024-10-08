@@ -11,14 +11,12 @@ class Ubiquity::ClientHandle::Impl {
         ~Impl(void);
         Ubiquity::StatusCode getStatusCode(void) noexcept;
         const char *getStatusString(void) noexcept;
-        const char *getClusterId(void) noexcept;
         const char *getModelId(void) noexcept;
         int64_t getQueryId(void) noexcept;
         int64_t getCreativeId(void) noexcept;
         float getPrice(void) noexcept;
         float getProbability(void) noexcept;
         int32_t getPredictionType(void) noexcept;
-        const char *getStatus(void) noexcept;
         Ubiquity::StatusCode poll(void) noexcept;
         Ubiquity::StatusCode predict(void) noexcept;
 
@@ -40,22 +38,6 @@ class Ubiquity::ClientHandle::Impl {
 
         void putNumeric(
                 const float value
-                ) noexcept;
-
-        void setBidPrice(
-                const float bidPrice
-                ) noexcept;
-
-        void setCreativeId(
-                const int64_t creativeId
-                ) noexcept;
-
-        void setConversionProbability(
-                const float conversionProbability
-                ) noexcept;
-
-        void setWinningProbability(
-                const float winningProbability
                 ) noexcept;
 
         void startBidShading(
@@ -187,8 +169,8 @@ class Ubiquity::ClientHandle::Impl {
         struct BidShadingFeedbackMessage {
             FeedbackMessage _;
             double weight;
-            float proba;
-            float bidPrice;
+            float proba; // deprecated
+            float bidPrice; // deprectated
             uint32_t executed;
         } __attribute__((packed));
 
@@ -201,8 +183,8 @@ class Ubiquity::ClientHandle::Impl {
         struct LineItemFeedbackMessage {
             FeedbackMessage _;
             double weight;
-            int64_t creativeId;
-            float conversionProba;
+            int64_t creativeId; // deprecated
+            float conversionProba; // deprecated
             uint32_t executed;
         } __attribute__((packed));
 

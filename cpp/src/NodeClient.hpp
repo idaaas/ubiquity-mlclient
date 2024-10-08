@@ -32,8 +32,6 @@ class NodeClient {
 
     protected:
         friend ClusterClient;
-        size_t invalidMessageTypeCount = 0;
-        size_t invalidMessageLengthCount = 0;
         bool refreshed = false;
 
         void initialize(ClusterClient *clusterClient) noexcept;

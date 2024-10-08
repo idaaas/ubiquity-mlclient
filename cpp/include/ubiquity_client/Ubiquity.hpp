@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <limits>
-#include <memory>
 
 namespace Ubiquity {
 
@@ -20,7 +19,6 @@ using ApplicationType = int16_t;
 
         static constexpr StatusCode ARCHITECTURE_NOT_SUPPORTED = 5;
         static constexpr StatusCode AERON_INITIALIZATION_FAILED = 6;
-        static constexpr StatusCode CLIENT_NOT_CONNECTED = 7;
 
         static constexpr StatusCode INVALID_RESOURCE_ID = 8;
         static constexpr StatusCode INVALID_APP_FOR_MODEL = 9;
@@ -54,7 +52,6 @@ using ApplicationType = int16_t;
 
 #define ARCHITECTURE_NOT_SUPPORTED 5
 #define AERON_INITIALIZATION_FAILED 6
-#define CLIENT_NOT_CONNECTED 7
 
 #define INVALID_RESOURCE_ID 8
 #define INVALID_APP_FOR_MODEL 9
@@ -80,18 +77,19 @@ using ApplicationType = int16_t;
 #endif
 
         class ClientHandle {
+
             public:
+                ClientHandle(void) noexcept;
+
                 void close(void) noexcept;
                 int64_t getCreativeId(void) noexcept;
                 int64_t getQueryId(void) noexcept;
                 const char *getModelId(void) noexcept;
-                const char *getClusterId(void) noexcept;
                 StatusCode getStatusCode(void) noexcept;
                 const char *getStatusString(void) noexcept;
                 float getPrice(void) noexcept;
                 int32_t getPredictionType(void) noexcept;
                 float getProbability(void) noexcept;
-                const char *getStatus(void) noexcept;
                 StatusCode poll(void) noexcept;
                 StatusCode predict(void) noexcept;
                 void putBoolean(const bool value) noexcept;
@@ -99,19 +97,15 @@ using ApplicationType = int16_t;
                 void putCreative(const int64_t value) noexcept;
                 void putNominal(const char *value) noexcept;
                 void putNumeric(const float value) noexcept;
-                void setBidPrice(const float bidPrice) noexcept;
-                void setCreativeId(const int64_t creativeId) noexcept;
-                void setConversionProbability(const float conversionProbability) noexcept;
-                void setWinningProbability(const float winningProbability) noexcept;
                 void startBidShading(const char *modelId, const int64_t queryId, const float bidPrice, const float bidFloor) noexcept;
                 void startLineItem(const char *modelId, const int64_t queryId, const float maxCPM) noexcept;
                 void startProbability(const char *modelId, const int64_t queryId) noexcept;
                 StatusCode train(const char *modelId, int64_t queryId, int32_t level) noexcept;
 
                 class Impl;
-                ClientHandle(std::shared_ptr<Impl> &&pimpl) noexcept;
             private:
-                std::shared_ptr<Impl> pimpl;
+                friend ClientHandle getClientHandle(void) noexcept;
+                Impl *pimpl;
         };
         const char *getStatusString(
                 StatusCode statusCode
@@ -136,17 +130,11 @@ using ApplicationType = int16_t;
 
         ClientHandle getClientHandle(void) noexcept;
 
-        ClientHandle getClientHandleById(
-                const char *const clusterId
-                ) noexcept;
-
         StatusCode openClient(
                 const char *const clusterId
                 ) noexcept;
 
-        void closeClient(
-                const char *const clusterId
-                ) noexcept;
+        void closeClient(void) noexcept;
 
         int64_t xxh3_64bits(
                 const char *source

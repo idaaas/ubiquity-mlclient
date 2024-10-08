@@ -571,7 +571,6 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
             atomicBuffer.getBytes(offset, message->buffer, length);
             const int type = message->common.type;
             if (type >= MessageType::COUNT) {
-                ++this->invalidMessageTypeCount;
                 DBG("NodeClient " << this->slotId << " (" << this->ipString << ") : Received message with invalid type " << type);
                 return;
             }
@@ -581,7 +580,6 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
                 hexDump(message->buffer, uLength);
                 if (ctExpectedInputMessageSize[type] > uLength) {
                     DBG("NodeClient " << this->slotId << " (" << this->ipString << ") : Invalid length " << uLength << " for message type " << MessageType::strings[type]);
-                    ++this->invalidMessageLengthCount;
                     return;
                 }
             }

@@ -29,7 +29,7 @@ const char *Ubiquity::getStatusString(
 
         "ARCHITECTURE_NOT_SUPPORTED",
         "AERON_INITIALIZATION_FAILED",
-        "CLIENT_NOT_CONNECTED",
+        "UNDEFINED_7",
 
         "INVALID_RESOURCE_ID",
         "INVALID_APP_FOR_MODEL",
@@ -47,7 +47,9 @@ const char *Ubiquity::getStatusString(
         "INVALID_SCHEMA_DESCRIPTION",
         "SCHEMA_UNAVAILABLE",
     };
-    return statusStrings[static_cast<int32_t>(statusCode)];
+    return statusCode <= Ubiquity::SCHEMA_UNAVAILABLE
+        ? statusStrings[static_cast<int32_t>(statusCode)]
+        : "UNDEFINED";
 }
 
 /*
@@ -197,75 +199,55 @@ void Ubiquity::setResourceStringInCache(
  */
 
 static std::mutex s_clusterClientsMutex;
-static std::unordered_map<std::string, std::weak_ptr<ClusterClient>> s_clusterClients;
+static std::weak_ptr<ClusterClient> s_clusterClient;
 
-static inline std::shared_ptr<ClusterClient> getClusterClient(
-        const char *const clusterId,
-        const bool startThread
-        ) noexcept
+static inline std::shared_ptr<ClusterClient> getClusterClient(void) noexcept
 {
-    std::lock_guard<std::mutex> guard(s_clusterClientsMutex);
-
-    const std::string &clusterIdString = std::string(clusterId);
-    auto &weakPtrRef = s_clusterClients[clusterIdString];
-    auto clusterClient = weakPtrRef.lock();
-    if (!clusterClient || clusterClient->canTerminate) {
-        DBG("Ubiquity : Creating new ClusterClient(" << clusterIdString << ")");
-        clusterClient = std::make_shared<ClusterClient>(clusterIdString);
-        weakPtrRef = clusterClient;
-        if (startThread) {
-            std::thread(&ClusterClient::clusterThreadFunction, clusterClient).detach();
-        }
-    } else {
-        DBG("Ubiquity : Returning handle to existing ClusterClient(" << clusterIdString << ")");
+    auto clusterClient = s_clusterClient.lock();
+    if (!clusterClient) {
+        DBG("Ubiquity : Creating new ClusterClient.");
+        clusterClient = std::make_shared<ClusterClient>();
+        s_clusterClient = clusterClient;
     }
     return clusterClient;
 }
 
-Ubiquity::ClientHandle Ubiquity::getClientHandleById(
-        const char *const clusterId
-        ) noexcept
-{
-    auto clientHandleImpl = std::make_shared<Ubiquity::ClientHandle::Impl>();
-    clientHandleImpl->clusterClient = getClusterClient(clusterId, false);
-    if (Ubiquity::NO_DATA == std::atomic_load(&clientHandleImpl->clusterClient->statusCode)) {
-        clientHandleImpl->statusCode = Ubiquity::CLIENT_NOT_CONNECTED;
-    }
-    return Ubiquity::ClientHandle(std::move(clientHandleImpl));
-}
-
-static std::string lastClusterId;
-
 Ubiquity::ClientHandle Ubiquity::getClientHandle(void) noexcept
 {
-    return getClientHandleById(lastClusterId.c_str());
+    std::lock_guard<std::mutex> guard(s_clusterClientsMutex);
+
+    const auto clientHandle = Ubiquity::ClientHandle();
+    clientHandle.pimpl->clusterClient = getClusterClient();
+    return clientHandle;
 }
 
 Ubiquity::StatusCode Ubiquity::openClient(
         const char *const clusterId
         ) noexcept
 {
-    lastClusterId = clusterId;
+    std::lock_guard<std::mutex> guard(s_clusterClientsMutex);
+
     Ubiquity::StatusCode statusCode = initialize();
     if (Ubiquity::SUCCESS != statusCode) {
         return statusCode;
     }
-    auto clusterClient = getClusterClient(clusterId, true);
+    auto clusterClient = getClusterClient();
+    if (clusterClient->clusterId.empty()) {
+        DBG("Ubiquity : Connecting ClusterClient to cluster " << clusterId);
+        clusterClient->clusterId = clusterId;
+        std::thread(&ClusterClient::clusterThreadFunction, clusterClient).detach();
+    }
     while (Ubiquity::NO_DATA == std::atomic_load(&clusterClient->statusCode)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     return std::atomic_load(&clusterClient->statusCode);
 }
 
-void Ubiquity::closeClient(
-        const char *const clusterId
-        ) noexcept
+void Ubiquity::closeClient(void) noexcept
 {
     std::lock_guard<std::mutex> guard(s_clusterClientsMutex);
 
-    const std::string &clusterIdString = std::string(clusterId);
-    auto &weakPtrRef = s_clusterClients[clusterIdString];
-    auto clusterClient = weakPtrRef.lock();
+    auto clusterClient = s_clusterClient.lock();
     if (clusterClient) {
         DBG("Ubiquity : Autorizing ClusterClient(" << clusterClient->clusterId << ") to terminate.");
         std::atomic_store(&clusterClient->canTerminate, true);
