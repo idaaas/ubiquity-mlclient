@@ -2,3 +2,4 @@ local-output
 .idea
 .bsp
 target
+.vscode/

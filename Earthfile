@@ -46,6 +46,32 @@ java-examples:
   ENTRYPOINT ["java","-cp","target/main.jar"]
   SAVE IMAGE java-examples:latest
 
+go-bindings:
+  ARG release
+  FROM +go-swig-image
+  COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
+  COPY go/swig .
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
+  RUN cmake --build build --parallel $(nproc) --target ubiquityclient
+  SAVE ARTIFACT build/output/Ubiquity.go AS LOCAL local-output/go/Ubiquity/
+  SAVE ARTIFACT build/ubiquityclient.so AS LOCAL local-output/go/Ubiquity/
+
+go-examples:
+  FROM +go-image
+  COPY +go-bindings/* samples/lib/Ubiquity/
+  COPY go/samples samples
+  COPY datasets samples/rsc/datasets
+  RUN apt-get install --no-install-recommends -qq gzip
+  RUN cd samples/rsc/datasets && gzip -d *.gz
+  RUN cd samples && SUBDIRS=$(find ./src -maxdepth 2 -mindepth 2 -type d -printf '%P\n') && \
+      for dir in $SUBDIRS; \
+      do \
+        echo 'building '$dir' ...'; \
+        go build -o bin/$dir src/$dir/Main.go; \
+      done
+  RUN cp -r samples/bin/* .
+  SAVE IMAGE go-examples:latest
+
 base-image:
   LET supportedOs=ubuntu:16.04 ubuntu:20.04 ubuntu:22.04 ubuntu:24.04
   IF echo $supportedOs | grep -q $os
@@ -61,6 +87,8 @@ base-image:
       RUN apt-get install --no-install-recommends -qq software-properties-common && add-apt-repository -y ppa:ubuntu-toolchain-r/test && apt-get update -qq
       RUN apt-get install --no-install-recommends -qq libstdc++-9-dev
     END
+    # tools
+    RUN apt-get install --no-install-recommends -qq wget ca-certificates
     # project deps
     RUN apt-get install --no-install-recommends -qq libbsd-dev uuid-dev libcurl4-openssl-dev
   END
@@ -71,7 +99,7 @@ cmake-image:
   IF echo $os | grep -q ubuntu
     IF [ "$os" = "ubuntu:16.04" ]
       RUN apt-get install --no-install-recommends -qq software-properties-common && add-apt-repository -y ppa:ubuntu-toolchain-r/test && apt-get update -qq
-      RUN apt-get install --no-install-recommends -qq ca-certificates build-essential g++-9 libssl-dev wget git doxygen
+      RUN apt-get install --no-install-recommends -qq build-essential g++-9 libssl-dev git doxygen
       RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 10
       RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 10
       RUN update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30
@@ -79,7 +107,7 @@ cmake-image:
       RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30
       RUN update-alternatives --set c++ /usr/bin/g++
     ELSE
-      RUN apt-get install --no-install-recommends -qq ca-certificates build-essential g++ libssl-dev wget git doxygen
+      RUN apt-get install --no-install-recommends -qq build-essential g++ libssl-dev git doxygen
     END
     RUN wget --quiet https://github.com/Kitware/CMake/releases/download/v3.30.2/cmake-3.30.2-linux-x86_64.sh
     RUN sh cmake-3.30.2-linux-x86_64.sh --skip-license --prefix=/usr/local/ && rm cmake-3.30.2-linux-x86_64.sh
@@ -88,17 +116,7 @@ cmake-image:
 java-swig-image:
   FROM +cmake-image
   DO +JAVA_INSTALL
-  IF echo $os | grep -q ubuntu
-    IF [ "$os" = "ubuntu:16.04" ]
-      RUN wget --quiet https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz && tar xzf bison-3.8.2.tar.gz
-      RUN apt-get install --no-install-recommends -qq m4 automake libz-dev libpcre2-dev
-      RUN cd bison-3.8.2 && ./configure && make && make install && cd .. && rm -rf bison-3.8.2*
-    ELSE
-      RUN apt-get install --no-install-recommends -qq automake bison libz-dev libpcre2-dev
-    END
-    GIT CLONE --branch v4.2.1 https://github.com/swig/swig /swig
-    RUN cd /swig && ./autogen.sh && ./configure && make -j $(nproc) && make install && rm -rf /swig
-  END
+  DO +SWIG_INSTALL
 
 sbt-image:
   FROM +base-image
@@ -126,4 +144,37 @@ JAVA_INSTALL:
       RUN apt-get install --no-install-recommends -qq openjdk-17-jdk
     END
     ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+  END
+
+go-swig-image:
+  FROM +cmake-image
+  DO +GO_INSTALL
+  DO +SWIG_INSTALL
+
+go-image:
+  FROM +base-image
+  DO +GO_INSTALL
+
+GO_INSTALL:
+  FUNCTION
+  IF echo $os | grep -q ubuntu
+    RUN apt-get install --no-install-recommends -qq gcc
+    RUN wget --quiet https://go.dev/dl/go1.23.2.linux-amd64.tar.gz
+    RUN echo "542d3c1705f1c6a1c5a80d5dc62e2e45171af291e755d591c5e6531ef63b454e go1.23.2.linux-amd64.tar.gz" | sha256sum --check --status
+    RUN tar -C /usr/local -xzf go1.23.2.linux-amd64.tar.gz && rm go1.23.2.linux-amd64.tar.gz
+    ENV PATH=$PATH:/usr/local/go/bin
+  END
+
+SWIG_INSTALL:
+  FUNCTION
+  IF echo $os | grep -q ubuntu
+    IF [ "$os" = "ubuntu:16.04" ]
+      RUN wget --quiet https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz && tar xzf bison-3.8.2.tar.gz
+      RUN apt-get install --no-install-recommends -qq m4 automake libz-dev libpcre2-dev
+      RUN cd bison-3.8.2 && ./configure && make && make install && cd .. && rm -rf bison-3.8.2*
+    ELSE
+      RUN apt-get install --no-install-recommends -qq automake bison libz-dev libpcre2-dev
+    END
+    GIT CLONE --branch v4.3.0 https://github.com/swig/swig /swig
+    RUN cd /swig && ./autogen.sh && ./configure && make -j $(nproc) && make install && rm -rf /swig
   END
