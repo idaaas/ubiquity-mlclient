@@ -10,17 +10,18 @@ import java.time.Duration;
 import java.util.*;
 
 public class Example1 {
-    private static final long PREDICT_TIMEOUT = Duration.ofSeconds(10).toNanos();
-    private static final long POLL_TIMEOUT = Duration.ofSeconds(1).toNanos();
+    private static final long POLL_TIMEOUT = Duration.ofSeconds(200).toNanos();
+    private static final int THROUGHPUT = 300;
 
     public static void main(String[] args) throws Exception {
-        if(args.length < 2) throw new RuntimeException("You need to provide clusterId and API token to run the LineItemExample");
+        if(args.length < 2) throw new RuntimeException("You need to provide API token and cluster ID to run the LineItemExample");
         final String apiToken = args[0];
         final String clusterId = args[1];
 
         // 1. Create your models via API
-        ApiUtil apiUtil = new ApiUtil(clusterId, apiToken);
-        String modelId = apiUtil.createLineItemModel();
+        ApiUtil apiUtil = new ApiUtil(apiToken);
+        String lineItemModel = getLineItemBody(clusterId);
+        String modelId = apiUtil.createLineItemModel(lineItemModel);
 
         // 2. Create and connect a ubiquity-client
         Ubiquity.setCredential(apiToken);
@@ -39,20 +40,33 @@ public class Example1 {
         String dataPath = "./src/main/resources/features.csv.gz";
         Iterator<BidRequest> dataIterator = CycleIterator.bidRequestIterator(dataPath);
         Iterator<Feedback> feedbackIterator = CycleIterator.feedbackIterator(feedbackPath);
+        HashMap<Long, Feedback> feedbackHashMap = new HashMap<>();
+
+        // The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
+        final long paceInNanos = Duration.ofSeconds(1).toNanos() / THROUGHPUT;
+        long nextSendNanoTime = System.nanoTime();
 
         // 4. Loop and send prediction queries with their associated feedbacks
         final int dumpPeriod = 1000;
-        for (int count = 1; count <= numQueries; count ++) {
-            // 5.1. prepare and send a line item query
+        int count = 0;
+        while (count < numQueries) {
+            if(System.nanoTime() < nextSendNanoTime) continue;
+            nextSendNanoTime = nextSendNanoTime + paceInNanos;
+
+            // 4.1 prepare a line item query
             long queryId = rand.nextLong();
+            // read a bid request with its feedback from the dataset file
+            BidRequest request = dataIterator.next();
+            Feedback feedback = feedbackIterator.next();
+            // read the feedback for all the levels and store it in a temp map
+            feedbackHashMap.put(queryId, feedback);
+            // prepare a line item query using this bid request
             clientHandle.startLineItem(modelId, queryId, maxCPM);
-            // 5.1.1. fill in a random subset of eligible creatives
+            // fill in a random subset of eligible creatives
             Collections.shuffle(creativeIds);
             int numEligibleCreatives = 1 + rand.nextInt(creativeIds.size()); // at least one creative
             for (int i = 0; i < numEligibleCreatives; i++) clientHandle.putCreative(creativeIds.get(i));
-
-            // 5.1.2. fill in the features as specified in the model schema in config.json
-            BidRequest request = dataIterator.next();
+            // fill in the features as specified in the model schema in config.json
             clientHandle.putNominal(request.getAppBundle());
             clientHandle.putCategorical(request.getImpBannerPos());
             clientHandle.putCategorical(request.getLocalTime());
@@ -80,57 +94,37 @@ public class Example1 {
             clientHandle.putBoolean(request.getImpInstl());
             clientHandle.putNominal(request.getAppPageCat());
 
-            // 4.1.3. send the prediction request
-            errorCode = clientHandle.predict();
-            long deadline = System.nanoTime() + PREDICT_TIMEOUT;
-            while (errorCode != Ubiquity.ErrorCode.SUCCESS && System.nanoTime() < deadline) {
-                Thread.yield();
-                errorCode = clientHandle.predict();
-            }
-            if (errorCode != Ubiquity.ErrorCode.SUCCESS) throw new RuntimeException("Could not send query " + clientHandle.getLastErrorString());
+            // 4.2. send the prediction request
+            if(clientHandle.predict() == Ubiquity.ErrorCode.SUCCESS)
+                count ++;
 
-            // 4.2. wait to poll prediction response and validate its QueryId
-            errorCode = clientHandle.poll();
-            deadline = System.nanoTime() + POLL_TIMEOUT;
-            while (errorCode == Ubiquity.ErrorCode.PENDING && System.nanoTime() < deadline) {
-                Thread.yield();
+            // 4.3. wait to poll prediction response and validate its QueryId
+            long deadline = System.nanoTime() + POLL_TIMEOUT;
+            do {
                 errorCode = clientHandle.poll();
-            }
-            if (errorCode != Ubiquity.ErrorCode.SUCCESS) throw new RuntimeException("Poll timeout");
-            if(clientHandle.getQueryId() != queryId) throw new RuntimeException("Did not poll the excepted queryId");
-            if (count % dumpPeriod == 0) {
-                System.out.printf("Total queries = %d, last response: predicted price = %f, conversion probability = %f, selected creative id = %d\n", count, clientHandle.getPrice(), clientHandle.getProbability(), clientHandle.getCreativeId());
-            }
+                Thread.yield();
+            } while (errorCode == Ubiquity.ErrorCode.PENDING && System.nanoTime() < deadline);
+            if (errorCode != Ubiquity.ErrorCode.SUCCESS) continue;
 
-            // 4.3 Sending back conversion feedback (if any)
-            // 4.3.1. send a notification of execution
+            float conversionProbability = clientHandle.getProbability();
+            long creativeId = clientHandle.getCreativeId();
+            float price = clientHandle.getPrice();
+            queryId = clientHandle.getQueryId();
+            feedback = feedbackHashMap.get(queryId);
+            // send positive feedback only if conversion occurred
+            // 4.5 Sending back conversion feedback (if any)
+            // 4.5.1. send a notification of execution
             // notifies the cluster that the predicted pair (price, creative) have entered the auction
             // here we suppose that all predictions actually enter the auction
             // if the cluster is not notified of the execution, no feedback will be considered for the given query
-            errorCode = clientHandle.train(modelId, queryId, 0);
-            while(errorCode == Ubiquity.ErrorCode.BACK_PRESSURED) {
-                Thread.yield();
-                errorCode = clientHandle.train(modelId, queryId, 0);
-            }
+            clientHandle.train(modelId, queryId, 0);
+            // 4.5.2. Try to send feedback of level 1
+            if (feedback.getLevel1()) clientHandle.train(modelId, queryId, 1);
+            // 4.5.3. Try to send feedback of level 2
+            if (feedback.getLevel2()) clientHandle.train(modelId, queryId, 2);
 
-            // 4.3.2. read the feedback for all the levels and send positive feedback only if conversion occurred
-            Feedback feedbackVector = feedbackIterator.next();
-            // Try to send feedback of level 1
-            if (feedbackVector.getLevel1()) {
-                errorCode = clientHandle.train(modelId, queryId, 1);
-                while (errorCode == Ubiquity.ErrorCode.BACK_PRESSURED) {
-                    Thread.yield();
-                    errorCode = clientHandle.train(modelId, queryId, 1);
-                }
-            }
-
-            //  Try to send feedback of level 2
-            if (feedbackVector.getLevel2()) {
-                errorCode = clientHandle.train(modelId, queryId, 2);
-                while (errorCode == Ubiquity.ErrorCode.BACK_PRESSURED) {
-                    Thread.yield();
-                    errorCode = clientHandle.train(modelId, queryId, 2);
-                }
+            if (count % dumpPeriod == 0) {
+                System.out.printf("Total queries = %d, last response: predicted price = %f, conversion probability = %f, selected creative id = %d\n", count, price, conversionProbability, creativeId);
             }
         }
         clientHandle.close();
@@ -139,5 +133,191 @@ public class Example1 {
         // 5. wait for the last feedbacks sent to be processed by the cluster then delete the models
         Thread.sleep(10000);
         apiUtil.deleteModel(modelId);
+    }
+
+    public static String getLineItemBody(String clusterId) {
+        return """
+                {
+                  "cluster_id": "%s",
+                  "name": "code-example line-item",
+                  "feedback_delays": [
+                    20,
+                    30,
+                    40
+                  ],
+                  "features": [
+                    {
+                      "name": "app.bundle",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "imp.banner.pos",
+                      "type": "categorical"
+                    },
+                    {
+                      "name": "localtime",
+                      "type": "categorical"
+                    },
+                    {
+                      "name": "device.os",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "device.geo.city",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "device.model",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "bcat",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "device.geo.zip",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "user.yob",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "app.publisher.name",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "device.connectiontype",
+                      "type": "categorical"
+                    },
+                    {
+                      "name": "device.geo.region",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "app.cat",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "device.make",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "device.HxW",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "user.gender",
+                      "type": "categorical"
+                    },
+                    {
+                      "name": "device.language",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "imp.displaymanager",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "imp.banner.battr",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "device.geo.country",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "app.content.language",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "app.content.context",
+                      "type": "categorical"
+                    },
+                    {
+                      "name": "imp.banner.topframe",
+                      "type": "boolean"
+                    },
+                    {
+                      "name": "device.devicetype",
+                      "type": "categorical"
+                    },
+                    {
+                      "name": "imp.instl",
+                      "type": "boolean"
+                    },
+                    {
+                      "name": "app.pagecat",
+                      "type": "nominal"
+                    }
+                  ],
+                "creatives": {
+                  "features": [
+                    {
+                      "name": "a0",
+                      "type": "numeric"
+                    },
+                    {
+                      "name": "a1",
+                      "type": "nominal"
+                    },
+                    {
+                      "name": "a2",
+                      "type": "boolean"
+                    },
+                    {
+                      "name": "a3",
+                      "type": "categorical"
+                    }
+                  ],
+                  "values": [
+                    {
+                      "id": 5,
+                      "features": [
+                        "0.79626095",
+                        "Arabic",
+                        "true",
+                        "6"
+                      ]
+                    },
+                    {
+                      "id": 1,
+                      "features": [
+                        "0.72317415",
+                        "French",
+                        "true",
+                        "9"
+                      ]
+                    },
+                    {
+                      "id": 2,
+                      "features": [
+                        "0.2532931",
+                        "German",
+                        "true",
+                        "7"
+                      ]
+                    },
+                    {
+                      "id": 3,
+                      "features": [
+                        "0.80586946",
+                        "German",
+                        "true",
+                        "6"
+                      ]
+                    },
+                    {
+                      "id": 4,
+                      "features": [
+                        "0.7160485",
+                        "French",
+                        "false",
+                        "9"
+                      ]
+                    }
+                  ]
+                }
+                }""".formatted(clusterId);
     }
 }
