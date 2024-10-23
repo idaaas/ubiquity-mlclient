@@ -1,6 +1,6 @@
 package ai.ubiquity.samples.lineitem;
 
-import ai.ubiquity.Ubiquity;
+import ai.ubiquity.*;
 import ai.ubiquity.samples.utils.ApiUtil;
 import ai.ubiquity.samples.utils.BidRequest;
 import ai.ubiquity.samples.utils.CycleIterator;
@@ -10,8 +10,8 @@ import java.time.Duration;
 import java.util.*;
 
 public class Example1 {
-    private static final long POLL_TIMEOUT = Duration.ofSeconds(200).toNanos();
-    private static final int THROUGHPUT = 300;
+    private static final long POLL_TIMEOUT = Duration.ofMillis(200).toNanos();
+    private static final int THROUGHPUT_IN_QPS = 300;
 
     public static void main(String[] args) throws Exception {
         if(args.length < 2) throw new RuntimeException("You need to provide API token and cluster ID to run the LineItemExample");
@@ -20,15 +20,13 @@ public class Example1 {
 
         // 1. Create your models via API
         ApiUtil apiUtil = new ApiUtil(apiToken);
-        String lineItemModel = getLineItemBody(clusterId);
-        String modelId = apiUtil.createLineItemModel(lineItemModel);
+        String modelId = apiUtil.createLineItemModel(modelSchema.formatted(clusterId));
 
         // 2. Create and connect a ubiquity-client
         Ubiquity.setCredential(apiToken);
-        int errorCode = Ubiquity.openClient(clusterId);
-        if (Ubiquity.ErrorCode.SUCCESS != errorCode) throw new RuntimeException("Error during connection : " + errorCode);
-        Ubiquity.ClientHandle clientHandle = Ubiquity.getClientHandle();
-        if (Ubiquity.ErrorCode.SUCCESS != clientHandle.getLastError()) throw new RuntimeException("Error during creation of clientHandle : " + errorCode);
+        int statusCode = Ubiquity.openClient(clusterId);
+        if (Ubiquity.SUCCESS != statusCode) throw new RuntimeException("Error during connection : " + statusCode);
+        ClientHandle clientHandle = Ubiquity.getClientHandle();
 
         // 3. Prepare data and feedback streams
         int numQueries = 250000;
@@ -36,14 +34,12 @@ public class Example1 {
         Random rand = new Random(123); // to generate query ids
         List<Long> creativeIds = Arrays.asList(1L, 2L, 3L, 4L, 5L); // a list of all creatives ids used when creating the model
         // use cycle iterators in order to loop infinitely over the data
-        String feedbackPath = "./src/main/resources/feedback.csv.gz";
-        String dataPath = "./src/main/resources/features.csv.gz";
-        Iterator<BidRequest> dataIterator = CycleIterator.bidRequestIterator(dataPath);
-        Iterator<Feedback> feedbackIterator = CycleIterator.feedbackIterator(feedbackPath);
+        Iterator<BidRequest> dataIterator = CycleIterator.bidRequestIterator("./src/main/resources/features.csv.gz");
+        Iterator<Feedback> feedbackIterator = CycleIterator.feedbackIterator("./src/main/resources/feedback.csv.gz");
         HashMap<Long, Feedback> feedbackHashMap = new HashMap<>();
 
         // The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
-        final long paceInNanos = Duration.ofSeconds(1).toNanos() / THROUGHPUT;
+        final long paceInNanos = Duration.ofSeconds(1).toNanos() / THROUGHPUT_IN_QPS;
         long nextSendNanoTime = System.nanoTime();
 
         // 4. Loop and send prediction queries with their associated feedbacks
@@ -95,16 +91,16 @@ public class Example1 {
             clientHandle.putNominal(request.getAppPageCat());
 
             // 4.2. send the prediction request
-            if(clientHandle.predict() == Ubiquity.ErrorCode.SUCCESS)
+            if(clientHandle.predict() == Ubiquity.SUCCESS)
                 count ++;
 
             // 4.3. wait to poll prediction response and validate its QueryId
             long deadline = System.nanoTime() + POLL_TIMEOUT;
             do {
-                errorCode = clientHandle.poll();
+                statusCode = clientHandle.poll();
                 Thread.yield();
-            } while (errorCode == Ubiquity.ErrorCode.PENDING && System.nanoTime() < deadline);
-            if (errorCode != Ubiquity.ErrorCode.SUCCESS) continue;
+            } while (statusCode == Ubiquity.NO_DATA && System.nanoTime() < deadline);
+            if (statusCode != Ubiquity.SUCCESS) continue;
 
             float conversionProbability = clientHandle.getProbability();
             long creativeId = clientHandle.getCreativeId();
@@ -128,196 +124,194 @@ public class Example1 {
             }
         }
         clientHandle.close();
-        Ubiquity.closeClient(clusterId);
+        Ubiquity.closeClient();
 
         // 5. wait for the last feedbacks sent to be processed by the cluster then delete the models
         Thread.sleep(10000);
         apiUtil.deleteModel(modelId);
     }
 
-    public static String getLineItemBody(String clusterId) {
-        return """
-                {
-                  "cluster_id": "%s",
-                  "name": "code-example line-item",
-                  "feedback_delays": [
-                    20,
-                    30,
-                    40
-                  ],
-                  "features": [
-                    {
-                      "name": "app.bundle",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "imp.banner.pos",
-                      "type": "categorical"
-                    },
-                    {
-                      "name": "localtime",
-                      "type": "categorical"
-                    },
-                    {
-                      "name": "device.os",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "device.geo.city",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "device.model",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "bcat",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "device.geo.zip",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "user.yob",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "app.publisher.name",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "device.connectiontype",
-                      "type": "categorical"
-                    },
-                    {
-                      "name": "device.geo.region",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "app.cat",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "device.make",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "device.HxW",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "user.gender",
-                      "type": "categorical"
-                    },
-                    {
-                      "name": "device.language",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "imp.displaymanager",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "imp.banner.battr",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "device.geo.country",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "app.content.language",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "app.content.context",
-                      "type": "categorical"
-                    },
-                    {
-                      "name": "imp.banner.topframe",
-                      "type": "boolean"
-                    },
-                    {
-                      "name": "device.devicetype",
-                      "type": "categorical"
-                    },
-                    {
-                      "name": "imp.instl",
-                      "type": "boolean"
-                    },
-                    {
-                      "name": "app.pagecat",
-                      "type": "nominal"
-                    }
-                  ],
-                "creatives": {
-                  "features": [
-                    {
-                      "name": "a0",
-                      "type": "numeric"
-                    },
-                    {
-                      "name": "a1",
-                      "type": "nominal"
-                    },
-                    {
-                      "name": "a2",
-                      "type": "boolean"
-                    },
-                    {
-                      "name": "a3",
-                      "type": "categorical"
-                    }
-                  ],
-                  "values": [
-                    {
-                      "id": 5,
-                      "features": [
-                        "0.79626095",
-                        "Arabic",
-                        "true",
-                        "6"
-                      ]
-                    },
-                    {
-                      "id": 1,
-                      "features": [
-                        "0.72317415",
-                        "French",
-                        "true",
-                        "9"
-                      ]
-                    },
-                    {
-                      "id": 2,
-                      "features": [
-                        "0.2532931",
-                        "German",
-                        "true",
-                        "7"
-                      ]
-                    },
-                    {
-                      "id": 3,
-                      "features": [
-                        "0.80586946",
-                        "German",
-                        "true",
-                        "6"
-                      ]
-                    },
-                    {
-                      "id": 4,
-                      "features": [
-                        "0.7160485",
-                        "French",
-                        "false",
-                        "9"
-                      ]
-                    }
-                  ]
-                }
-                }""".formatted(clusterId);
-    }
+    private final static String modelSchema = """
+        {
+          "cluster_id": "%s",
+          "name": "lineitem/Example1",
+          "feedback_delays": [
+            20,
+            30,
+            40
+          ],
+          "features": [
+            {
+              "name": "app.bundle",
+              "type": "nominal"
+            },
+            {
+              "name": "imp.banner.pos",
+              "type": "categorical"
+            },
+            {
+              "name": "localtime",
+              "type": "categorical"
+            },
+            {
+              "name": "device.os",
+              "type": "nominal"
+            },
+            {
+              "name": "device.geo.city",
+              "type": "nominal"
+            },
+            {
+              "name": "device.model",
+              "type": "nominal"
+            },
+            {
+              "name": "bcat",
+              "type": "nominal"
+            },
+            {
+              "name": "device.geo.zip",
+              "type": "nominal"
+            },
+            {
+              "name": "user.yob",
+              "type": "nominal"
+            },
+            {
+              "name": "app.publisher.name",
+              "type": "nominal"
+            },
+            {
+              "name": "device.connectiontype",
+              "type": "categorical"
+            },
+            {
+              "name": "device.geo.region",
+              "type": "nominal"
+            },
+            {
+              "name": "app.cat",
+              "type": "nominal"
+            },
+            {
+              "name": "device.make",
+              "type": "nominal"
+            },
+            {
+              "name": "device.HxW",
+              "type": "nominal"
+            },
+            {
+              "name": "user.gender",
+              "type": "categorical"
+            },
+            {
+              "name": "device.language",
+              "type": "nominal"
+            },
+            {
+              "name": "imp.displaymanager",
+              "type": "nominal"
+            },
+            {
+              "name": "imp.banner.battr",
+              "type": "nominal"
+            },
+            {
+              "name": "device.geo.country",
+              "type": "nominal"
+            },
+            {
+              "name": "app.content.language",
+              "type": "nominal"
+            },
+            {
+              "name": "app.content.context",
+              "type": "categorical"
+            },
+            {
+              "name": "imp.banner.topframe",
+              "type": "boolean"
+            },
+            {
+              "name": "device.devicetype",
+              "type": "categorical"
+            },
+            {
+              "name": "imp.instl",
+              "type": "boolean"
+            },
+            {
+              "name": "app.pagecat",
+              "type": "nominal"
+            }
+          ],
+        "creatives": {
+          "features": [
+            {
+              "name": "a0",
+              "type": "numeric"
+            },
+            {
+              "name": "a1",
+              "type": "nominal"
+            },
+            {
+              "name": "a2",
+              "type": "boolean"
+            },
+            {
+              "name": "a3",
+              "type": "categorical"
+            }
+          ],
+          "values": [
+            {
+              "id": 5,
+              "features": [
+                "0.79626095",
+                "Arabic",
+                "true",
+                "6"
+              ]
+            },
+            {
+              "id": 1,
+              "features": [
+                "0.72317415",
+                "French",
+                "true",
+                "9"
+              ]
+            },
+            {
+              "id": 2,
+              "features": [
+                "0.2532931",
+                "German",
+                "true",
+                "7"
+              ]
+            },
+            {
+              "id": 3,
+              "features": [
+                "0.80586946",
+                "German",
+                "true",
+                "6"
+              ]
+            },
+            {
+              "id": 4,
+              "features": [
+                "0.7160485",
+                "French",
+                "false",
+                "9"
+              ]
+            }
+          ]
+        }
+      }""";
 }

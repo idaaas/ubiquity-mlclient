@@ -80,12 +80,9 @@ target_compile_options(jniUbiquityClient PRIVATE -fno-strict-aliasing)
 target_link_libraries(jniUbiquityClient PRIVATE ubiquity_client_static curl bsd uuid)
 
 # add loader called during Ubiquity class init
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/output/NativeLoader.java
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/NativeLoader.java ${CMAKE_CURRENT_BINARY_DIR}/output/NativeLoader.java
-  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/NativeLoader.java
+add_custom_command(
+  TARGET jniUbiquityClient POST_BUILD
+  COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/NativeLoader.java ${CMAKE_CURRENT_BINARY_DIR}/output/NativeLoader.java
+  # Swig 4.2.1 cannot insert `%proxycode` in generated classes, doing it by hand
+  COMMAND sed -i '/public class Ubiquity implements UbiquityConstants {/r ${CMAKE_CURRENT_SOURCE_DIR}/NativeLoader.proxycode' ${CMAKE_CURRENT_BINARY_DIR}/output/Ubiquity.java
 )
-
-add_custom_target(
-  jniNativeLoader
-  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/output/NativeLoader.java)
-add_dependencies(jniUbiquityClient jniNativeLoader)
