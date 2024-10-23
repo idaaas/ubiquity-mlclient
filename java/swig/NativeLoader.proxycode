@@ -1,0 +1,13 @@
+  static {
+    System.out.println("[INFO] UbiquityClient: trying to load native lib");
+
+    try {
+      ai.ubiquity.NativeLoader.load();
+    } catch(Exception e) {
+      e.printStackTrace();
+      throw new RuntimeException("Cannot load native lib");
+    }
+
+    System.out.println("[INFO] UbiquityClient: native lib loaded");
+  }
+

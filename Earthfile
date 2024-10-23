@@ -31,7 +31,7 @@ java-bindings:
   FROM +java-swig-image
   COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY java/swig .
-  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DCMAKE_BUILD_TYPE=Release -S . -B build
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
   RUN cmake --build build --parallel $(nproc) --target jniUbiquityClient
   RUN mkdir -p jar-root/NATIVE && cp build/libjniUbiquityClient.so jar-root/NATIVE
   RUN javac -Werror -Xlint -d jar-root build/output/*.java $([ -z "$release" ] || echo --release $release)
