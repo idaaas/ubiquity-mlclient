@@ -13,12 +13,12 @@ Ubiquity::ClientHandle::Impl::Impl(void) {
 Ubiquity::ClientHandle::Impl::~Impl(void) {
 }
 
-Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::getErrorCode(void) noexcept {
-    return this->errorCode;
+Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::getStatusCode(void) noexcept {
+    return this->statusCode;
 }
 
-const char *Ubiquity::ClientHandle::Impl::getErrorString(void) noexcept {
-    return Ubiquity::getErrorString(this->errorCode);
+const char *Ubiquity::ClientHandle::Impl::getStatusString(void) noexcept {
+    return Ubiquity::getStatusString(this->statusCode);
 }
 
 const char *Ubiquity::ClientHandle::Impl::getClusterId(void) noexcept {
@@ -40,13 +40,13 @@ int64_t Ubiquity::ClientHandle::Impl::getCreativeId(void) noexcept {
 
 float Ubiquity::ClientHandle::Impl::getPrice(void) noexcept {
     switch(this->message.common.applicationId) {
-        case Ubiquity::Application::BID_SHADING:
+        case Ubiquity::APP_BID_SHADING:
             return this->message.bidShadingPrediction.price;
-        case Ubiquity::Application::LINE_ITEM:
+        case Ubiquity::APP_LINE_ITEM:
             return this->message.lineItemPrediction.price;
-        case Ubiquity::Application::PROBABILITY:
+        case Ubiquity::APP_PROBABILITY:
             break;
-        case Ubiquity::Application::UNDEFINED:
+        case Ubiquity::APP_UNDEFINED:
             break;
     }
     return 0.f;
@@ -54,20 +54,20 @@ float Ubiquity::ClientHandle::Impl::getPrice(void) noexcept {
 
 float Ubiquity::ClientHandle::Impl::getProbability(void) noexcept {
     switch(this->message.common.applicationId) {
-        case Ubiquity::Application::BID_SHADING:
+        case Ubiquity::APP_BID_SHADING:
             return this->message.bidShadingPrediction.probability;
-        case Ubiquity::Application::LINE_ITEM:
+        case Ubiquity::APP_LINE_ITEM:
             return this->message.lineItemPrediction.probability;
-        case Ubiquity::Application::PROBABILITY:
-            return this->message.probabilityEstimationPrediction.probability;
-        case Ubiquity::Application::UNDEFINED:
+        case Ubiquity::APP_PROBABILITY:
+            return this->message.probabilityPrediction.probability;
+        case Ubiquity::APP_UNDEFINED:
             break;
     }
     return 0.f;
 }
 
-Ubiquity::Application::Type Ubiquity::ClientHandle::Impl::getPredictionType(void) noexcept {
-    return this->message.common.applicationId;
+int32_t Ubiquity::ClientHandle::Impl::getPredictionType(void) noexcept {
+    return static_cast<int32_t>(this->message.common.applicationId);
 }
 
 const char *Ubiquity::ClientHandle::Impl::getStatus(void) noexcept {
@@ -78,14 +78,14 @@ static constexpr uint8_t MESSAGE_TYPE_PREDICTION = 0x06;
 
 static size_t expectedInputMessageSize[] {
     sizeof(Ubiquity::ClientHandle::Impl::BidShadingPrediction),
-    sizeof(Ubiquity::ClientHandle::Impl::ProbabilityEstimationPrediction),
+    sizeof(Ubiquity::ClientHandle::Impl::ProbabilityPrediction),
     sizeof(Ubiquity::ClientHandle::Impl::LineItemPrediction),
 };
 
-Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::poll(void) noexcept {
-    if (__glibc_unlikely(this->clusterClient->errorCode != Ubiquity::ErrorCode::SUCCESS)) {
-        this->errorCode = this->clusterClient->errorCode;
-        return this->errorCode;
+Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
+    if (__glibc_unlikely(this->clusterClient->statusCode != Ubiquity::SUCCESS)) {
+        this->statusCode = this->clusterClient->statusCode;
+        return this->statusCode;
     }
     auto receiver = [this](
             aeron::concurrent::AtomicBuffer &receptionBuffer,
@@ -102,31 +102,31 @@ Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::poll(void) noexcept {
         if (predSub->poll(receiver, 1) > 0) {
             const uint16_t applicationId = static_cast<uint16_t>(this->message.common.applicationId);
             if (__glibc_unlikely(MESSAGE_TYPE_PREDICTION != this->message.common.type
-                        || applicationId >= static_cast<uint16_t>(Ubiquity::Application::UNDEFINED)
+                        || applicationId >= static_cast<uint16_t>(Ubiquity::APP_UNDEFINED)
                         || expectedInputMessageSize[applicationId] != this->offset)) {
-                this->errorCode = Ubiquity::ErrorCode::INVALID_PREDICTION_RESPONSE;
+                break;
             } else {
-                this->errorCode = Ubiquity::ErrorCode::SUCCESS;
+                this->statusCode = Ubiquity::SUCCESS;
             }
-            return this->errorCode;
+            return this->statusCode;
         }
     }
-    this->errorCode = Ubiquity::ErrorCode::PENDING;
-    return this->errorCode;
+    this->statusCode = Ubiquity::NO_DATA;
+    return this->statusCode;
 }
 
-Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::predict(void) noexcept {
-    if (__glibc_unlikely(Ubiquity::Application::LINE_ITEM == this->message.common.applicationId
+Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::predict(void) noexcept {
+    if (__glibc_unlikely(Ubiquity::APP_LINE_ITEM == this->message.common.applicationId
                 && 0 == this->message.lineItemQuery.numCreative)) {
-        this->errorCode = Ubiquity::ErrorCode::TOO_FEW_CREATIVES;
-        return this->errorCode;
+        this->statusCode = Ubiquity::MISSING_CREATIVES;
+        return this->statusCode;
     }
-    if (__glibc_likely(this->errorCode == Ubiquity::ErrorCode::SUCCESS || this->errorCode == Ubiquity::ErrorCode::NO_COMPATIBLE_NODE)) {
+    if (__glibc_likely(this->statusCode == Ubiquity::SUCCESS || this->statusCode == Ubiquity::NO_COMPATIBLE_NODE)) {
         IGNORE("ClientHandle(" << this->clusterClient->clusterId
                 << ") : Sending prediction query(" << this->message.common.queryId
                 << ") for model(" << this->message.common.modelId << ")");
         //hexDump(this->atomicBuffer, this->offset);
-        this->errorCode = this->clusterClient->loadBalancer->sendApplicationMessage(
+        this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
                 this->message.common.modelId,
                 this->message.common.queryId,
                 this->atomicBuffer,
@@ -134,7 +134,7 @@ Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::predict(void) noexcept {
                 false
                 );
     }
-    return this->errorCode;
+    return this->statusCode;
 }
 
 inline bool Ubiquity::ClientHandle::Impl::nextFeatureTypeMatches(
@@ -143,8 +143,8 @@ inline bool Ubiquity::ClientHandle::Impl::nextFeatureTypeMatches(
 {
     const auto &features = this->schema.features;
     if (__glibc_unlikely(features.size() <= this->featureOrdinal || features[this->featureOrdinal] != featureType)) {
-        if (Ubiquity::ErrorCode::SUCCESS == this->errorCode) {
-            this->errorCode = Ubiquity::ErrorCode::MISMATCHED_FEATURE_TYPE;
+        if (Ubiquity::SUCCESS == this->statusCode) {
+            this->statusCode = Ubiquity::MISMATCHED_FEATURE_TYPE;
         }
         return false;
     }
@@ -198,11 +198,11 @@ void Ubiquity::ClientHandle::Impl::putCreative(
     static constexpr int32_t MAX_CREATIVE_COUNT = 20;
 
     if (__glibc_unlikely(this->featureOrdinal > 0)) {
-        this->errorCode = Ubiquity::ErrorCode::MISPLACED_CREATIVE_ID;
+        this->statusCode = Ubiquity::MISPLACED_CREATIVE_ID;
         return;
     }
     if (__glibc_unlikely(MAX_CREATIVE_COUNT <= this->message.lineItemQuery.numCreative)) {
-        this->errorCode = Ubiquity::ErrorCode::TOO_MANY_CREATIVES;
+        this->statusCode = Ubiquity::TOO_MANY_CREATIVES;
         return;
     }
     this->atomicBuffer.getAndAddInt32(offsetof(LineItemQueryMessage, numCreative), 1);
@@ -262,17 +262,17 @@ enum class Ubiquity::ClientHandle::Impl::MessageType : uint8_t {
     FEEDBACK = 0x07,
 };
 
-inline Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::getSchema(
+inline Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::getSchema(
         const int64_t modelId
         ) noexcept
 {
     auto schemaCache = atomic_load(&ClusterClient::s_schemaCache);
     auto it = schemaCache->find(modelId);
     if (__glibc_unlikely(schemaCache->end() == it)) {
-        return Ubiquity::ErrorCode::SCHEMA_UNAVAILABLE;
+        return Ubiquity::SCHEMA_UNAVAILABLE;
     }
     this->schema = it->second;
-    return Ubiquity::ErrorCode::SUCCESS;
+    return Ubiquity::SUCCESS;
 }
 
 static constexpr uint8_t SERIALIZATION_VERSION = 0;
@@ -280,16 +280,16 @@ static constexpr uint8_t SERIALIZATION_VERSION = 0;
 inline void Ubiquity::ClientHandle::Impl::prepareCommonHeader(
         const int64_t modelId,
         const int64_t queryId,
-        const Ubiquity::Application::Type applicationId,
+        const Ubiquity::ApplicationType applicationId,
         const MessageType messageType
         ) noexcept
 {
-    this->errorCode = this->getSchema(modelId);
-    if (__glibc_unlikely(Ubiquity::ErrorCode::SUCCESS != this->errorCode)) {
+    this->statusCode = this->getSchema(modelId);
+    if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
         return;
     }
     if (__glibc_unlikely(applicationId != this->schema.applicationId)) {
-        this->errorCode = Ubiquity::ErrorCode::INVALID_APPLICATION_FOR_MODEL;
+        this->statusCode = Ubiquity::INVALID_APP_FOR_MODEL;
         return;
     }
     this->featureOrdinal = 0;
@@ -298,14 +298,14 @@ inline void Ubiquity::ClientHandle::Impl::prepareCommonHeader(
     this->message.common.applicationId = applicationId;
     this->message.common.modelId = modelId;
     this->message.common.queryId = queryId ^ modelId;
-    this->errorCode = Ubiquity::ErrorCode::SUCCESS;
+    this->statusCode = Ubiquity::SUCCESS;
 }
 
 
 inline void Ubiquity::ClientHandle::Impl::prepareQueryHeader(
         const char *const encodedModelId,
         const int64_t queryId,
-        const Ubiquity::Application::Type applicationId
+        const Ubiquity::ApplicationType applicationId
         ) noexcept
 {
     static const size_t queryMessageSize[] = {
@@ -316,7 +316,7 @@ inline void Ubiquity::ClientHandle::Impl::prepareQueryHeader(
 
     uint64_t modelId;
     if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
-        this->errorCode = Ubiquity::ErrorCode::INVALID_RESOURCE_ID;
+        this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
         return;
     }
 
@@ -333,17 +333,17 @@ void Ubiquity::ClientHandle::Impl::startBidShading(
         const float bidFloor
         ) noexcept
 {
-    prepareQueryHeader(encodedModelId, queryId, Ubiquity::Application::BID_SHADING);
+    prepareQueryHeader(encodedModelId, queryId, Ubiquity::APP_BID_SHADING);
     this->message.bidShadingQuery.bidFloor = bidFloor;
     this->message.bidShadingQuery.bidPrice = bidPrice;
 }
 
-void Ubiquity::ClientHandle::Impl::startProbabilityEstimation(
+void Ubiquity::ClientHandle::Impl::startProbability(
         const char *encodedModelId,
         const int64_t queryId
         ) noexcept
 {
-    prepareQueryHeader(encodedModelId, queryId, Ubiquity::Application::PROBABILITY);
+    prepareQueryHeader(encodedModelId, queryId, Ubiquity::APP_PROBABILITY);
 }
 
 void Ubiquity::ClientHandle::Impl::startLineItem(
@@ -352,7 +352,7 @@ void Ubiquity::ClientHandle::Impl::startLineItem(
         const float maxCPM
         ) noexcept
 {
-    prepareQueryHeader(encodedModelId, queryId, Ubiquity::Application::LINE_ITEM);
+    prepareQueryHeader(encodedModelId, queryId, Ubiquity::APP_LINE_ITEM);
     this->message.lineItemQuery.maxCPM = maxCPM;
     this->message.lineItemQuery.numCreative = 0;
 }
@@ -360,21 +360,21 @@ void Ubiquity::ClientHandle::Impl::startLineItem(
 void Ubiquity::ClientHandle::Impl::prepareFeedbackHeader(
         const uint64_t modelId,
         const int64_t queryId,
-        const Ubiquity::Application::Type applicationId,
+        const Ubiquity::ApplicationType applicationId,
         const uint16_t feedbackLevel
         ) noexcept
 {
     prepareCommonHeader(modelId, queryId, applicationId, MessageType::FEEDBACK);
     this->message.common.reserved.feedbackLevel = feedbackLevel;
     if (__glibc_unlikely(feedbackLevel + 1u >= this->schema.feedbackDelays.size())) {
-        this->errorCode = Ubiquity::ErrorCode::INVALID_FEEDBACK_LEVEL;
+        this->statusCode = Ubiquity::INVALID_FEEDBACK_LEVEL;
         return;
     }
     this->message.feedback.feedbackDelay = this->schema.feedbackDelays[feedbackLevel];
     this->message.feedback.nextFeedbackDelay = this->schema.feedbackDelays[feedbackLevel + 1];
 }
 
-Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::train(
+Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
         const char *encodedModelId,
         int64_t queryId,
         int level
@@ -382,50 +382,50 @@ Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::train(
 {
     static const size_t feedbackMessageSize[] = {
         sizeof(BidShadingFeedbackMessage),
-        sizeof(ProbabilityEstimationFeedbackMessage),
+        sizeof(ProbabilityFeedbackMessage),
         sizeof(LineItemFeedbackMessage),
     };
 
-    if (__glibc_unlikely(Ubiquity::ErrorCode::SUCCESS != this->errorCode)) {
-        return this->errorCode;
+    if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
+        return this->statusCode;
     }
 
     uint64_t modelId;
     if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
-        this->errorCode = Ubiquity::ErrorCode::INVALID_RESOURCE_ID;
-        return this->errorCode;
+        this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
+        return this->statusCode;
     }
-    this->errorCode = this->getSchema(modelId);
-    if (__glibc_unlikely(Ubiquity::ErrorCode::SUCCESS != this->errorCode)) {
-        return this->errorCode;
+    this->statusCode = this->getSchema(modelId);
+    if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
+        return this->statusCode;
     }
-    const Ubiquity::Application::Type feedbackType = this->schema.applicationId;
+    const Ubiquity::ApplicationType feedbackType = this->schema.applicationId;
     if (0 == level) {
         switch (feedbackType) {
-            case Ubiquity::Application::BID_SHADING:
+            case Ubiquity::APP_BID_SHADING:
                 this->message.bidShadingFeedback.weight = 1.0;
                 this->message.bidShadingFeedback.executed = 1;
                 break;
-            case Ubiquity::Application::PROBABILITY:
-                this->message.probabilityEstimationFeedback.weight = 1.0;
-                this->message.probabilityEstimationFeedback.executed = 1;
+            case Ubiquity::APP_PROBABILITY:
+                this->message.probabilityFeedback.weight = 1.0;
+                this->message.probabilityFeedback.executed = 1;
                 break;
-            case Ubiquity::Application::LINE_ITEM:
+            case Ubiquity::APP_LINE_ITEM:
                 this->message.lineItemFeedback.weight = 1.0;
                 this->message.lineItemFeedback.executed = 1;
                 break;
-            case Ubiquity::Application::UNDEFINED:
+            case Ubiquity::APP_UNDEFINED:
                 break;
         }
     } else {
         this->message.feedbackNextLevels.eventOccurred = 1;
     }
     prepareFeedbackHeader(modelId, queryId, feedbackType, level);
-    if (Ubiquity::ErrorCode::SUCCESS == this->errorCode) {
+    if (Ubiquity::SUCCESS == this->statusCode) {
         IGNORE("ClientHandle(" << this->clusterClient->clusterId
                 << ") : Sending training feedback(" << this->message.common.queryId
                 << ") for model(" << this->message.common.modelId << ")");
-        this->errorCode = this->clusterClient->loadBalancer->sendApplicationMessage(
+        this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
                 this->message.common.modelId,
                 this->message.common.queryId,
                 this->atomicBuffer,
@@ -433,5 +433,5 @@ Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::Impl::train(
                 true
                 );
     }
-    return this->errorCode;
+    return this->statusCode;
 }

@@ -12,37 +12,42 @@
 
 #include <iostream>
 
-const char *Ubiquity::getErrorString(
-        Ubiquity::ErrorCode::Type errorCode
+const char *Ubiquity::getStatusString(
+        Ubiquity::StatusCode statusCode
         ) noexcept
 {
-    static const char *const errorStrings[] = {
-       "UNDEFINED",
-       "SUCCESS",
-       "PENDING",
-       "TIMEOUT",
-       "ARCHITECTURE_NOT_SUPPORTED",
-       "AERON_INITIALIZATION_FAILED",
-       "FORBIDDEN",
-       "INVALID_RESOURCE_ID",
-       "UNKNOWN_RESOURCE",
-       "OTHER_FETCH_ERROR",
-       "INVALID_CLUSTER_DESCRIPTION",
-       "INVALID_SCHEMA_DESCRIPTION",
-       "CLIENT_NOT_CONNECTED",
-       "SCHEMA_UNAVAILABLE",
-       "INVALID_APPLICATION_FOR_MODEL",
-       "MISPLACED_CREATIVE_ID",
-       "TOO_FEW_CREATIVES",
-       "TOO_MANY_CREATIVES",
-       "MISMATCHED_FEATURE_TYPE",
-       "INVALID_FEEDBACK_LEVEL",
-       "MTU_EXCEEDED",
-       "BACK_PRESSURED",
-       "NO_COMPATIBLE_NODE",
-       "INVALID_PREDICTION_RESPONSE",
+    if (statusCode > Ubiquity::SCHEMA_UNAVAILABLE) {
+        statusCode = Ubiquity::UNDEFINED;
+    }
+    static const char *const statusStrings[] = {
+        "UNDEFINED",
+
+        "SUCCESS",
+        "NO_DATA",
+        "BACK_PRESSURED",
+        "NO_COMPATIBLE_NODE",
+
+        "ARCHITECTURE_NOT_SUPPORTED",
+        "AERON_INITIALIZATION_FAILED",
+        "CLIENT_NOT_CONNECTED",
+
+        "INVALID_RESOURCE_ID",
+        "INVALID_APP_FOR_MODEL",
+        "MISMATCHED_FEATURE_TYPE",
+        "INVALID_FEEDBACK_LEVEL",
+        "MISSING_CREATIVES",
+        "TOO_MANY_CREATIVES",
+        "MISPLACED_CREATIVE_ID",
+
+        "NO_API_RESPONSE",
+        "FORBIDDEN",
+        "UNKNOWN_RESOURCE",
+        "OTHER_FETCH_ERROR",
+        "INVALID_CLUSTER_DESCRIPTION",
+        "INVALID_SCHEMA_DESCRIPTION",
+        "SCHEMA_UNAVAILABLE",
     };
-    return errorStrings[static_cast<int32_t>(errorCode)];
+    return statusStrings[static_cast<int32_t>(statusCode)];
 }
 
 /*
@@ -54,15 +59,17 @@ static aeron_driver_t *s_aeronDriver = nullptr;
 static bool s_initialized = false;
 static std::string s_aeronDir = "/dev/shm/ubiquity-driver";
 
-Ubiquity::~Ubiquity(void) {
-    if (s_initialized) {
-        aeron_driver_close(s_aeronDriver);
-        aeron_driver_context_close(s_aeronDriverContext);
-        s_aeronDriver = nullptr;
-        s_aeronDriverContext = nullptr;
-        ClusterClient::s_aeronClient = nullptr;
+struct AeronResourcesHolder {
+    ~AeronResourcesHolder(void) {
+        if (s_initialized) {
+            aeron_driver_close(s_aeronDriver);
+            aeron_driver_context_close(s_aeronDriverContext);
+            s_aeronDriver = nullptr;
+            s_aeronDriverContext = nullptr;
+            ClusterClient::s_aeronClient = nullptr;
+        }
     }
-}
+} aeronResourceHolder{};
 
 static void onException(
         const std::exception &e
@@ -133,33 +140,33 @@ void Ubiquity::setCredential(
     ClusterClient::s_tenantId = std::string(tenantId);
 }
 
-static inline Ubiquity::ErrorCode::Type initialize(void) noexcept
+static inline Ubiquity::StatusCode initialize(void) noexcept
 {
     if (s_initialized) {
-        return Ubiquity::ErrorCode::SUCCESS;
+        return Ubiquity::SUCCESS;
     }
     DBG("Ubiquity : Global initialization");
 
     if (isBigEndian()) {
         DBG("Ubiquity : Architecture not supported");
-        return Ubiquity::ErrorCode::ARCHITECTURE_NOT_SUPPORTED;
+        return Ubiquity::ARCHITECTURE_NOT_SUPPORTED;
     }
 
     if (!initializeAeron()) {
-        return Ubiquity::ErrorCode::AERON_INITIALIZATION_FAILED;
+        return Ubiquity::AERON_INITIALIZATION_FAILED;
     }
 
-    Ubiquity::ErrorCode::Type errorCode = ClusterClient::ensureSchemaForAllModelsAreInCache();
-    if (Ubiquity::ErrorCode::SUCCESS != errorCode) {
-        DBG("Ubiquity : Error (" << Ubiquity::getErrorString(errorCode) << ") during initial schema fetching");
-        return errorCode;
+    Ubiquity::StatusCode statusCode = ClusterClient::ensureSchemaForAllModelsAreInCache();
+    if (Ubiquity::SUCCESS != statusCode) {
+        DBG("Ubiquity : Error (" << Ubiquity::getStatusString(statusCode) << ") during initial schema fetching");
+        return statusCode;
     }
 
     NodeClient::compileLookupTables();
 
     s_initialized = true;
     DBG("Ubiquity : Successful initialization");
-    return Ubiquity::ErrorCode::SUCCESS;
+    return Ubiquity::SUCCESS;
 }
 
 void Ubiquity::setAeronDirectory(
@@ -221,8 +228,8 @@ Ubiquity::ClientHandle Ubiquity::getClientHandleById(
 {
     auto clientHandleImpl = std::make_shared<Ubiquity::ClientHandle::Impl>();
     clientHandleImpl->clusterClient = getClusterClient(clusterId, false);
-    if (Ubiquity::ErrorCode::PENDING == std::atomic_load(&clientHandleImpl->clusterClient->errorCode)) {
-        clientHandleImpl->errorCode = Ubiquity::ErrorCode::CLIENT_NOT_CONNECTED;
+    if (Ubiquity::NO_DATA == std::atomic_load(&clientHandleImpl->clusterClient->statusCode)) {
+        clientHandleImpl->statusCode = Ubiquity::CLIENT_NOT_CONNECTED;
     }
     return Ubiquity::ClientHandle(std::move(clientHandleImpl));
 }
@@ -234,20 +241,20 @@ Ubiquity::ClientHandle Ubiquity::getClientHandle(void) noexcept
     return getClientHandleById(lastClusterId.c_str());
 }
 
-Ubiquity::ErrorCode::Type Ubiquity::openClient(
+Ubiquity::StatusCode Ubiquity::openClient(
         const char *const clusterId
         ) noexcept
 {
     lastClusterId = clusterId;
-    Ubiquity::ErrorCode::Type errorCode = initialize();
-    if (Ubiquity::ErrorCode::SUCCESS != errorCode) {
-        return errorCode;
+    Ubiquity::StatusCode statusCode = initialize();
+    if (Ubiquity::SUCCESS != statusCode) {
+        return statusCode;
     }
     auto clusterClient = getClusterClient(clusterId, true);
-    while (Ubiquity::ErrorCode::PENDING == std::atomic_load(&clusterClient->errorCode)) {
+    while (Ubiquity::NO_DATA == std::atomic_load(&clusterClient->statusCode)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    return std::atomic_load(&clusterClient->errorCode);
+    return std::atomic_load(&clusterClient->statusCode);
 }
 
 void Ubiquity::closeClient(

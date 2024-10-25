@@ -4,47 +4,81 @@
 #include <limits>
 #include <memory>
 
-class Ubiquity {
-    public:
-        struct ErrorCode {
-            using Type = int32_t;
-            static constexpr Type SUCCESS = 1;
-            static constexpr Type PENDING = 2;
-            static constexpr Type TIMEOUT = 3;
-            static constexpr Type ARCHITECTURE_NOT_SUPPORTED = 4;
-            static constexpr Type AERON_INITIALIZATION_FAILED = 5;
-            static constexpr Type FORBIDDEN = 6;
-            static constexpr Type INVALID_RESOURCE_ID = 7;
-            static constexpr Type UNKNOWN_RESOURCE = 8;
-            static constexpr Type OTHER_FETCH_ERROR = 9;
-            static constexpr Type INVALID_CLUSTER_DESCRIPTION = 10;
-            static constexpr Type INVALID_SCHEMA_DESCRIPTION = 11;
-            static constexpr Type CLIENT_NOT_CONNECTED = 12;
-            static constexpr Type SCHEMA_UNAVAILABLE = 13;
-            static constexpr Type INVALID_APPLICATION_FOR_MODEL = 14;
-            static constexpr Type MISPLACED_CREATIVE_ID = 15;
-            static constexpr Type TOO_FEW_CREATIVES = 16;
-            static constexpr Type TOO_MANY_CREATIVES = 17;
-            static constexpr Type MISMATCHED_FEATURE_TYPE = 18;
-            static constexpr Type INVALID_FEEDBACK_LEVEL = 19;
-            static constexpr Type MTU_EXCEEDED = 20;
-            static constexpr Type BACK_PRESSURED = 21;
-            static constexpr Type NO_COMPATIBLE_NODE = 22;
-            static constexpr Type INVALID_PREDICTION_RESPONSE = 23;
-        };
-        struct Application {
-            using Type = int16_t;
-            static constexpr Type BID_SHADING = 0;
-            static constexpr Type PROBABILITY = 1;
-            static constexpr Type LINE_ITEM = 2;
-            static constexpr Type UNDEFINED = 3;
-        };
-        struct Missing {
-            static constexpr bool BOOLEAN = static_cast<bool>(-1);
-            static constexpr int8_t CATEGORICAL = -1;
-            static constexpr const char *NOMINAL = "_MISSING_";
-            static constexpr float NUMERIC = std::numeric_limits<float>::quiet_NaN();
-        };
+namespace Ubiquity {
+
+using StatusCode = int32_t;
+using ApplicationType = int16_t;
+
+#ifndef SWIG
+
+        static constexpr StatusCode UNDEFINED = 0;
+
+        static constexpr StatusCode SUCCESS = 1;
+        static constexpr StatusCode NO_DATA = 2;
+        static constexpr StatusCode BACK_PRESSURED = 3;
+        static constexpr StatusCode NO_COMPATIBLE_NODE = 4;
+
+        static constexpr StatusCode ARCHITECTURE_NOT_SUPPORTED = 5;
+        static constexpr StatusCode AERON_INITIALIZATION_FAILED = 6;
+        static constexpr StatusCode CLIENT_NOT_CONNECTED = 7;
+
+        static constexpr StatusCode INVALID_RESOURCE_ID = 8;
+        static constexpr StatusCode INVALID_APP_FOR_MODEL = 9;
+        static constexpr StatusCode MISMATCHED_FEATURE_TYPE = 10;
+        static constexpr StatusCode INVALID_FEEDBACK_LEVEL = 11;
+        static constexpr StatusCode MISSING_CREATIVES = 12;
+        static constexpr StatusCode TOO_MANY_CREATIVES = 13;
+        static constexpr StatusCode MISPLACED_CREATIVE_ID = 14;
+
+        static constexpr StatusCode NO_API_RESPONSE = 15;
+        static constexpr StatusCode FORBIDDEN = 16;
+        static constexpr StatusCode UNKNOWN_RESOURCE = 17;
+        static constexpr StatusCode OTHER_FETCH_ERROR = 18;
+        static constexpr StatusCode INVALID_CLUSTER_DESCRIPTION = 19;
+        static constexpr StatusCode INVALID_SCHEMA_DESCRIPTION = 20;
+        static constexpr StatusCode SCHEMA_UNAVAILABLE = 21;
+
+        static constexpr ApplicationType APP_BID_SHADING = 0;
+        static constexpr ApplicationType APP_PROBABILITY = 1;
+        static constexpr ApplicationType APP_LINE_ITEM = 2;
+        static constexpr ApplicationType APP_UNDEFINED = 3;
+
+#else
+
+#define UNDEFINED 0
+
+#define SUCCESS 1
+#define NO_DATA 2
+#define BACK_PRESSURED 3
+#define NO_COMPATIBLE_NODE 4
+
+#define ARCHITECTURE_NOT_SUPPORTED 5
+#define AERON_INITIALIZATION_FAILED 6
+#define CLIENT_NOT_CONNECTED 7
+
+#define INVALID_RESOURCE_ID 8
+#define INVALID_APP_FOR_MODEL 9
+#define MISMATCHED_FEATURE_TYPE 10
+#define INVALID_FEEDBACK_LEVEL 11
+#define MISSING_CREATIVES 12
+#define TOO_MANY_CREATIVES 13
+#define MISPLACED_CREATIVE_ID 14
+
+#define NO_API_RESPONSE 15
+#define FORBIDDEN 16
+#define UNKNOWN_RESOURCE 17
+#define OTHER_FETCH_ERROR 18
+#define INVALID_CLUSTER_DESCRIPTION 19
+#define INVALID_SCHEMA_DESCRIPTION 20
+#define SCHEMA_UNAVAILABLE 21
+
+#define APP_BID_SHADING 0
+#define APP_PROBABILITY 1
+#define APP_LINE_ITEM 2
+#define APP_UNDEFINED 3
+
+#endif
+
         class ClientHandle {
             public:
                 void close(void) noexcept;
@@ -52,14 +86,14 @@ class Ubiquity {
                 int64_t getQueryId(void) noexcept;
                 const char *getModelId(void) noexcept;
                 const char *getClusterId(void) noexcept;
-                ErrorCode::Type getLastError(void) noexcept;
-                const char *getLastErrorString(void) noexcept;
+                StatusCode getStatusCode(void) noexcept;
+                const char *getStatusString(void) noexcept;
                 float getPrice(void) noexcept;
-                Application::Type getPredictionType(void) noexcept;
+                int32_t getPredictionType(void) noexcept;
                 float getProbability(void) noexcept;
                 const char *getStatus(void) noexcept;
-                ErrorCode::Type poll(void) noexcept;
-                ErrorCode::Type predict(void) noexcept;
+                StatusCode poll(void) noexcept;
+                StatusCode predict(void) noexcept;
                 void putBoolean(const bool value) noexcept;
                 void putCategorical(const int8_t value) noexcept;
                 void putCreative(const int64_t value) noexcept;
@@ -71,53 +105,51 @@ class Ubiquity {
                 void setWinningProbability(const float winningProbability) noexcept;
                 void startBidShading(const char *modelId, const int64_t queryId, const float bidPrice, const float bidFloor) noexcept;
                 void startLineItem(const char *modelId, const int64_t queryId, const float maxCPM) noexcept;
-                void startProbabilityEstimation(const char *modelId, const int64_t queryId) noexcept;
-                ErrorCode::Type train(const char *modelId, int64_t queryId, int level) noexcept;
+                void startProbability(const char *modelId, const int64_t queryId) noexcept;
+                StatusCode train(const char *modelId, int64_t queryId, int32_t level) noexcept;
 
                 class Impl;
                 ClientHandle(std::shared_ptr<Impl> &&pimpl) noexcept;
             private:
                 std::shared_ptr<Impl> pimpl;
         };
-        static const char *getErrorString(
-                ErrorCode::Type errorCode
+        const char *getStatusString(
+                StatusCode statusCode
                 ) noexcept;
 
-        static void setAeronDirectory(
+        void setAeronDirectory(
                 const char *const directoryPath
                 ) noexcept;
 
-        static void setCredential(
+        void setCredential(
                 const char *const tenantId
                 ) noexcept;
 
-        static void setApiAddress(
+        void setApiAddress(
                 const char *const root
                 ) noexcept;
 
-        static void setResourceStringInCache(
+        void setResourceStringInCache(
                 const char *const id,
                 const char *const configString
                 ) noexcept;
 
-        static ClientHandle getClientHandle(void) noexcept;
+        ClientHandle getClientHandle(void) noexcept;
 
-        static ClientHandle getClientHandleById(
+        ClientHandle getClientHandleById(
                 const char *const clusterId
                 ) noexcept;
 
-        static ErrorCode::Type openClient(
+        StatusCode openClient(
                 const char *const clusterId
                 ) noexcept;
 
-        static void closeClient(
+        void closeClient(
                 const char *const clusterId
                 ) noexcept;
 
-        static int64_t xxh3_64bits(
+        int64_t xxh3_64bits(
                 const char *source
                 ) noexcept;
 
-        ~Ubiquity(void);
-
-};
+}

@@ -28,7 +28,7 @@ class LoadBalancer  {
                 const uint32_t &ip
                 ) noexcept;
 
-        Ubiquity::ErrorCode::Type sendApplicationMessage(
+        Ubiquity::StatusCode sendApplicationMessage(
                 const int64_t modelId,
                 const int64_t queryId,
                 aeron::concurrent::AtomicBuffer buffer,

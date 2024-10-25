@@ -366,13 +366,13 @@ static bool onTopologyUpdate(NodeClient &nc, ControlMessage &message) noexcept {
             nc.clusterClient->addNodesToTopology(nodeIpList, nodeCount);
             if (nodeCount > 1) {
                 nc.clusterClient->topologyAlreadyReceived = true;
-                nc.clusterClient->errorCode = Ubiquity::ErrorCode::SUCCESS;
+                nc.clusterClient->statusCode = Ubiquity::SUCCESS;
             }
             break;
         case UpdateOperation::SET:
             nc.clusterClient->refreshTopology(nodeIpList, nodeCount);
             nc.clusterClient->topologyAlreadyReceived = true;
-            nc.clusterClient->errorCode = Ubiquity::ErrorCode::SUCCESS;
+            nc.clusterClient->statusCode = Ubiquity::SUCCESS;
             break;
     }
     return true;

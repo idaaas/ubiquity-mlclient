@@ -130,11 +130,11 @@ inline bool ClusterClient::loadApplicationIdFromDescription(
 {
     static const struct {
         const char *const label;
-        Ubiquity::Application::Type applicationId;
+        Ubiquity::ApplicationType applicationId;
     } labelAndId[] = {
-        "bid-shading",              Ubiquity::Application::BID_SHADING,
-        "line-item",                Ubiquity::Application::LINE_ITEM,
-        "probability",   Ubiquity::Application::PROBABILITY,
+        "bid-shading",  Ubiquity::APP_BID_SHADING,
+        "line-item",    Ubiquity::APP_LINE_ITEM,
+        "probability",  Ubiquity::APP_PROBABILITY,
     };
     for (const auto& [label, type] : labelAndId) {
         if (applicationLabel == label) {
@@ -177,41 +177,41 @@ inline void ClusterClient::loadSchemaFeaturesFromDescription(
     schema.features.push_back(Schema::FeatureType::UNDEFINED);
 }
 
-inline Ubiquity::ErrorCode::Type ClusterClient::createSchemaFromDescription(
+inline Ubiquity::StatusCode ClusterClient::createSchemaFromDescription(
         Schema &newSchema,
         const nlohmann::json &schemaDescription,
-        const Ubiquity::Application::Type applicationId
+        const Ubiquity::ApplicationType applicationId
         ) noexcept
 {
     std::string encodedModelId = schemaDescription.value("model_id", "");
     if (encodedModelId.size() != 13 || !Base32C::decode(reinterpret_cast<uint64_t *>(&newSchema.modelId), encodedModelId.c_str())) {
-        return Ubiquity::ErrorCode::INVALID_SCHEMA_DESCRIPTION;
+        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
     }
-    if (Ubiquity::Application::UNDEFINED != applicationId) {
+    if (Ubiquity::APP_UNDEFINED != applicationId) {
         newSchema.applicationId = applicationId;
     }
     else if (!loadApplicationIdFromDescription(newSchema, schemaDescription["kind"])) {
-        return Ubiquity::ErrorCode::INVALID_SCHEMA_DESCRIPTION;
+        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
     }
     newSchema.feedbackDelays.clear();
     newSchema.feedbackDelays.reserve(schemaDescription["feedback_delays"].size());
     if (!schemaDescription["feedback_delays"].is_array() || schemaDescription["feedback_delays"].size() == 0) {
-        return Ubiquity::ErrorCode::INVALID_SCHEMA_DESCRIPTION;
+        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
     }
     for (auto &delay : schemaDescription["feedback_delays"]) {
         newSchema.feedbackDelays.push_back(delay.get<uint32_t>());
     }
     newSchema.feedbackDelays.push_back(-1);
     if (!schemaDescription["features"].is_array() || schemaDescription["features"].size() == 0) {
-        return Ubiquity::ErrorCode::INVALID_SCHEMA_DESCRIPTION;
+        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
     }
     loadSchemaFeaturesFromDescription(newSchema, schemaDescription["features"]);
-    return Ubiquity::ErrorCode::SUCCESS;
+    return Ubiquity::SUCCESS;
 }
 
-inline Ubiquity::ErrorCode::Type ClusterClient::createSchemaInCacheFromDescription(
+inline Ubiquity::StatusCode ClusterClient::createSchemaInCacheFromDescription(
         const std::string &schemaDescriptionString,
-        const Ubiquity::Application::Type applicationId
+        const Ubiquity::ApplicationType applicationId
         ) noexcept
 {
     DBG("Creating schema in cache from fetched description");
@@ -219,7 +219,7 @@ inline Ubiquity::ErrorCode::Type ClusterClient::createSchemaInCacheFromDescripti
     try {
         std::istringstream(schemaDescriptionString.c_str()) >> schemaDescriptionList;
     } catch (nlohmann::json::exception &e) {
-        return Ubiquity::ErrorCode::INVALID_SCHEMA_DESCRIPTION;
+        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
     }
     Schema *newSchema;
     size_t count;
@@ -228,7 +228,7 @@ inline Ubiquity::ErrorCode::Type ClusterClient::createSchemaInCacheFromDescripti
         newSchema = new Schema[count];
         size_t i = 0;
         for (auto &schemaDescription : schemaDescriptionList["items"]) {
-            createSchemaFromDescription(newSchema[i], schemaDescription, Ubiquity::Application::UNDEFINED);
+            createSchemaFromDescription(newSchema[i], schemaDescription, Ubiquity::APP_UNDEFINED);
             ++i;
         }
     } else {
@@ -246,7 +246,7 @@ inline Ubiquity::ErrorCode::Type ClusterClient::createSchemaInCacheFromDescripti
     }
     delete[] newSchema;
     std::atomic_store(&s_schemaCache, newSchemaCache);
-    return Ubiquity::ErrorCode::SUCCESS;
+    return Ubiquity::SUCCESS;
 }
 
 inline bool ClusterClient::loadIpListFromDescription(
@@ -254,7 +254,7 @@ inline bool ClusterClient::loadIpListFromDescription(
         ) noexcept
 {
     if (!ipStringArray.is_array() || ipStringArray.size() == 0) {
-        this->errorCode = Ubiquity::ErrorCode::INVALID_CLUSTER_DESCRIPTION;
+        this->statusCode = Ubiquity::INVALID_CLUSTER_DESCRIPTION;
         return false;
     }
     std::vector<uint32_t> ipList;
@@ -266,7 +266,7 @@ inline bool ClusterClient::loadIpListFromDescription(
         }
     }
     if (0 == ipList.size()) {
-        this->errorCode = Ubiquity::ErrorCode::INVALID_CLUSTER_DESCRIPTION;
+        this->statusCode = Ubiquity::INVALID_CLUSTER_DESCRIPTION;
         return false;
     }
     this->addNodesToTopology(&ipList[0], ipList.size());
@@ -283,7 +283,7 @@ inline bool ClusterClient::configureFromString(
     try {
         std::istringstream(configurationString) >> clusterDescription;
     } catch (nlohmann::json::exception &e) {
-        this->errorCode = Ubiquity::ErrorCode::INVALID_CLUSTER_DESCRIPTION;
+        this->statusCode = Ubiquity::INVALID_CLUSTER_DESCRIPTION;
         return false;
     }
     return this->loadIpListFromDescription(clusterDescription["contact_points"]);
@@ -303,7 +303,7 @@ static size_t writeResourceString(void *buffer, size_t size, size_t nmemb, void 
 
 static constexpr size_t CURL_OPERATION_TIME_LIMIT_MS = 5000L;
 
-inline Ubiquity::ErrorCode::Type ClusterClient::fetchResourceFromRestApi(
+inline Ubiquity::StatusCode ClusterClient::fetchResourceFromRestApi(
         std::string *const destination,
         const std::string &url
         ) noexcept
@@ -337,28 +337,28 @@ inline Ubiquity::ErrorCode::Type ClusterClient::fetchResourceFromRestApi(
     if (CURLE_OK != curlError) {
         DBG("CURL request failed with error (" << curlError << ") \"" << curlErrorString << "\"");
         if (CURLE_OPERATION_TIMEDOUT == curlError) {
-            return Ubiquity::ErrorCode::TIMEOUT;
+            return Ubiquity::NO_API_RESPONSE;
         } else {
-            return Ubiquity::ErrorCode::OTHER_FETCH_ERROR;
+            return Ubiquity::OTHER_FETCH_ERROR;
         }
     }
     switch (httpStatus) {
         case 200:
             break;
         case 404:
-            return Ubiquity::ErrorCode::UNKNOWN_RESOURCE;
+            return Ubiquity::UNKNOWN_RESOURCE;
         case 400:
-            return Ubiquity::ErrorCode::INVALID_RESOURCE_ID;
+            return Ubiquity::INVALID_RESOURCE_ID;
         case 500:
-            return Ubiquity::ErrorCode::FORBIDDEN;
+            return Ubiquity::FORBIDDEN;
         default:
             DBG("Failed to fetch resource from " << url << " (HTTP status " << httpStatus << ")");
-            return Ubiquity::ErrorCode::OTHER_FETCH_ERROR;
+            return Ubiquity::OTHER_FETCH_ERROR;
     }
-    return Ubiquity::ErrorCode::SUCCESS;
+    return Ubiquity::SUCCESS;
 }
 
-Ubiquity::ErrorCode::Type ClusterClient::ensureSchemaForOneModelIsInCache(
+Ubiquity::StatusCode ClusterClient::ensureSchemaForOneModelIsInCache(
         const int64_t modelId
         ) noexcept
 {
@@ -366,37 +366,38 @@ Ubiquity::ErrorCode::Type ClusterClient::ensureSchemaForOneModelIsInCache(
     const auto schemaCache = atomic_load(&s_schemaCache);
     const auto it = schemaCache->find(modelId);
     if (schemaCache->end() != it) {
-        return Ubiquity::ErrorCode::SUCCESS;
+        return Ubiquity::SUCCESS;
     }
     char encodedModelId[14];
     Base32C::encode(encodedModelId, reinterpret_cast<const uint64_t *>(&modelId));
     std::string schemaDescriptionString = getResourceStringFromCache(encodedModelId);
-    Ubiquity::Application::Type applicationId = Ubiquity::Application::LINE_ITEM;
+    Ubiquity::ApplicationType applicationId = Ubiquity::APP_UNDEFINED;
     if (schemaDescriptionString.empty()) {
-        Ubiquity::ErrorCode::Type errorCode;
-        errorCode = fetchResourceFromRestApi(&schemaDescriptionString, std::string(s_apiUrlRoot + "/models/line-item/") + encodedModelId);
-        if (Ubiquity::ErrorCode::UNKNOWN_RESOURCE == errorCode) {
-            applicationId = Ubiquity::Application::BID_SHADING;
-            errorCode = fetchResourceFromRestApi(&schemaDescriptionString, std::string(s_apiUrlRoot + "/models/bid-shading/") + encodedModelId);
+        applicationId = Ubiquity::APP_LINE_ITEM;
+        Ubiquity::StatusCode statusCode;
+        statusCode = fetchResourceFromRestApi(&schemaDescriptionString, std::string(s_apiUrlRoot + "/models/line-item/") + encodedModelId);
+        if (Ubiquity::UNKNOWN_RESOURCE == statusCode) {
+            applicationId = Ubiquity::APP_BID_SHADING;
+            statusCode = fetchResourceFromRestApi(&schemaDescriptionString, std::string(s_apiUrlRoot + "/models/bid-shading/") + encodedModelId);
         }
-        if (Ubiquity::ErrorCode::SUCCESS != errorCode) {
-            return errorCode;
+        if (Ubiquity::SUCCESS != statusCode) {
+            return statusCode;
         }
     }
     return createSchemaInCacheFromDescription(schemaDescriptionString, applicationId);
 }
 
-Ubiquity::ErrorCode::Type ClusterClient::ensureSchemaForAllModelsAreInCache(void) noexcept
+Ubiquity::StatusCode ClusterClient::ensureSchemaForAllModelsAreInCache(void) noexcept
 {
     std::string schemaDescriptionString = getResourceStringFromCache("ALL_SCHEMAS");
     if (schemaDescriptionString.empty()) {
-        Ubiquity::ErrorCode::Type errorCode;
-        errorCode = fetchResourceFromRestApi(&schemaDescriptionString, s_apiUrlRoot + "/models");
-        if (Ubiquity::ErrorCode::SUCCESS != errorCode) {
-            return errorCode;
+        Ubiquity::StatusCode statusCode;
+        statusCode = fetchResourceFromRestApi(&schemaDescriptionString, s_apiUrlRoot + "/models");
+        if (Ubiquity::SUCCESS != statusCode) {
+            return statusCode;
         }
     }
-    return createSchemaInCacheFromDescription(schemaDescriptionString, Ubiquity::Application::UNDEFINED);
+    return createSchemaInCacheFromDescription(schemaDescriptionString, Ubiquity::APP_UNDEFINED);
 }
 
 inline const std::string ClusterClient::getResourceStringFromCache(
@@ -415,15 +416,15 @@ inline bool ClusterClient::loadConfiguration(void) noexcept {
     DBG("ClusterClient(" << this->clusterId << ") : Loading cluster configuration");
     std::string configString = getResourceStringFromCache(this->clusterId);
     if (configString.empty()) {
-        Ubiquity::ErrorCode::Type errorCode = fetchResourceFromRestApi(&configString, s_apiUrlRoot + "/clusters/" + this->clusterId);
-        if (Ubiquity::ErrorCode::SUCCESS != errorCode) {
-            this->errorCode = errorCode;
+        Ubiquity::StatusCode statusCode = fetchResourceFromRestApi(&configString, s_apiUrlRoot + "/clusters/" + this->clusterId);
+        if (Ubiquity::SUCCESS != statusCode) {
+            this->statusCode = statusCode;
             return false;
         }
     }
     if (!this->configureFromString(configString.c_str())) {
         DBG("ClusterClient(" << this->clusterId
-                << ") : Configuration failed with error " << Ubiquity::getErrorString(this->errorCode));
+                << ") : Configuration failed with error " << Ubiquity::getStatusString(this->statusCode));
         return false;
     }
     return true;

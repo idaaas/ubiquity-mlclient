@@ -9,18 +9,18 @@ class Ubiquity::ClientHandle::Impl {
     public:
         Impl(void);
         ~Impl(void);
-        Ubiquity::ErrorCode::Type getErrorCode(void) noexcept;
-        const char *getErrorString(void) noexcept;
+        Ubiquity::StatusCode getStatusCode(void) noexcept;
+        const char *getStatusString(void) noexcept;
         const char *getClusterId(void) noexcept;
         const char *getModelId(void) noexcept;
         int64_t getQueryId(void) noexcept;
         int64_t getCreativeId(void) noexcept;
         float getPrice(void) noexcept;
         float getProbability(void) noexcept;
-        Ubiquity::Application::Type getPredictionType(void) noexcept;
+        int32_t getPredictionType(void) noexcept;
         const char *getStatus(void) noexcept;
-        Ubiquity::ErrorCode::Type poll(void) noexcept;
-        Ubiquity::ErrorCode::Type predict(void) noexcept;
+        Ubiquity::StatusCode poll(void) noexcept;
+        Ubiquity::StatusCode predict(void) noexcept;
 
         void putBoolean(
                 const bool value
@@ -65,7 +65,7 @@ class Ubiquity::ClientHandle::Impl {
                 const float bidFloor
                 ) noexcept;
 
-        void startProbabilityEstimation(
+        void startProbability(
                 const char *const encodedModelId,
                 const int64_t queryId
                 ) noexcept;
@@ -76,14 +76,7 @@ class Ubiquity::ClientHandle::Impl {
                 const float maxCPM
                 ) noexcept;
 
-        void prepareFeedbackHeader(
-                const uint64_t modelId,
-                const int64_t queryId,
-                const Ubiquity::Application::Type applicationId,
-                const uint16_t feedbackLevel
-                ) noexcept;
-
-        Ubiquity::ErrorCode::Type train(
+        Ubiquity::StatusCode train(
                 const char *const encodedModelId,
                 int64_t queryId,
                 int level
@@ -91,7 +84,7 @@ class Ubiquity::ClientHandle::Impl {
 
         ClusterClient::Schema schema;
         std::shared_ptr<ClusterClient> clusterClient;
-        Ubiquity::ErrorCode::Type errorCode = Ubiquity::ErrorCode::SUCCESS;
+        Ubiquity::StatusCode statusCode = Ubiquity::SUCCESS;
         aeron::concurrent::AtomicBuffer atomicBuffer;
         size_t featureOrdinal = 0;
         size_t offset = 0;
@@ -113,28 +106,35 @@ class Ubiquity::ClientHandle::Impl {
 
         enum class MessageType : uint8_t;
 
-        inline Ubiquity::ErrorCode::Type getSchema(
+        inline Ubiquity::StatusCode getSchema(
                 const int64_t modelId
                 ) noexcept;
 
         inline void prepareCommonHeader(
                 const int64_t modelId,
                 const int64_t queryId,
-                const Ubiquity::Application::Type applicationId,
+                const Ubiquity::ApplicationType applicationId,
                 const MessageType messageType
+                ) noexcept;
+
+        inline void prepareFeedbackHeader(
+                const uint64_t modelId,
+                const int64_t queryId,
+                const Ubiquity::ApplicationType applicationId,
+                const uint16_t feedbackLevel
                 ) noexcept;
 
         inline void prepareQueryHeader(
                 const char *const encodedModelId,
                 const int64_t queryId,
-                const Ubiquity::Application::Type applicationId
+                const Ubiquity::ApplicationType applicationId
                 ) noexcept;
 
         struct ApplicationMessage {
             uint8_t version;
             uint8_t type;
             uint16_t clientId;
-            Ubiquity::Application::Type applicationId;
+            Ubiquity::ApplicationType applicationId;
             union {
                 uint16_t schemaVersion;
                 uint16_t feedbackLevel;
@@ -149,7 +149,7 @@ class Ubiquity::ClientHandle::Impl {
             float probability;
         } __attribute__((packed));
 
-        struct ProbabilityEstimationPrediction {
+        struct ProbabilityPrediction {
             ApplicationMessage _;
             float probability;
         } __attribute__((packed));
@@ -192,7 +192,7 @@ class Ubiquity::ClientHandle::Impl {
             uint32_t executed;
         } __attribute__((packed));
 
-        struct ProbabilityEstimationFeedbackMessage {
+        struct ProbabilityFeedbackMessage {
             FeedbackMessage _;
             double weight;
             uint32_t executed;
@@ -215,14 +215,14 @@ class Ubiquity::ClientHandle::Impl {
             uint8_t buffer[ClusterClient::MAXIMUM_TRANSMISSION_UNIT];
             ApplicationMessage common;
             BidShadingPrediction bidShadingPrediction;
-            ProbabilityEstimationPrediction probabilityEstimationPrediction;
+            ProbabilityPrediction probabilityPrediction;
             LineItemPrediction lineItemPrediction;
             QueryMessage query;
             BidShadingQueryMessage bidShadingQuery;
             LineItemQueryMessage lineItemQuery;
             FeedbackMessage feedback;
             BidShadingFeedbackMessage bidShadingFeedback;
-            ProbabilityEstimationFeedbackMessage probabilityEstimationFeedback;
+            ProbabilityFeedbackMessage probabilityFeedback;
             LineItemFeedbackMessage lineItemFeedback;
             FeedbackNextLevelsMessage feedbackNextLevels;
         } message;

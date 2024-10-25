@@ -9,12 +9,12 @@ void Ubiquity::ClientHandle::close(void) noexcept {
     this->pimpl.reset();
 }
 
-Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::getLastError(void) noexcept {
-    return this->pimpl->getErrorCode();
+Ubiquity::StatusCode Ubiquity::ClientHandle::getStatusCode(void) noexcept {
+    return this->pimpl->getStatusCode();
 }
 
-const char *Ubiquity::ClientHandle::getLastErrorString(void) noexcept {
-    return this->pimpl->getErrorString();
+const char *Ubiquity::ClientHandle::getStatusString(void) noexcept {
+    return this->pimpl->getStatusString();
 }
 
 const char *Ubiquity::ClientHandle::getClusterId() noexcept {
@@ -41,7 +41,7 @@ float Ubiquity::ClientHandle::getProbability(void) noexcept {
     return this->pimpl->getProbability();
 }
 
-Ubiquity::Application::Type Ubiquity::ClientHandle::getPredictionType(void) noexcept {
+int32_t Ubiquity::ClientHandle::getPredictionType(void) noexcept {
     return this->pimpl->getPredictionType();
 }
 
@@ -49,11 +49,11 @@ const char *Ubiquity::ClientHandle::getStatus(void) noexcept {
     return this->pimpl->getStatus();
 }
 
-Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::poll(void) noexcept {
+Ubiquity::StatusCode Ubiquity::ClientHandle::poll(void) noexcept {
     return this->pimpl->poll();
 }
 
-Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::predict(void) noexcept {
+Ubiquity::StatusCode Ubiquity::ClientHandle::predict(void) noexcept {
     return this->pimpl->predict();
 }
 
@@ -101,10 +101,10 @@ void Ubiquity::ClientHandle::startLineItem(const char *modelId, const int64_t qu
     this->pimpl->startLineItem(modelId, queryId, maxCPM);
 }
 
-void Ubiquity::ClientHandle::startProbabilityEstimation(const char *modelId, const int64_t queryId) noexcept {
-    this->pimpl->startProbabilityEstimation(modelId, queryId);
+void Ubiquity::ClientHandle::startProbability(const char *modelId, const int64_t queryId) noexcept {
+    this->pimpl->startProbability(modelId, queryId);
 }
 
-Ubiquity::ErrorCode::Type Ubiquity::ClientHandle::train(const char *modelId, int64_t queryId, int level) noexcept {
+Ubiquity::StatusCode Ubiquity::ClientHandle::train(const char *modelId, int64_t queryId, int32_t level) noexcept {
     return this->pimpl->train(modelId, queryId, level);
 }
