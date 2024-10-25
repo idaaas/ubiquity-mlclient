@@ -20,7 +20,7 @@ public:
 
     struct Schema {
         int64_t modelId = 0;
-        Ubiquity::Application::Type applicationId;
+        Ubiquity::ApplicationType applicationId;
         std::vector<uint32_t> feedbackDelays = {static_cast<uint32_t>(-1)};
         enum class FeatureType : uint8_t {
             UNDEFINED = 0,
@@ -36,7 +36,7 @@ public:
 
     std::string clusterId;
     std::shared_ptr<LoadBalancer> loadBalancer;
-    std::atomic<Ubiquity::ErrorCode::Type> errorCode = Ubiquity::ErrorCode::PENDING;
+    std::atomic<Ubiquity::StatusCode> statusCode = Ubiquity::NO_DATA;
 
     static std::shared_ptr<aeron::Aeron> s_aeronClient;
     static std::string s_tenantId;
@@ -68,7 +68,7 @@ public:
             const uint16_t ipCount
             ) noexcept;
 
-    static Ubiquity::ErrorCode::Type ensureSchemaForOneModelIsInCache(
+    static Ubiquity::StatusCode ensureSchemaForOneModelIsInCache(
             const int64_t modelId
             ) noexcept;
 
@@ -82,7 +82,7 @@ public:
             std::shared_ptr<ClusterClient> cc
             ) noexcept;
 
-    static Ubiquity::ErrorCode::Type ensureSchemaForAllModelsAreInCache(void) noexcept;
+    static Ubiquity::StatusCode ensureSchemaForAllModelsAreInCache(void) noexcept;
 
 private:
     static constexpr size_t NODE_CLIENT_POOL_SIZE = 256;
@@ -139,18 +139,18 @@ private:
             const std::string &resourceId
             ) noexcept;
 
-    static inline Ubiquity::ErrorCode::Type createSchemaFromDescription(
+    static inline Ubiquity::StatusCode createSchemaFromDescription(
             Schema &newSchema,
             const nlohmann::json &schemaDescription,
-            const Ubiquity::Application::Type applicationId
+            const Ubiquity::ApplicationType applicationId
             ) noexcept;
 
-    static inline Ubiquity::ErrorCode::Type createSchemaInCacheFromDescription(
+    static inline Ubiquity::StatusCode createSchemaInCacheFromDescription(
             const std::string &schemaDescriptionString,
-            const Ubiquity::Application::Type applicationId
+            const Ubiquity::ApplicationType applicationId
             ) noexcept;
 
-    static inline Ubiquity::ErrorCode::Type fetchResourceFromRestApi(
+    static inline Ubiquity::StatusCode fetchResourceFromRestApi(
             std::string *const destination,
             const std::string &url
             ) noexcept;

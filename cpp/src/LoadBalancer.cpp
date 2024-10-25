@@ -115,7 +115,7 @@ void LoadBalancer::removeNodeForAllModels(
     }
 }
 
-Ubiquity::ErrorCode::Type LoadBalancer::sendApplicationMessage(
+Ubiquity::StatusCode LoadBalancer::sendApplicationMessage(
         const int64_t modelId,
         const int64_t queryId,
         aeron::concurrent::AtomicBuffer buffer,
@@ -125,11 +125,11 @@ Ubiquity::ErrorCode::Type LoadBalancer::sendApplicationMessage(
 {
     auto nodeRingByModel = std::atomic_load(&this->nodeRingByModel);
     if (__glibc_unlikely(nodeRingByModel->end() == nodeRingByModel->find(modelId))) {
-        return Ubiquity::ErrorCode::NO_COMPATIBLE_NODE;
+        return Ubiquity::NO_COMPATIBLE_NODE;
     }
     std::shared_ptr<NodeRing> nodeRing = std::atomic_load(&(*nodeRingByModel)[modelId]);
     const uint64_t balancingIndex = static_cast<uint64_t>(XXH3_64bits(&queryId, sizeof(queryId)));
-    Ubiquity::ErrorCode::Type errorCode = Ubiquity::ErrorCode::NO_COMPATIBLE_NODE;
+    Ubiquity::StatusCode statusCode = Ubiquity::NO_COMPATIBLE_NODE;
     for (size_t i = 0; i < nodeRing->nodeCount; ++i) {
         NodeRing::Node &node = nodeRing->nodeList[(balancingIndex + i) % nodeRing->nodeCount];
         while (true) {
@@ -138,20 +138,18 @@ Ubiquity::ErrorCode::Type LoadBalancer::sendApplicationMessage(
                 const auto res = node.pubs[isFeedback]->offer(buffer, 0, messageSize);
                 switch (res) {
                     case aeron::BACK_PRESSURED:
-                        errorCode = Ubiquity::ErrorCode::BACK_PRESSURED;
+                        statusCode = Ubiquity::BACK_PRESSURED;
                         break;
                     case aeron::PUBLICATION_CLOSED:
                         break;
                     case aeron::ADMIN_ACTION:
                         continue;
-                    case aeron::MAX_POSITION_EXCEEDED:
-                        return Ubiquity::ErrorCode::MTU_EXCEEDED;
                     default:
-                        return Ubiquity::ErrorCode::SUCCESS;
+                        return Ubiquity::SUCCESS;
                 }
             }
             break;
         }
     }
-    return errorCode;
+    return statusCode;
 }

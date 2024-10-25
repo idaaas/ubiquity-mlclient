@@ -1,4 +1,4 @@
-%module UbiquityClient
+%module Ubiquity
 
 %include <stdint.i>
 %include <std_string.i>
