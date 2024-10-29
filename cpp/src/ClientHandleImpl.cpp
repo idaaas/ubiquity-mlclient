@@ -136,6 +136,9 @@ inline bool Ubiquity::ClientHandle::Impl::nextFeatureTypeMatches(
     const auto &features = this->schema.features;
     if (__glibc_unlikely(features.size() <= this->featureOrdinal || features[this->featureOrdinal] != featureType)) {
         if (Ubiquity::SUCCESS == this->statusCode) {
+            DBG("Error : expected feature " << this->featureOrdinal << "/" << features.size()
+                    << " to be of type " << ClusterClient::Schema::featureTypeStrings[static_cast<int>(features[this->featureOrdinal])]
+                    << " but received type " << ClusterClient::Schema::featureTypeStrings[static_cast<int>(featureType)] << " instead.");
             this->statusCode = Ubiquity::MISMATCHED_FEATURE_TYPE;
         }
         return false;
@@ -253,6 +256,9 @@ inline void Ubiquity::ClientHandle::Impl::prepareCommonHeader(
         return;
     }
     if (__glibc_unlikely(applicationId != this->schema.applicationId)) {
+        DBG("Error : model " << modelId
+                << " used for application of ID " << applicationId
+                << " while it is meant to be used for application of ID " << this->schema.applicationId);
         this->statusCode = Ubiquity::INVALID_APP_FOR_MODEL;
         return;
     }
