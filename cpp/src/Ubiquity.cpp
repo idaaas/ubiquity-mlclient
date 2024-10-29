@@ -44,7 +44,7 @@ const char *Ubiquity::getStatusString(
         "UNKNOWN_RESOURCE",
         "OTHER_FETCH_ERROR",
         "INVALID_CLUSTER_DESCRIPTION",
-        "INVALID_SCHEMA_DESCRIPTION",
+        "UNDEFINED_20",
         "SCHEMA_UNAVAILABLE",
     };
     return statusCode <= Ubiquity::SCHEMA_UNAVAILABLE
@@ -156,12 +156,6 @@ static inline Ubiquity::StatusCode initialize(void) noexcept
 
     if (!initializeAeron()) {
         return Ubiquity::AERON_INITIALIZATION_FAILED;
-    }
-
-    Ubiquity::StatusCode statusCode = ClusterClient::ensureSchemaForAllModelsAreInCache();
-    if (Ubiquity::SUCCESS != statusCode) {
-        DBG("Ubiquity : Error (" << Ubiquity::getStatusString(statusCode) << ") during initial schema fetching");
-        return statusCode;
     }
 
     NodeClient::compileLookupTables();

@@ -86,10 +86,11 @@ namespace MessageType {
         SERVER_READY = 0x0a,
         SERVER_OPENED = 0x0c,
         TOPOLOGY_UPDATE = 0x0d,
-        MODEL_UPDATE = 0x0e,
         TOPOLOGY_REQUEST = 0x0f,
         TOPOLOGY_RESPONSE = 0x10,
         DISCONNECTION_CONFIRMATION = 0x11,
+        MODEL_ADD = 0x14,
+        MODEL_REMOVE = 0x15,
         NONE,
         COUNT,
     };
@@ -102,16 +103,20 @@ namespace MessageType {
         "QUERY",
         "PREDICTION",
         "FEEDBACK",
-        "UNUSED1",
-        "UNUSED2",
+        "RESERVED_08",
+        "RESERVED_09",
         "SERVER_READY",
-        "UNUSED3",
+        "RESERVED_0B",
         "SERVER_OPENED",
         "TOPOLOGY_UPDATE",
-        "MODEL_UPDATE",
+        "RESERVED_0E",
         "TOPOLOGY_REQUEST",
         "TOPOLOGY_RESPONSE",
         "DISCONNECTION_CONFIRMATION",
+        "RESERVED_12",
+        "RESERVED_13",
+        "MODEL_ADD",
+        "MODEL_REMOVE",
         "NONE",
     };
 }
@@ -150,12 +155,19 @@ struct __attribute__((packed)) TopologyUpdateMessage {
     uint32_t nodeIpList[1];
 } __attribute__((packed));
 
-struct ModelInventoryUpdate {
+struct ModelAddMessage {
     ControlMessageBase _;
-    UpdateOperation operation;
-    uint16_t modelIdCount;
     uint32_t nodeIp;
-    int64_t modelIdList[1];
+    int64_t modelId;
+    int16_t applicationId;
+    int16_t feedbackDelaysCount;
+    int32_t feedbackDelays[1];
+} __attribute__((packed));
+
+struct ModelRemoveMessage {
+    ControlMessageBase _;
+    uint32_t nodeIp;
+    int64_t modelId;
 } __attribute__((packed));
 
 struct RegistrationMessage {
@@ -171,8 +183,9 @@ union ControlMessage {
     RegistrationErrorMessage registrationError;
     RegistrationResponseMessage registrationResponse;
     TopologyUpdateMessage topologyUpdate;
-    ModelInventoryUpdate modelInventoryUpdate;
-    RegistrationMessage registrationMessage;
+    ModelAddMessage modelAdd;
+    ModelRemoveMessage modelRemove;
+    RegistrationMessage registration;
 };
 
 struct {
@@ -185,7 +198,8 @@ struct {
     MessageType::SERVER_READY,                  sizeof(ControlMessageBase),
     MessageType::SERVER_OPENED,                 sizeof(ControlMessageBase),
     MessageType::TOPOLOGY_UPDATE,               sizeof(TopologyUpdateMessage),
-    MessageType::MODEL_UPDATE,                  sizeof(ModelInventoryUpdate),
+    MessageType::MODEL_ADD,                     sizeof(ModelAddMessage),
+    MessageType::MODEL_REMOVE,                  sizeof(ModelRemoveMessage),
     MessageType::TOPOLOGY_REQUEST,              sizeof(ControlMessageBase),
     MessageType::DISCONNECTION_CONFIRMATION,    sizeof(ControlMessageBase),
 };
@@ -224,7 +238,7 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
     return 0 != nc.ip;
 }
 
-static bool whileDisconnected(NodeClient &nc, ControlMessage &message) noexcept
+static bool whileDisconnected(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept
 {
     nc.controlPubId = ClusterClient::s_aeronClient->addExclusivePublication(
             aeron::ChannelUriStringBuilder()
@@ -245,7 +259,7 @@ static bool whileDisconnected(NodeClient &nc, ControlMessage &message) noexcept
     return true;
 }
 
-static bool waitingForControlConnection(NodeClient &nc, ControlMessage &message) noexcept {
+static bool waitingForControlConnection(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     if (nullptr == nc.controlPub) {
         nc.controlPub = ClusterClient::s_aeronClient->findExclusivePublication(nc.controlPubId);
     }
@@ -264,7 +278,7 @@ static bool beforeRequestingTopology(NodeClient &nc) noexcept {
     return !nc.clusterClient->topologyAlreadyReceived;
 }
 
-static bool onRegistrationError(NodeClient &nc, ControlMessage &message) noexcept {
+static bool onRegistrationError(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     constexpr uint32_t CORRELATION_CONFLICT = -2;
     if (CORRELATION_CONFLICT == message.registrationError.code) {
         nc.correlationIdHigh = Rng::generateUint64();
@@ -274,13 +288,13 @@ static bool onRegistrationError(NodeClient &nc, ControlMessage &message) noexcep
     return true;
 }
 
-static bool onRegistrationConfirmation(NodeClient &nc, ControlMessage &message) noexcept {
+static bool onRegistrationConfirmation(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     nc.port = message.registrationResponse.controlPort;
     nc.clientId = message.registrationResponse.clientId;
     return true;
 }
 
-static bool onServerOpened(NodeClient &nc, ControlMessage &message) noexcept {
+static bool onServerOpened(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     nc.queryPubId = ClusterClient::s_aeronClient->addPublication(
             aeron::ChannelUriStringBuilder()
                 .media("udp")
@@ -308,7 +322,7 @@ static bool onServerOpened(NodeClient &nc, ControlMessage &message) noexcept {
     return true;
 }
 
-static bool waitingForPredConnection(NodeClient &nc, ControlMessage &message) noexcept {
+static bool waitingForPredConnection(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     if (nullptr == nc.queryPub) {
         nc.queryPub = ClusterClient::s_aeronClient->findPublication(nc.queryPubId);
     }
@@ -328,7 +342,7 @@ static bool waitingForPredConnection(NodeClient &nc, ControlMessage &message) no
     return isConnected;
 }
 
-static bool onServerReady(NodeClient &nc, ControlMessage &message) noexcept {
+static bool onServerReady(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     auto newPredSubList = std::make_shared<std::vector<std::shared_ptr<aeron::Subscription>>>();
     for (const auto &predSub : *nc.clusterClient->predSubList) {
         newPredSubList->emplace_back(predSub);
@@ -338,7 +352,7 @@ static bool onServerReady(NodeClient &nc, ControlMessage &message) noexcept {
     return true;
 }
 
-static bool whileReady(NodeClient &nc, ControlMessage &message) noexcept {
+static bool whileReady(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     const bool ready =
            nc.predSub->isConnected()
         && nc.queryPub->isConnected()
@@ -348,7 +362,7 @@ static bool whileReady(NodeClient &nc, ControlMessage &message) noexcept {
     return !ready;
 }
 
-static bool whileLosingConnection(NodeClient &nc, ControlMessage &message) noexcept {
+static bool whileLosingConnection(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     return
            nc.predSub->isConnected()
         && nc.queryPub->isConnected()
@@ -357,11 +371,11 @@ static bool whileLosingConnection(NodeClient &nc, ControlMessage &message) noexc
         && nc.controlPub->isConnected();
 }
 
-static bool onDisconnectionConfirmation(NodeClient &nc, ControlMessage &message) noexcept {
+static bool onDisconnectionConfirmation(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     return true;
 }
 
-static bool onTopologyUpdate(NodeClient &nc, ControlMessage &message) noexcept {
+static bool onTopologyUpdate(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     const auto operation = message.topologyUpdate.operation;
     const auto nodeIpList = message.topologyUpdate.nodeIpList;
     const auto nodeCount = message.topologyUpdate.nodeCount;
@@ -385,43 +399,40 @@ static bool onTopologyUpdate(NodeClient &nc, ControlMessage &message) noexcept {
     return true;
 }
 
-static bool onModelUpdate(NodeClient &nc, ControlMessage &message) noexcept {
-    const auto modelIdList = message.modelInventoryUpdate.modelIdList;
-    const auto modelIdCount = message.modelInventoryUpdate.modelIdCount;
-    switch (message.modelInventoryUpdate.operation) {
-        case UpdateOperation::REMOVE:
-            for (size_t i = 0; i < modelIdCount; ++i) {
-                const auto modelId = modelIdList[i];
-                nc.clusterClient->loadBalancer->removeNodeForOneModel(modelId, nc.ip);
-            }
-            break;
-        case UpdateOperation::ADD:
-            for (size_t i = 0; i < modelIdCount; ++i) {
-                const auto modelId = modelIdList[i];
-                nc.clusterClient->ensureSchemaForOneModelIsInCache(modelId);
-                nc.clusterClient->loadBalancer->addNodeForOneModel(modelId, nc.ip, nc.queryPub, nc.feedbackPub, nc.clientId);
-            }
-            break;
-        case UpdateOperation::SET:
-            nc.clusterClient->loadBalancer->removeNodeForAllModels(nc.ip);
-            for (size_t i = 0; i < modelIdCount; ++i) {
-                const auto modelId = modelIdList[i];
-                nc.clusterClient->ensureSchemaForOneModelIsInCache(modelId);
-                nc.clusterClient->loadBalancer->addNodeForOneModel(modelId, nc.ip, nc.queryPub, nc.feedbackPub, nc.clientId);
-            }
-            break;
+static bool onModelAdd(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
+    const auto modelId = message.modelAdd.modelId;
+    const auto feedbackDelays = message.modelAdd.feedbackDelays;
+    const auto feedbackDelaysCount = message.modelAdd.feedbackDelaysCount;
+    const int8_t *features = reinterpret_cast<const int8_t *>(feedbackDelays + feedbackDelaysCount);
+    const size_t baseSize = 1 + offsetof(ModelAddMessage, feedbackDelays) + sizeof(int32_t) * feedbackDelaysCount;
+    if (messageLength < baseSize || messageLength < baseSize + features[0]) {
+        return false;
     }
+    nc.clusterClient->ensureSchemaForOneModelIsInCache(
+            modelId,
+            message.modelAdd.applicationId,
+            feedbackDelays,
+            feedbackDelaysCount,
+            features
+            );
+    nc.clusterClient->loadBalancer->addNodeForOneModel(modelId, nc.ip, nc.queryPub, nc.feedbackPub, nc.clientId);
     return false;
 }
 
-static bool ignore(NodeClient &nc, ControlMessage &message) noexcept {
+static bool onModelRemove(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
+    const auto modelId = message.modelRemove.modelId;
+    nc.clusterClient->loadBalancer->removeNodeForOneModel(modelId, nc.ip);
+    return false;
+}
+
+static bool ignore(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     return false;
 }
 
 struct TransitionPerInput {
     State::Value state;
     MessageType::Value inputType;
-    bool (*function)(NodeClient &nodeClient, ControlMessage &message);
+    bool (*function)(NodeClient &nodeClient, const ControlMessage &message, const size_t messageLength);
     State::Value nextState;
 };
 
@@ -442,9 +453,12 @@ static const TransitionPerInput transitionsPerInput[] = {
     State::CLIENT_READY,                MessageType::NONE,                          whileReady,                     State::LOSING_CONNECTION,
     State::LOSING_CONNECTION,           MessageType::NONE,                          whileLosingConnection,          State::CLIENT_READY,
     State::DISCONNECTING,               MessageType::DISCONNECTION_CONFIRMATION,    onDisconnectionConfirmation,    State::DISCONNECTED,
-    State::ANY,                         MessageType::MODEL_UPDATE,                  onModelUpdate,                  State::ANY,
-    State::DISCONNECTING,               MessageType::MODEL_UPDATE,                  ignore,                         State::ANY,
-    State::UNBOUND,                     MessageType::MODEL_UPDATE,                  ignore,                         State::ANY,
+    State::ANY,                         MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
+    State::DISCONNECTING,               MessageType::MODEL_ADD,                     ignore,                         State::ANY,
+    State::UNBOUND,                     MessageType::MODEL_ADD,                     ignore,                         State::ANY,
+    State::ANY,                         MessageType::MODEL_REMOVE,                  onModelRemove,                  State::ANY,
+    State::DISCONNECTING,               MessageType::MODEL_REMOVE,                  ignore,                         State::ANY,
+    State::UNBOUND,                     MessageType::MODEL_REMOVE,                  ignore,                         State::ANY,
 };
 
 struct TransitionPerPeriod {
@@ -506,7 +520,7 @@ static PeriodicOutput ctPeriodicOutputs[State::COUNT];
 
 static size_t ctExpectedInputMessageSize[MessageType::COUNT];
 
-static bool alwaysTrueWithInput(NodeClient &nc, ControlMessage &message) noexcept {
+static bool alwaysTrueWithInput(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     return true;
 }
 
@@ -582,24 +596,33 @@ inline bool isMyCorrelationId(ControlMessage* const message, uint64_t corrHigh, 
 bool NodeClient::switchStateBasedOnInput(void) noexcept
 {
     auto *const message = reinterpret_cast<ControlMessage *>(this->clusterClient->inputBuffer);
-    auto messageReceiver = [this, &message](
+    size_t messageLength = 0;
+    auto messageReceiver = [this, &message, &messageLength](
             aeron::concurrent::AtomicBuffer &atomicBuffer,
             aeron::util::index_t offset,
             aeron::util::index_t length,
             aeron::concurrent::logbuffer::Header &header
         ) {
             atomicBuffer.getBytes(offset, message->buffer, length);
+            messageLength = static_cast<size_t>(length);
             const int type = message->common.type;
             if (type >= MessageType::COUNT) {
-                DBG("NodeClient " << this->slotId << " (" << this->ipString << ") : Received message with invalid type " << type);
+                DBG("NodeClient " << this->slotId
+                        << " (" << this->ipString
+                        << ") : Received message with invalid type " << type);
                 return;
             }
             if (ctExpectedInputMessageSize[type] != 0) {
-                const size_t uLength = static_cast<size_t>(length);
-                DBG("NodeClient " << this->slotId << " (" << this->ipString << ") : Received " << MessageType::strings[type] << " (" << uLength << " bytes)");
-                hexDump(message->buffer, uLength);
-                if (ctExpectedInputMessageSize[type] > uLength) {
-                    DBG("NodeClient " << this->slotId << " (" << this->ipString << ") : Invalid length " << uLength << " for message type " << MessageType::strings[type]);
+                DBG("NodeClient " << this->slotId
+                        << " (" << this->ipString
+                        << ") : Received " << MessageType::strings[type]
+                        << " (" << messageLength << " bytes)");
+                hexDump(message->buffer, messageLength);
+                if (ctExpectedInputMessageSize[type] > messageLength) {
+                    DBG("NodeClient " << this->slotId
+                            << " (" << this->ipString
+                            << ") : Invalid length " << messageLength
+                            << " for message type " << MessageType::strings[type]);
                     return;
                 }
             }
@@ -618,7 +641,7 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
     const uint8_t inputType = messageReceived ? message->common.type : MessageType::NONE;
 
     State::Value nextState = State::ANY;
-    if (ctTransitionsPerInput[this->state][inputType].function(*this, *message)) {
+    if (ctTransitionsPerInput[this->state][inputType].function(*this, *message, messageLength)) {
         nextState = ctTransitionsPerInput[this->state][inputType].nextState;
     }
 
@@ -654,9 +677,9 @@ void NodeClient::sendOutputBasedOnState() noexcept {
                 message->common.type = MessageType::REGISTRATION_REQUEST;
                 message->common.version = 0x01; // new version for v0.7
                 message->common.clientId = clientId;
-                message->registrationMessage.correlationIdHigh = this->correlationIdHigh;
-                message->registrationMessage.correlationIdLow = this->correlationIdLow;
-                message->registrationMessage.output = output;
+                message->registration.correlationIdHigh = this->correlationIdHigh;
+                message->registration.correlationIdLow = this->correlationIdLow;
+                message->registration.output = output;
                 this->controlPub->offer({message->buffer, sizeof(RegistrationMessage)});
                 break;
         }

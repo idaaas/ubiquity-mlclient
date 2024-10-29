@@ -123,132 +123,6 @@ void ClusterClient::refreshTopology(
  * CLUSTER CONFIGURATION LOADING
  */
 
-inline bool ClusterClient::loadApplicationIdFromDescription(
-        Schema &schema,
-        const nlohmann::json &applicationLabel
-        ) noexcept
-{
-    static const struct {
-        const char *const label;
-        Ubiquity::ApplicationType applicationId;
-    } labelAndId[] = {
-        "bid-shading",  Ubiquity::APP_BID_SHADING,
-        "line-item",    Ubiquity::APP_LINE_ITEM,
-        "probability",  Ubiquity::APP_PROBABILITY,
-    };
-    for (const auto& [label, type] : labelAndId) {
-        if (applicationLabel == label) {
-            schema.applicationId = type;
-            return true;
-        }
-    }
-    return false;
-}
-
-inline void ClusterClient::loadSchemaFeaturesFromDescription(
-        Schema &schema,
-        const nlohmann::json &features
-        ) noexcept
-{
-    static const struct {
-        const char *const label;
-        Schema::FeatureType type;
-    } labelAndType[] = {
-        "boolean",      Schema::FeatureType::BOOLEAN,
-        "numeric",      Schema::FeatureType::NUMERIC,
-        "nominal",      Schema::FeatureType::NOMINAL,
-        "categorical",  Schema::FeatureType::CATEGORICAL,
-    };
-    // TODO : error on bad type ?
-
-    for (const auto& feature : features) {
-        for (const auto& [key, value] : feature.items()) {
-            if (key == "type"){
-                for (const auto& [label, type] : labelAndType) {
-                    if (value == label) {
-                        schema.features.push_back(type);
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-    }
-    schema.features.push_back(Schema::FeatureType::UNDEFINED);
-}
-
-inline Ubiquity::StatusCode ClusterClient::createSchemaFromDescription(
-        Schema &newSchema,
-        const nlohmann::json &schemaDescription,
-        const Ubiquity::ApplicationType applicationId
-        ) noexcept
-{
-    std::string encodedModelId = schemaDescription.value("model_id", "");
-    if (encodedModelId.size() != 13 || !Base32C::decode(reinterpret_cast<uint64_t *>(&newSchema.modelId), encodedModelId.c_str())) {
-        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
-    }
-    if (Ubiquity::APP_UNDEFINED != applicationId) {
-        newSchema.applicationId = applicationId;
-    }
-    else if (!loadApplicationIdFromDescription(newSchema, schemaDescription["kind"])) {
-        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
-    }
-    newSchema.feedbackDelays.clear();
-    newSchema.feedbackDelays.reserve(schemaDescription["feedback_delays"].size());
-    if (!schemaDescription["feedback_delays"].is_array() || schemaDescription["feedback_delays"].size() == 0) {
-        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
-    }
-    for (auto &delay : schemaDescription["feedback_delays"]) {
-        newSchema.feedbackDelays.push_back(delay.get<uint32_t>());
-    }
-    newSchema.feedbackDelays.push_back(-1);
-    if (!schemaDescription["features"].is_array() || schemaDescription["features"].size() == 0) {
-        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
-    }
-    loadSchemaFeaturesFromDescription(newSchema, schemaDescription["features"]);
-    return Ubiquity::SUCCESS;
-}
-
-inline Ubiquity::StatusCode ClusterClient::createSchemaInCacheFromDescription(
-        const std::string &schemaDescriptionString,
-        const Ubiquity::ApplicationType applicationId
-        ) noexcept
-{
-    DBG("Creating schema in cache from fetched description");
-    nlohmann::json schemaDescriptionList;
-    try {
-        std::istringstream(schemaDescriptionString.c_str()) >> schemaDescriptionList;
-    } catch (nlohmann::json::exception &e) {
-        return Ubiquity::INVALID_SCHEMA_DESCRIPTION;
-    }
-    Schema *newSchema;
-    size_t count;
-    if (schemaDescriptionList["items"].is_array()) {
-        count = schemaDescriptionList["items"].size();
-        newSchema = new Schema[count];
-        size_t i = 0;
-        for (auto &schemaDescription : schemaDescriptionList["items"]) {
-            createSchemaFromDescription(newSchema[i], schemaDescription, Ubiquity::APP_UNDEFINED);
-            ++i;
-        }
-    } else {
-        count = 1;
-        newSchema = new Schema[1];
-        createSchemaFromDescription(newSchema[0], schemaDescriptionList, applicationId);
-    }
-
-    static std::mutex s_cacheMutex;
-    std::lock_guard<std::mutex> guard(s_cacheMutex);
-    const auto &newSchemaCache = std::make_shared<SchemaCache>(*s_schemaCache);
-    for (size_t i = 0; i < count; ++i) {
-        DBG("Inserting schema for model " << newSchema[i].modelId);
-        newSchemaCache->insert({newSchema[i].modelId, newSchema[i]});
-    }
-    delete[] newSchema;
-    std::atomic_store(&s_schemaCache, newSchemaCache);
-    return Ubiquity::SUCCESS;
-}
-
 inline bool ClusterClient::loadIpListFromDescription(
         const nlohmann::json &ipStringArray
         ) noexcept
@@ -358,46 +232,45 @@ inline Ubiquity::StatusCode ClusterClient::fetchResourceFromRestApi(
     return Ubiquity::SUCCESS;
 }
 
-Ubiquity::StatusCode ClusterClient::ensureSchemaForOneModelIsInCache(
-        const int64_t modelId
+void ClusterClient::ensureSchemaForOneModelIsInCache(
+        const int64_t modelId,
+        const int16_t applicationId,
+        const int32_t *const feedbackDelays,
+        const int16_t feedbackDelaysCount,
+        const int8_t *const features
         ) noexcept
 {
-    DBG("Looking for schema with model ID " << modelId << " in schema cache");
-    const auto schemaCache = atomic_load(&s_schemaCache);
-    const auto it = schemaCache->find(modelId);
-    if (schemaCache->end() != it) {
-        return Ubiquity::SUCCESS;
-    }
-    char encodedModelId[14];
-    Base32C::encode(encodedModelId, reinterpret_cast<const uint64_t *>(&modelId));
-    std::string schemaDescriptionString = getResourceStringFromCache(encodedModelId);
-    Ubiquity::ApplicationType applicationId = Ubiquity::APP_UNDEFINED;
-    if (schemaDescriptionString.empty()) {
-        applicationId = Ubiquity::APP_LINE_ITEM;
-        Ubiquity::StatusCode statusCode;
-        statusCode = fetchResourceFromRestApi(&schemaDescriptionString, std::string(s_apiUrlRoot + "/models/line-item/") + encodedModelId);
-        if (Ubiquity::UNKNOWN_RESOURCE == statusCode) {
-            applicationId = Ubiquity::APP_BID_SHADING;
-            statusCode = fetchResourceFromRestApi(&schemaDescriptionString, std::string(s_apiUrlRoot + "/models/bid-shading/") + encodedModelId);
-        }
-        if (Ubiquity::SUCCESS != statusCode) {
-            return statusCode;
-        }
-    }
-    return createSchemaInCacheFromDescription(schemaDescriptionString, applicationId);
-}
+    const auto &schemaCache = atomic_load(&s_schemaCache);
+    const auto &schema = (*schemaCache)[modelId];
+    if (schema.modelId != modelId) {
+        DBG("Inserting new schema(" << modelId << ") in cache");
+        Schema newSchema{};
+        newSchema.modelId = modelId;
+        newSchema.applicationId = applicationId;
 
-Ubiquity::StatusCode ClusterClient::ensureSchemaForAllModelsAreInCache(void) noexcept
-{
-    std::string schemaDescriptionString = getResourceStringFromCache("ALL_SCHEMAS");
-    if (schemaDescriptionString.empty()) {
-        Ubiquity::StatusCode statusCode;
-        statusCode = fetchResourceFromRestApi(&schemaDescriptionString, s_apiUrlRoot + "/models");
-        if (Ubiquity::SUCCESS != statusCode) {
-            return statusCode;
+        // Insert feedback delays.
+        for (int16_t i = 0; i < feedbackDelaysCount; ++i) {
+            const auto feedbackDelay = feedbackDelays[i];
+            newSchema.feedbackDelays.push_back(feedbackDelay);
         }
+
+        // Mark the end of the feedback delays list.
+        newSchema.feedbackDelays.push_back(-1);
+
+        // Insert feature types.
+        const auto featuresCount = reinterpret_cast<const int16_t *>(features)[0];
+        for (int8_t i = 0; i < featuresCount; ++i) {
+            newSchema.features.push_back(static_cast<Schema::FeatureType>(features[2 + i]));
+        }
+
+        // Mark the end of the feature types list.
+        newSchema.features.push_back(Schema::FeatureType::UNDEFINED);
+
+        // Create the new schema cache containing the new schema + older schemas (copy on write).
+        const auto &newSchemaCache = std::make_shared<SchemaCache>(*s_schemaCache);
+        (*newSchemaCache)[newSchema.modelId] = newSchema;
+        std::atomic_store(&s_schemaCache, newSchemaCache);
     }
-    return createSchemaInCacheFromDescription(schemaDescriptionString, Ubiquity::APP_UNDEFINED);
 }
 
 inline const std::string ClusterClient::getResourceStringFromCache(

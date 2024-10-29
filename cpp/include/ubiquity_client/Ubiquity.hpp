@@ -32,7 +32,6 @@ using ApplicationType = int16_t;
         static constexpr StatusCode UNKNOWN_RESOURCE = 17;
         static constexpr StatusCode OTHER_FETCH_ERROR = 18;
         static constexpr StatusCode INVALID_CLUSTER_DESCRIPTION = 19;
-        static constexpr StatusCode INVALID_SCHEMA_DESCRIPTION = 20;
         static constexpr StatusCode SCHEMA_UNAVAILABLE = 21;
 
         static constexpr ApplicationType APP_BID_SHADING = 0;

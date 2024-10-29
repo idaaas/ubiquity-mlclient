@@ -18,20 +18,28 @@ class ClusterClient {
 public:
     static constexpr size_t MAXIMUM_TRANSMISSION_UNIT = 1280;
 
+    using ModelId = int64_t;
     struct Schema {
-        int64_t modelId = 0;
-        Ubiquity::ApplicationType applicationId;
-        std::vector<uint32_t> feedbackDelays = {static_cast<uint32_t>(-1)};
-        enum class FeatureType : uint8_t {
-            UNDEFINED = 0,
-            BOOLEAN,
-            NUMERIC,
-            NOMINAL,
-            CATEGORICAL,
+        ModelId modelId = 0;
+        Ubiquity::ApplicationType applicationId = Ubiquity::APP_UNDEFINED;
+        std::vector<int32_t> feedbackDelays = {-1};
+        enum class FeatureType : int8_t {
+            NUMERIC = 0,
+            UNDEFINED = 1,
+            NOMINAL = 2,
+            BOOLEAN = 3,
+            CATEGORICAL = 4,
+        };
+        static constexpr const char *featureTypeStrings[5]{
+            "NUMERIC",
+            "UNDEFINED",
+            "NOMINAL",
+            "BOOLEAN",
+            "CATEGORICAL",
         };
         std::vector<FeatureType> features;
     };
-    using SchemaCache = std::unordered_map<size_t, Schema>;
+    using SchemaCache = std::unordered_map<ModelId, Schema>;
     static std::shared_ptr<SchemaCache> s_schemaCache;
 
     std::string clusterId;
@@ -66,8 +74,12 @@ public:
             const uint16_t ipCount
             ) noexcept;
 
-    static Ubiquity::StatusCode ensureSchemaForOneModelIsInCache(
-            const int64_t modelId
+    void ensureSchemaForOneModelIsInCache(
+            const int64_t modelId,
+            const int16_t applicationId,
+            const int32_t *const feedbackDelays,
+            const int16_t feedbackDelaysCount,
+            const int8_t *const features
             ) noexcept;
 
 //shared with Ubiquity.cpp:
@@ -79,8 +91,6 @@ public:
     static void clusterThreadFunction(
             std::shared_ptr<ClusterClient> cc
             ) noexcept;
-
-    static Ubiquity::StatusCode ensureSchemaForAllModelsAreInCache(void) noexcept;
 
 private:
     static constexpr size_t NODE_CLIENT_POOL_SIZE = 256;
@@ -115,16 +125,6 @@ private:
 
     inline void unbindAllUnrefreshedClients(void) noexcept;
 
-    static inline bool loadApplicationIdFromDescription(
-            Schema &schema,
-            const nlohmann::json &features
-            ) noexcept;
-
-    static inline void loadSchemaFeaturesFromDescription(
-            Schema &schema,
-            const nlohmann::json &features
-            ) noexcept;
-
     inline bool loadIpListFromDescription(
             const nlohmann::json &ipStringArray
             ) noexcept;
@@ -135,17 +135,6 @@ private:
 
     static inline const std::string getResourceStringFromCache(
             const std::string &resourceId
-            ) noexcept;
-
-    static inline Ubiquity::StatusCode createSchemaFromDescription(
-            Schema &newSchema,
-            const nlohmann::json &schemaDescription,
-            const Ubiquity::ApplicationType applicationId
-            ) noexcept;
-
-    static inline Ubiquity::StatusCode createSchemaInCacheFromDescription(
-            const std::string &schemaDescriptionString,
-            const Ubiquity::ApplicationType applicationId
             ) noexcept;
 
     static inline Ubiquity::StatusCode fetchResourceFromRestApi(
