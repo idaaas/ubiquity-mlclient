@@ -38,11 +38,17 @@ java-bindings:
   RUN jar cf ubiquity-client.jar -C jar-root .
   SAVE ARTIFACT ubiquity-client.jar AS LOCAL local-output/java/
 
-java-examples:
+java-examples-build:
   FROM +sbt-image
   COPY +java-bindings/ubiquity-client.jar .
   COPY java/sbt .
   RUN sbt assembly
+  SAVE ARTIFACT target/main.jar
+
+java-examples:
+  FROM +base-image
+  DO +JAVA_INSTALL
+  COPY +java-examples-build/main.jar ./target
   ENTRYPOINT ["java","-cp","target/main.jar"]
   SAVE IMAGE java-examples:latest
 
@@ -51,14 +57,15 @@ go-bindings:
   FROM +go-swig-image
   COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY go/swig .
-  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
-  RUN cmake --build build --parallel $(nproc) --target ubiquityclient
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build \
+      && cmake --build build --parallel $(nproc) --target ubiquityclient
   SAVE ARTIFACT build/output/Ubiquity.go AS LOCAL local-output/go/Ubiquity/
   SAVE ARTIFACT build/ubiquityclient.so AS LOCAL local-output/go/Ubiquity/
 
-go-examples:
+go-examples-build:
   FROM +go-image
-  COPY +go-bindings/* samples/lib/Ubiquity/
+  COPY +go-bindings/Ubiquity.go samples/lib/Ubiquity/
+  COPY +go-bindings/ubiquityclient.so samples/lib/Ubiquity/
   COPY go/samples samples
   COPY datasets samples/rsc/datasets
   RUN apt-get install --no-install-recommends -qq gzip
@@ -69,7 +76,13 @@ go-examples:
         echo 'building '$dir' ...'; \
         go build -o bin/$dir src/$dir/Main.go; \
       done
-  RUN cp -r samples/bin/* .
+  SAVE ARTIFACT ./samples
+
+go-examples:
+  FROM +base-image
+  COPY +go-examples-build/samples/bin/ .
+  COPY +go-examples-build/samples/rsc/ ./rsc
+  COPY +go-examples-build/samples/lib/ ./lib
   SAVE IMAGE go-examples:latest
 
 base-image:
@@ -91,6 +104,7 @@ base-image:
     RUN apt-get install --no-install-recommends -qq wget ca-certificates
     # project deps
     RUN apt-get install --no-install-recommends -qq libbsd-dev uuid-dev libcurl4-openssl-dev
+    RUN apt-get clean
   END
   WORKDIR /client
 
@@ -107,7 +121,7 @@ cmake-image:
       RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30
       RUN update-alternatives --set c++ /usr/bin/g++
     ELSE
-      RUN apt-get install --no-install-recommends -qq build-essential g++ libssl-dev git doxygen
+      RUN apt-get install --no-install-recommends -qq build-essential g++ libssl-dev git doxygen && apt-get clean
     END
     RUN wget --quiet https://github.com/Kitware/CMake/releases/download/v3.30.2/cmake-3.30.2-linux-x86_64.sh
     RUN sh cmake-3.30.2-linux-x86_64.sh --skip-license --prefix=/usr/local/ && rm cmake-3.30.2-linux-x86_64.sh
@@ -158,10 +172,10 @@ go-image:
 GO_INSTALL:
   FUNCTION
   IF echo $os | grep -q ubuntu
-    RUN apt-get install --no-install-recommends -qq gcc
-    RUN wget --quiet https://go.dev/dl/go1.23.2.linux-amd64.tar.gz
-    RUN echo "542d3c1705f1c6a1c5a80d5dc62e2e45171af291e755d591c5e6531ef63b454e go1.23.2.linux-amd64.tar.gz" | sha256sum --check --status
-    RUN tar -C /usr/local -xzf go1.23.2.linux-amd64.tar.gz && rm go1.23.2.linux-amd64.tar.gz
+    RUN apt-get install --no-install-recommends -qq gcc && apt-get clean \
+        && wget --quiet https://go.dev/dl/go1.23.2.linux-amd64.tar.gz \
+        && echo "542d3c1705f1c6a1c5a80d5dc62e2e45171af291e755d591c5e6531ef63b454e go1.23.2.linux-amd64.tar.gz" | sha256sum --check --status \
+        && tar -C /usr/local -xzf go1.23.2.linux-amd64.tar.gz && rm go1.23.2.linux-amd64.tar.gz
     ENV PATH=$PATH:/usr/local/go/bin
   END
 

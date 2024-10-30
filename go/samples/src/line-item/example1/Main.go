@@ -1,6 +1,6 @@
 package main
 
-//#cgo LDFLAGS: ./lib/Ubiquity/ubiquityclient.so -Wl,-rpath=/client/samples/lib/Ubiquity/
+//#cgo LDFLAGS: ./lib/Ubiquity/ubiquityclient.so -Wl,-rpath=./lib/Ubiquity/
 import "C"
 
 import (
@@ -51,8 +51,8 @@ func example1() int {
 	const maxCPM float32 = 2.0
 	creativeIds := [5]int64{1, 2, 3, 4, 5} // a list of all creatives ids used when creating the model
 	// load BidRequest data and Feedback data from files
-	const feedbackPath string = "/client/samples/rsc/datasets/feedback.csv"
-	const bidRequestPath string = "/client/samples/rsc/datasets/features.csv"
+	const feedbackPath string = "./rsc/datasets/feedback.csv"
+	const bidRequestPath string = "./rsc/datasets/features.csv"
 	bidRequests := common.LoadBidRequests(bidRequestPath)
 	feedbacks := common.LoadFeedbacks(feedbackPath)
 	feedbackHashMap := make(map[int64]common.Feedback)
