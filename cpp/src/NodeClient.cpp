@@ -4,6 +4,7 @@
 
 #include <ChannelUriStringBuilder.h>
 #include <arpa/inet.h>
+#include <random>
 
 /*
  * Values and types used only in this file
@@ -219,6 +220,14 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
     return 0 != nc.ip;
 }
 
+static inline uint16_t getRandomClientId(void) noexcept {
+    auto now = std::chrono::high_resolution_clock::now();
+    auto timeSeed = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+    std::ranlux24 rl;
+    rl.seed(timeSeed);
+    return rl();
+}
+
 static bool whileDisconnected(NodeClient &nc, ControlMessage &message) noexcept
 {
     nc.controlPubId = ClusterClient::s_aeronClient->addExclusivePublication(
@@ -235,7 +244,7 @@ static bool whileDisconnected(NodeClient &nc, ControlMessage &message) noexcept
                 .controlMode("dynamic")
                 .build(),
             StreamId::PROTOCOL_MDC);
-    nc.clientId = rand();
+    nc.clientId = getRandomClientId();
     return true;
 }
 
@@ -261,7 +270,7 @@ static bool beforeRequestingTopology(NodeClient &nc) noexcept {
 static bool onRegistrationError(NodeClient &nc, ControlMessage &message) noexcept {
     constexpr uint32_t CORRELATION_CONFLICT = -2;
     if (CORRELATION_CONFLICT == message.registrationError.code) {
-        nc.clientId = rand();
+        nc.clientId = getRandomClientId();
         return false;
     };
     return true;
