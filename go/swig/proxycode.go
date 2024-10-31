@@ -1,0 +1,32 @@
+
+const MISSING_BOOLEAN int8 = -1
+const MISSING_CATEGORICAL int8 = -1
+const MISSING_NOMINAL string = "_MISSING_"
+var MISSING_NUMERIC float32 = float32(math.NaN())
+
+const UNDEFINED int = 0
+const SUCCESS int = 1
+const NO_DATA int = 2
+const BACK_PRESSURED int = 3
+const NO_COMPATIBLE_NODE int = 4
+const ARCHITECTURE_NOT_SUPPORTED int = 5
+const AERON_INITIALIZATION_FAILED int = 6
+const CLIENT_NOT_CONNECTED int = 7
+const INVALID_RESOURCE_ID int = 8
+const INVALID_APP_FOR_MODEL int = 9
+const MISMATCHED_FEATURE_TYPE int = 10
+const INVALID_FEEDBACK_LEVEL int = 11
+const MISSING_CREATIVES int = 12
+const TOO_MANY_CREATIVES int = 13
+const MISPLACED_CREATIVE_ID int = 14
+const NO_API_RESPONSE int = 15
+const FORBIDDEN int = 16
+const UNKNOWN_RESOURCE int = 17
+const OTHER_FETCH_ERROR int = 18
+const INVALID_CLUSTER_DESCRIPTION int = 19
+const INVALID_SCHEMA_DESCRIPTION int = 20
+const SCHEMA_UNAVAILABLE int = 21
+const APP_BID_SHADING int = 0
+const APP_PROBABILITY int = 1
+const APP_LINE_ITEM int = 2
+const APP_UNDEFINED int = 3
