@@ -170,7 +170,7 @@ inline void Ubiquity::ClientHandle::Impl::putFeature32(
 }
 
 void Ubiquity::ClientHandle::Impl::putBoolean(
-        const bool value
+        const int8_t value
         ) noexcept
 {
     return this->putFeature8(value, ClusterClient::Schema::FeatureType::BOOLEAN);

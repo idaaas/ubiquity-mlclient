@@ -57,7 +57,7 @@ using ApplicationType = int16_t;
                 float getProbability(void) noexcept;
                 int32_t poll(void) noexcept;
                 int32_t predict(void) noexcept;
-                void putBoolean(const bool value) noexcept;
+                void putBoolean(const int8_t value) noexcept;
                 void putCategorical(const int8_t value) noexcept;
                 void putCreative(const int64_t value) noexcept;
                 void putNominal(const char *value) noexcept;

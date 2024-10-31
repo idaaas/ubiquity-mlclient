@@ -82,7 +82,7 @@ func example1() int {
 		clientHandle.StartLineItem(modelId, queryId, maxCPM)
 		// fill in a random subset of eligible creatives
 		rand.Shuffle(len(creativeIds), func(i int, j int) { creativeIds[i], creativeIds[j] = creativeIds[j], creativeIds[i] })
-		numEligibleCreatives := rand.Intn(len(creativeIds)) + 1 // at least one creative
+		numEligibleCreatives := max(1, rand.Intn(len(creativeIds))) // at least one creative
 		for i := 0; i < numEligibleCreatives; i++ {
 			clientHandle.PutCreative(creativeIds[i])
 		}

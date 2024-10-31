@@ -85,9 +85,9 @@ public class Example1 {
             clientHandle.putNominal(request.getDeviceGeoCountry());
             clientHandle.putNominal(request.getAppContentLanguage());
             clientHandle.putCategorical(request.getAppContentContext());
-            clientHandle.putBoolean(request.getImpBannerTopFrame());
+            clientHandle.putBoolean(request.getImpBannerTopFrame() ? (byte)1 : (byte)0);
             clientHandle.putCategorical(request.getDeviceType());
-            clientHandle.putBoolean(request.getImpInstl());
+            clientHandle.putBoolean(request.getImpInstl() ? (byte)1 : (byte)0);
             clientHandle.putNominal(request.getAppPageCat());
 
             // 4.2. send the prediction request

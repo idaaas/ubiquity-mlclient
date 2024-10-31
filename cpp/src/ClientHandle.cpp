@@ -52,7 +52,7 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::predict(void) noexcept {
     return this->pimpl->predict();
 }
 
-void Ubiquity::ClientHandle::putBoolean(const bool value) noexcept {
+void Ubiquity::ClientHandle::putBoolean(const int8_t value) noexcept {
     this->pimpl->putBoolean(value);
 }
 
