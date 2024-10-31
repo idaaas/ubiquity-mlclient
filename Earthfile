@@ -2,17 +2,17 @@ VERSION 0.8
 FROM busybox
 
 ARG --global --required os
+ARG --global type=Release
+ARG --global disableIdChecks=OFF
 
 
 all:
-  BUILD +cpp-bindings
-  BUILD +java-bindings
+  BUILD +java-examples-build
+  BUILD +go-examples-build
 
 build:
   FROM +cmake-image
   CACHE ./build
-  ARG type=Release
-  ARG disableIdChecks=OFF
   COPY --keep-ts cpp .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBUILD_AERON_ARCHIVE_API=OFF -DCMAKE_BUILD_TYPE=$type -DDISABLE_ID_CHECKS=$disableIdChecks -S . -B build
   RUN cmake --build build --parallel $(nproc) --target ubiquity_client_static docs
@@ -27,10 +27,9 @@ cpp-bindings:
   SAVE ARTIFACT local-output AS LOCAL local-output/cpp
 
 java-bindings:
-  ARG type
   ARG release
   FROM +java-swig-image
-  COPY (+build/libubiquity_client_static.a --type=$type) (+build/Ubiquity.hpp --type=$type) .
+  COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY java/swig .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
   RUN cmake --build build --parallel $(nproc) --target jniUbiquityClient
@@ -50,13 +49,13 @@ java-examples:
   FROM +base-image
   DO +JAVA_INSTALL
   COPY +java-examples-build/main.jar .
+  COPY datasets datasets
   ENTRYPOINT ["java","-cp","main.jar"]
   SAVE IMAGE java-examples:latest
 
 go-bindings:
-  ARG type
   FROM +go-swig-image
-  COPY (+build/libubiquity_client_static.a --type=$type) (+build/Ubiquity.hpp --type=$type) .
+  COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY go/swig .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build \
       && cmake --build build --parallel $(nproc) --target ubiquityclient
