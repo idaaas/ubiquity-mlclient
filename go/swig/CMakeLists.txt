@@ -71,3 +71,11 @@ set_target_properties(ubiquityclient PROPERTIES
 target_compile_options(ubiquityclient PRIVATE -fno-strict-aliasing)
 
 target_link_libraries(ubiquityclient PRIVATE ubiquity_client_static curl bsd uuid)
+
+# add custom code to complete the binding
+add_custom_command(
+  TARGET ubiquityclient POST_BUILD
+  # Swig 4.2.1 `%proxycode` directive varies in functionnality depending on the language, doing it by hand
+  COMMAND grep -q 'import \"math\"' ${CMAKE_CURRENT_BINARY_DIR}/output/Ubiquity.go || sed -i '/import \"C\"/a import \"math\"' ${CMAKE_CURRENT_BINARY_DIR}/output/Ubiquity.go
+  COMMAND cat ${CMAKE_CURRENT_SOURCE_DIR}/proxycode.go >>${CMAKE_CURRENT_BINARY_DIR}/output/Ubiquity.go
+)

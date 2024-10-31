@@ -18,8 +18,8 @@ build:
   RUN cmake --build build --parallel $(nproc) --target ubiquity_client_static docs
   #RUN ctest
   RUN mkdir -p tmp \ # https://github.com/earthly/earthly/issues/788
-    && cp build/src/libubiquity_client_static.a include/ubiquity_client/Ubiquity.hpp tmp \
-    && cp -r build/docs/html tmp
+      && cp build/src/libubiquity_client_static.a include/ubiquity_client/Ubiquity.hpp tmp \
+      && cp -r build/docs/html tmp
   SAVE ARTIFACT tmp/*
 
 cpp-bindings:
@@ -27,9 +27,10 @@ cpp-bindings:
   SAVE ARTIFACT local-output AS LOCAL local-output/cpp
 
 java-bindings:
+  ARG type
   ARG release
   FROM +java-swig-image
-  COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
+  COPY (+build/libubiquity_client_static.a --type=$type) (+build/Ubiquity.hpp --type=$type) .
   COPY java/swig .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
   RUN cmake --build build --parallel $(nproc) --target jniUbiquityClient
@@ -48,14 +49,14 @@ java-examples-build:
 java-examples:
   FROM +base-image
   DO +JAVA_INSTALL
-  COPY +java-examples-build/main.jar ./target
-  ENTRYPOINT ["java","-cp","target/main.jar"]
+  COPY +java-examples-build/main.jar .
+  ENTRYPOINT ["java","-cp","main.jar"]
   SAVE IMAGE java-examples:latest
 
 go-bindings:
-  ARG release
+  ARG type
   FROM +go-swig-image
-  COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
+  COPY (+build/libubiquity_client_static.a --type=$type) (+build/Ubiquity.hpp --type=$type) .
   COPY go/swig .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build \
       && cmake --build build --parallel $(nproc) --target ubiquityclient
