@@ -34,8 +34,8 @@ public class Example1 {
         Random rand = new Random(123); // to generate query ids
         List<Long> creativeIds = Arrays.asList(1L, 2L, 3L, 4L, 5L); // a list of all creatives ids used when creating the model
         // use cycle iterators in order to loop infinitely over the data
-        Iterator<BidRequest> dataIterator = CycleIterator.bidRequestIterator("./src/main/resources/features.csv.gz");
-        Iterator<Feedback> feedbackIterator = CycleIterator.feedbackIterator("./src/main/resources/feedback.csv.gz");
+        Iterator<BidRequest> dataIterator = CycleIterator.bidRequestIterator("/client/datasets/features.csv.gz");
+        Iterator<Feedback> feedbackIterator = CycleIterator.feedbackIterator("/client/datasets/feedback.csv.gz");
         HashMap<Long, Feedback> feedbackHashMap = new HashMap<>();
 
         // The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
