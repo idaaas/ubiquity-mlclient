@@ -30,9 +30,9 @@ type BidRequest struct {
 	DeviceGeoCountry     string
 	AppContentLanguage   string
 	AppContentContext    int8
-	ImpBannerTopFrame    bool
+	ImpBannerTopFrame    int8
 	DeviceType           int8
-	ImpInstl             bool
+	ImpInstl             int8
 	AppPageCat           string
 }
 
@@ -84,10 +84,18 @@ func LoadBidRequests(fileName string) []BidRequest {
 		bidRequests[index].AppContentLanguage = record[20]
 		val, _ = strconv.Atoi(record[21])
 		bidRequests[index].AppContentContext = int8(val)
-		bidRequests[index].ImpBannerTopFrame = "true" == record[22]
+		if "true" == record[22] {
+			bidRequests[index].ImpBannerTopFrame = 1
+		} else {
+			bidRequests[index].ImpBannerTopFrame = 0
+		}
 		val, _ = strconv.Atoi(record[23])
 		bidRequests[index].DeviceType = int8(val)
-		bidRequests[index].ImpInstl = "true" == record[24]
+		if "true" == record[24] {
+			bidRequests[index].ImpInstl = 1
+		} else {
+			bidRequests[index].ImpInstl = 0
+		}
 		bidRequests[index].AppPageCat = record[25]
 	}
 	return bidRequests
@@ -116,6 +124,14 @@ func LoadFeedbacks(fileName string) []Feedback {
 }
 
 func (self BidRequest) toString() string {
+	ImpBannerTopFrame := false
+	if self.ImpBannerTopFrame == 1 {
+		ImpBannerTopFrame = true
+	}
+	ImpInstl := false
+	if self.ImpInstl == 1 {
+		ImpInstl = true
+	}
 	return "BidRequest{" +
 		"appBundle='" + self.AppBundle + "'" +
 		", impBannerPos=" + strconv.Itoa(int(self.ImpBannerPos)) +
@@ -139,9 +155,9 @@ func (self BidRequest) toString() string {
 		", deviceGeoCountry='" + self.DeviceGeoCountry + "'" +
 		", appContentLanguage='" + self.AppContentLanguage + "'" +
 		", appContentContext=" + strconv.Itoa(int(self.AppContentContext)) +
-		", impBannerTopFrame=" + strconv.FormatBool(self.ImpBannerTopFrame) +
+		", impBannerTopFrame=" + strconv.FormatBool(ImpBannerTopFrame) +
 		", deviceType=" + strconv.Itoa(int(self.DeviceType)) +
-		", impInstl=" + strconv.FormatBool(self.ImpInstl) +
+		", impInstl=" + strconv.FormatBool(ImpInstl) +
 		", appPageCat='" + self.AppPageCat + "'" +
 		"}"
 }

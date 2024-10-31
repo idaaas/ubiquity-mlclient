@@ -21,7 +21,7 @@ class Ubiquity::ClientHandle::Impl {
         Ubiquity::StatusCode predict(void) noexcept;
 
         void putBoolean(
-                const bool value
+                const int8_t value
                 ) noexcept;
 
         void putCategorical(
