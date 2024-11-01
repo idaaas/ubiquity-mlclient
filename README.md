@@ -52,6 +52,7 @@ Note that you are required to specify the OS you intend to use the client for.
 Specific instructions for programming languages are available:
 - [C++ 11 and above](cpp/README.md)
 - [Java 8 and above](java/README.md)
+- [Go 1.2 and above](go/README.md)
 
 If your programming language is not in the list, please fill in a [request](https://github.com/idaaas/ubiquity-mlclient/issues/new).
 

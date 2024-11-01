@@ -6,10 +6,10 @@ In the client's root directory :
 ```bash
 earthly +go-bindings --os=ubuntu:22.04
 tree local-ouput/go
-#local-output/go/       // this is the package to import
-#├── go.mod
-#├── ubiquityclient.so  // you must tell the linker about this file (see below)
-#└── Ubiquity.go
+#local-output/go
+#└── Ubiquity  // this is the package to import
+#    ├── Ubiquity.go
+#    └── ubiquityclient.so
 ```
 
 ## Usage
