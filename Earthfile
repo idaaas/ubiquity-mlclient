@@ -7,6 +7,9 @@ ARG --global disableIdChecks=OFF
 
 
 all:
+  BUILD +cpp-bindings
+  BUILD +java-bindings
+  BUILD +go-bindings
   BUILD +java-examples-build
   BUILD +go-examples-build
 
