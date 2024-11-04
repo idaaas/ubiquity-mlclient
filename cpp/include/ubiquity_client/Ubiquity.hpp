@@ -39,6 +39,11 @@ using ApplicationType = int16_t;
         static constexpr ApplicationType APP_PROBABILITY = 1;
         static constexpr ApplicationType APP_LINE_ITEM = 2;
         static constexpr ApplicationType APP_UNDEFINED = 3;
+
+        static constexpr int8_t MISSING_BOOLEAN = -1;
+        static constexpr int8_t MISSING_CATEGORICAL = -1;
+        static constexpr const char *MISSING_NOMINAL = "_MISSING_";
+        static constexpr float MISSING_NUMERIC = std::numeric_limits<float>::quiet_NaN();
 #endif
 
         class ClientHandle {
