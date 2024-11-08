@@ -12,7 +12,7 @@
 
 namespace Period {
     static constexpr auto CON_TIMEOUT = std::chrono::milliseconds(200);
-    static constexpr auto RETRY_COOLDOWN = std::chrono::milliseconds(100);
+    static constexpr auto RETRY_COOLDOWN = std::chrono::milliseconds(800);
     static constexpr auto DC_TIMEOUT = std::chrono::milliseconds(1000);
     static constexpr auto REQUEST = std::chrono::milliseconds(10);
     static constexpr auto HEARTBEAT = std::chrono::milliseconds(1000);
@@ -126,11 +126,15 @@ struct __attribute__((packed)) ControlMessageBase {
 
 struct RegistrationErrorMessage {
     ControlMessageBase _;
+    uint64_t correlationIdHigh;
+    uint64_t correlationIdLow;
     uint32_t code;
 } __attribute__((packed));
 
 struct RegistrationResponseMessage {
     ControlMessageBase _;
+    uint64_t correlationIdHigh;
+    uint64_t correlationIdLow;
     uint16_t controlPort;
     uint16_t clientId;
 } __attribute__((packed));
@@ -158,6 +162,8 @@ struct ModelInventoryUpdate {
 
 struct RegistrationMessage {
     ControlMessageBase _;
+    uint64_t correlationIdHigh;
+    uint64_t correlationIdLow;
     Output output;
 } __attribute__((packed));
 
@@ -220,10 +226,10 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
     return 0 != nc.ip;
 }
 
-static inline uint16_t getRandomClientId(void) noexcept {
+static inline uint64_t getRandomCorrelationId(void) noexcept {
     auto now = std::chrono::high_resolution_clock::now();
     auto timeSeed = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-    std::ranlux24 rl;
+    std::ranlux48 rl;
     rl.seed(timeSeed);
     return rl();
 }
@@ -244,7 +250,8 @@ static bool whileDisconnected(NodeClient &nc, ControlMessage &message) noexcept
                 .controlMode("dynamic")
                 .build(),
             StreamId::PROTOCOL_MDC);
-    nc.clientId = getRandomClientId();
+    nc.correlationIdHigh = getRandomCorrelationId();
+    nc.correlationIdLow = getRandomCorrelationId();
     return true;
 }
 
@@ -270,7 +277,8 @@ static bool beforeRequestingTopology(NodeClient &nc) noexcept {
 static bool onRegistrationError(NodeClient &nc, ControlMessage &message) noexcept {
     constexpr uint32_t CORRELATION_CONFLICT = -2;
     if (CORRELATION_CONFLICT == message.registrationError.code) {
-        nc.clientId = getRandomClientId();
+        nc.correlationIdHigh = getRandomCorrelationId();
+        nc.correlationIdLow = getRandomCorrelationId();
         return false;
     };
     return true;
@@ -567,6 +575,19 @@ void NodeClient::switchStateAfterCheck(uint8_t nextState) noexcept {
 }
 
 static constexpr uint16_t CLIENT_ID_BROADCAST = __SHRT_MAX__;
+static constexpr uint16_t CLIENT_ID_UNSET = __UINT16_MAX__;
+
+inline bool isMyCorrelationId(ControlMessage* const message, uint64_t corrHigh, uint64_t corrLow) {
+    if (message->common.type == MessageType::REGISTRATION_CONFIRMATION) {
+        return message->registrationResponse.correlationIdHigh == corrHigh && message->registrationResponse.correlationIdLow == corrLow;
+    }
+
+    if (message->common.type == MessageType::REGISTRATION_ERROR) {
+        return message->registrationError.correlationIdHigh == corrHigh && message->registrationError.correlationIdLow == corrLow;
+    }
+
+    return false;
+}
 
 bool NodeClient::switchStateBasedOnInput(void) noexcept
 {
@@ -596,7 +617,12 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
 
     bool messageReceived = false;
     if (nullptr != this->controlSub && 0 < this->controlSub->poll(messageReceiver, 1)) {
-        messageReceived = CLIENT_ID_BROADCAST == message->common.clientId || this->clientId == message->common.clientId;
+        messageReceived = CLIENT_ID_BROADCAST == message->common.clientId || 
+            this->clientId == message->common.clientId;
+
+        if (this->clientId == CLIENT_ID_UNSET) {
+            messageReceived = messageReceived || isMyCorrelationId(message, this->correlationIdHigh, this->correlationIdLow);
+        }
     }
 
     const uint8_t inputType = messageReceived ? message->common.type : MessageType::NONE;
@@ -636,7 +662,10 @@ void NodeClient::sendOutputBasedOnState() noexcept {
                 break;
             default:
                 message->common.type = MessageType::REGISTRATION_REQUEST;
+                message->common.version = 0x01; // new version for v0.7
                 message->common.clientId = clientId;
+                message->registrationMessage.correlationIdHigh = this->correlationIdHigh;
+                message->registrationMessage.correlationIdLow = this->correlationIdLow;
                 message->registrationMessage.output = output;
                 this->controlPub->offer({message->buffer, sizeof(RegistrationMessage)});
                 break;
