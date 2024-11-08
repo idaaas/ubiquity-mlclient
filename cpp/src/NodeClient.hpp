@@ -15,7 +15,9 @@ class NodeClient {
         uint32_t ip = 0;
         std::string ipString;
 
-        std::uint16_t clientId;
+        std::uint16_t clientId = __UINT16_MAX__;
+        std::uint64_t correlationIdHigh;
+        std::uint64_t correlationIdLow;
         std::uint16_t port = 0;
 
         int64_t controlPubId = 0;
