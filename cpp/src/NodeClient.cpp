@@ -4,8 +4,6 @@
 
 #include <ChannelUriStringBuilder.h>
 #include <arpa/inet.h>
-#include <random>
-
 /*
  * Values and types used only in this file
  */
@@ -72,7 +70,7 @@ enum class Output : uint32_t {
     HEARTBEAT = 0x6,
     SERVER_OPEN_REQUEST = 0x7,
     SERVER_READY_REQUEST = 0x8,
-    TOPOLOGY_REQUEST = 0x0f,
+    TOPOLOGY_REQUEST = 0x0f, // TODO move this elsewhere, it should be in an other type
 };
 
 namespace MessageType {
@@ -226,14 +224,6 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
     return 0 != nc.ip;
 }
 
-static inline uint64_t getRandomCorrelationId(void) noexcept {
-    auto now = std::chrono::high_resolution_clock::now();
-    auto timeSeed = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-    std::ranlux48 rl;
-    rl.seed(timeSeed);
-    return rl();
-}
-
 static bool whileDisconnected(NodeClient &nc, ControlMessage &message) noexcept
 {
     nc.controlPubId = ClusterClient::s_aeronClient->addExclusivePublication(
@@ -250,8 +240,8 @@ static bool whileDisconnected(NodeClient &nc, ControlMessage &message) noexcept
                 .controlMode("dynamic")
                 .build(),
             StreamId::PROTOCOL_MDC);
-    nc.correlationIdHigh = getRandomCorrelationId();
-    nc.correlationIdLow = getRandomCorrelationId();
+    nc.correlationIdHigh = Rng::generateUint64();
+    nc.correlationIdLow = Rng::generateUint64();
     return true;
 }
 
@@ -277,8 +267,8 @@ static bool beforeRequestingTopology(NodeClient &nc) noexcept {
 static bool onRegistrationError(NodeClient &nc, ControlMessage &message) noexcept {
     constexpr uint32_t CORRELATION_CONFLICT = -2;
     if (CORRELATION_CONFLICT == message.registrationError.code) {
-        nc.correlationIdHigh = getRandomCorrelationId();
-        nc.correlationIdLow = getRandomCorrelationId();
+        nc.correlationIdHigh = Rng::generateUint64();
+        nc.correlationIdLow = Rng::generateUint64();
         return false;
     };
     return true;
@@ -679,6 +669,7 @@ void NodeClient::sendOutputBasedOnState() noexcept {
  */
 
 void NodeClient::invoke(void) noexcept {
+    Rng::seed();
     while (this->switchStateBasedOnInput());
     this->switchStateIfPeriodPassed();
     this->sendOutputBasedOnState();

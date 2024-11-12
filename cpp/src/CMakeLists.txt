@@ -9,6 +9,7 @@ SET(SOURCE
   LoadBalancer.cpp
   NodeClient.cpp
   Ubiquity.cpp
+  Rng.cpp
   debug.cpp)
 
 SET(HEADERS
@@ -17,6 +18,7 @@ SET(HEADERS
   ClusterClient.hpp
   LoadBalancer.hpp
   NodeClient.hpp
+  Rng.hpp
   debug.hpp)
 
 add_library(ubiquity_client SHARED ${SOURCE} ${HEADERS})
