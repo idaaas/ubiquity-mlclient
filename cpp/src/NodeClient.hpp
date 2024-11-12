@@ -1,8 +1,9 @@
 #pragma once
 
 #include "ubiquity_client/Ubiquity.hpp"
-
+#include "Rng.hpp"
 #include <Aeron.h>
+
 
 class ClusterClient;
 
@@ -55,5 +56,4 @@ class NodeClient {
         uint8_t state;
         std::chrono::steady_clock::time_point lastStateChangeTime;
         std::chrono::steady_clock::time_point lastOutputTime;
-
 };
