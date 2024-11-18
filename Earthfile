@@ -34,12 +34,39 @@ java-bindings:
   FROM +java-swig-image
   COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY java/swig .
+  COPY java/settings.xml .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
   RUN cmake --build build --parallel $(nproc) --target jniUbiquityClient
   RUN mkdir -p jar-root/NATIVE && cp build/libjniUbiquityClient.so jar-root/NATIVE
   RUN javac -Werror -Xlint -d jar-root build/output/*.java $([ -z "$release" ] || echo --release $release)
   RUN jar cf ubiquity-client.jar -C jar-root .
   SAVE ARTIFACT ubiquity-client.jar AS LOCAL local-output/java/
+  SAVE ARTIFACT settings.xml
+
+java-publish:
+  FROM +sbt-image
+  ARG token
+  ARG release
+  ARG version
+  ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
+  COPY +java-bindings/ubiquity-client.jar .
+  COPY +java-bindings/settings.xml .
+  RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz \
+      && tar -xzvf apache-maven-3.9.9-bin.tar.gz \
+      && mv apache-maven-3.9.9 /opt/
+  ENV PATH=/opt/apache-maven-3.9.9/bin:$PATH
+  RUN mvn -v
+  RUN mkdir ~/.m2 && mv settings.xml ~/.m2/
+  RUN echo $(ls ~/.m2)
+  RUN mvn deploy:deploy-file \
+      -DgroupId=com.idaaas \
+      -DartifactId=ubiquity-client-${OS_NAME}-java-${release} \
+      -Dversion=${version} \
+      -Dpackaging=jar \
+      -Dfile=./ubiquity-client.jar \
+      -DrepositoryId=github \
+      -Durl=https://maven.pkg.github.com/idaaas/ubiquity-mlclient-private \
+      -Dsettings.token=${token}
 
 java-examples-build:
   FROM +sbt-image
@@ -195,3 +222,4 @@ SWIG_INSTALL:
     GIT CLONE --branch v4.3.0 https://github.com/swig/swig /swig
     RUN cd /swig && ./autogen.sh && ./configure && make -j $(nproc) && make install && rm -rf /swig
   END
+
