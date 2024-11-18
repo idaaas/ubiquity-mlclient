@@ -2,13 +2,34 @@ name: Earthly CI
 
 on:
   push:
-    branches:
+    branches: [ ci-test ]
+    tags:
       - '*'
-  pull_request:
-    branches: [ main ]
 
 jobs:
-  build:
+  build-ubuntu-xenial:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - uses: earthly/actions-setup@v1
+      with:
+        version: v0.8.15
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+    - name: Earthly version
+      run: earthly --version
+    - name: Ubuntu 16.04 java 8
+      run: earthly --ci --no-cache +java-publish --os=ubuntu:16.04 --release=8 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Ubuntu 16.04 java 17
+      run: earthly --ci --no-cache +java-publish --os=ubuntu:16.04 --release=17 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build-ubuntu-focal:
     runs-on: ubuntu-latest
     steps:
     - uses: earthly/actions-setup@v1
@@ -19,5 +40,49 @@ jobs:
         ref: ${{ github.ref }}
     - name: Earthly version
       run: earthly --version
-    - name: Ubuntu 22.04
-      run: earthly --ci +all --os=ubuntu:22.04
+    - name: Ubuntu 20.04 java 8
+      run: earthly --ci --no-cache +java-publish --os=ubuntu:20.04 --release=8 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Ubuntu 20.04 java 17
+      run: earthly --ci --no-cache +java-publish --os=ubuntu:20.04 --release=17 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build-ubuntu-jammy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: earthly/actions-setup@v1
+      with:
+        version: v0.8.15
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+    - name: Earthly version
+      run: earthly --version
+    - name: Ubuntu 22.04 java 8
+      run: earthly --ci --no-cache +java-publish --os=ubuntu:22.04 --release=8 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Ubuntu 22.04 java 17
+      run: earthly --ci --no-cache +java-publish --os=ubuntu:22.04 --release=17 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build-ubuntu-noble:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: earthly/actions-setup@v1
+      with:
+        version: v0.8.15
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+    - name: Earthly version
+      run: earthly --version
+    - name: Ubuntu 24.04 java 8
+      run: earthly --ci --no-cache +java-publish --os=ubuntu:24.04 --release=8 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Ubuntu 24.04 java 17
+      run: earthly --ci --no-cache +java-publish --os=ubuntu:24.04 --release=17 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
