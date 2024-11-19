@@ -27,3 +27,11 @@ The #cgo comment followed by `import "C"` tells the go compiler to pass the comm
 Those path can be the same path if you compile and run the program on the same system.
 
 See the general documentation for more information about using the client.
+
+## Running Examples
+
+Go examples are provided in a docker to quickly run scenarios:
+```bash
+earthly +go-examples --os=ubuntu:22.04
+docker run go-examples ./line-item/example1 API_TOKEN CLUSTER_ID
+```
