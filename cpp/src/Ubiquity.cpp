@@ -16,40 +16,40 @@ const char *Ubiquity::getStatusString(
         Ubiquity::StatusCode statusCode
         ) noexcept
 {
-    if (statusCode > Ubiquity::SCHEMA_UNAVAILABLE) {
-        statusCode = Ubiquity::UNDEFINED;
+    if (statusCode & Ubiquity::SETUP_ERROR) {
+        static const char *const statusStrings[] = {
+            "ARCHITECTURE_NOT_SUPPORTED",
+            "AERON_INITIALIZATION_FAILED",
+
+            "INVALID_RESOURCE_ID",
+            "INVALID_APP_FOR_MODEL",
+            "MISMATCHED_FEATURE_TYPE",
+            "INVALID_FEEDBACK_LEVEL",
+            "MISSING_CREATIVES",
+            "TOO_MANY_CREATIVES",
+            "MISPLACED_CREATIVE_ID",
+
+            "NO_API_RESPONSE",
+            "FORBIDDEN",
+            "UNKNOWN_RESOURCE",
+            "OTHER_FETCH_ERROR",
+            "INVALID_CLUSTER_DESCRIPTION",
+            "SCHEMA_UNAVAILABLE",
+        };
+        return statusCode <= Ubiquity::SCHEMA_UNAVAILABLE
+            ? statusStrings[statusCode - Ubiquity::ARCHITECTURE_NOT_SUPPORTED]
+            : "UNDEFINED";
+    } else {
+        static const char *const statusStrings[] = {
+            "SUCCESS",
+            "NO_DATA",
+            "BACK_PRESSURED",
+            "NO_COMPATIBLE_NODE",
+        };
+        return statusCode <= Ubiquity::NO_COMPATIBLE_NODE
+            ? statusStrings[statusCode - Ubiquity::SUCCESS]
+            : "UNDEFINED";
     }
-    static const char *const statusStrings[] = {
-        "UNDEFINED",
-
-        "SUCCESS",
-        "NO_DATA",
-        "BACK_PRESSURED",
-        "NO_COMPATIBLE_NODE",
-
-        "ARCHITECTURE_NOT_SUPPORTED",
-        "AERON_INITIALIZATION_FAILED",
-        "UNDEFINED_7",
-
-        "INVALID_RESOURCE_ID",
-        "INVALID_APP_FOR_MODEL",
-        "MISMATCHED_FEATURE_TYPE",
-        "INVALID_FEEDBACK_LEVEL",
-        "MISSING_CREATIVES",
-        "TOO_MANY_CREATIVES",
-        "MISPLACED_CREATIVE_ID",
-
-        "NO_API_RESPONSE",
-        "FORBIDDEN",
-        "UNKNOWN_RESOURCE",
-        "OTHER_FETCH_ERROR",
-        "INVALID_CLUSTER_DESCRIPTION",
-        "UNDEFINED_20",
-        "SCHEMA_UNAVAILABLE",
-    };
-    return statusCode <= Ubiquity::SCHEMA_UNAVAILABLE
-        ? statusStrings[static_cast<int32_t>(statusCode)]
-        : "UNDEFINED";
 }
 
 /*

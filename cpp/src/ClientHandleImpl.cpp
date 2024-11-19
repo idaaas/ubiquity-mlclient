@@ -111,21 +111,17 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::predict(void) noexcept {
     if (__glibc_unlikely(Ubiquity::APP_LINE_ITEM == this->message.common.applicationId
                 && 0 == this->message.lineItemQuery.numCreative)) {
         this->statusCode = Ubiquity::MISSING_CREATIVES;
+    }
+    if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
         return this->statusCode;
     }
-    if (__glibc_likely(this->statusCode == Ubiquity::SUCCESS || this->statusCode == Ubiquity::NO_COMPATIBLE_NODE)) {
-        IGNORE("ClientHandle(" << this->clusterClient->clusterId
-                << ") : Sending prediction query(" << this->message.common.queryId
-                << ") for model(" << this->message.common.modelId << ")");
-        //hexDump(this->atomicBuffer, this->offset);
-        this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
-                this->message.common.modelId,
-                this->message.common.queryId,
-                this->atomicBuffer,
-                this->offset,
-                false
-                );
-    }
+    this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
+            this->message.common.modelId,
+            this->message.common.queryId,
+            this->atomicBuffer,
+            this->offset,
+            false
+            );
     return this->statusCode;
 }
 
@@ -356,7 +352,7 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
         sizeof(LineItemFeedbackMessage),
     };
 
-    if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
+    if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
         return this->statusCode;
     }
 

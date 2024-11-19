@@ -9,6 +9,8 @@ namespace Ubiquity {
 using StatusCode = int32_t;
 using ApplicationType = int16_t;
 
+        static constexpr StatusCode SETUP_ERROR = 0x20000;
+
         static constexpr StatusCode UNDEFINED = 0;
 
         static constexpr StatusCode SUCCESS = 1;
@@ -16,23 +18,23 @@ using ApplicationType = int16_t;
         static constexpr StatusCode BACK_PRESSURED = 3;
         static constexpr StatusCode NO_COMPATIBLE_NODE = 4;
 
-        static constexpr StatusCode ARCHITECTURE_NOT_SUPPORTED = 5;
-        static constexpr StatusCode AERON_INITIALIZATION_FAILED = 6;
+        static constexpr StatusCode ARCHITECTURE_NOT_SUPPORTED      = SETUP_ERROR | 1;
+        static constexpr StatusCode AERON_INITIALIZATION_FAILED     = SETUP_ERROR | 2;
 
-        static constexpr StatusCode INVALID_RESOURCE_ID = 8;
-        static constexpr StatusCode INVALID_APP_FOR_MODEL = 9;
-        static constexpr StatusCode MISMATCHED_FEATURE_TYPE = 10;
-        static constexpr StatusCode INVALID_FEEDBACK_LEVEL = 11;
-        static constexpr StatusCode MISSING_CREATIVES = 12;
-        static constexpr StatusCode TOO_MANY_CREATIVES = 13;
-        static constexpr StatusCode MISPLACED_CREATIVE_ID = 14;
+        static constexpr StatusCode INVALID_RESOURCE_ID             = SETUP_ERROR | 3;
+        static constexpr StatusCode INVALID_APP_FOR_MODEL           = SETUP_ERROR | 4;
+        static constexpr StatusCode MISMATCHED_FEATURE_TYPE         = SETUP_ERROR | 5;
+        static constexpr StatusCode INVALID_FEEDBACK_LEVEL          = SETUP_ERROR | 6;
+        static constexpr StatusCode MISSING_CREATIVES               = SETUP_ERROR | 7;
+        static constexpr StatusCode TOO_MANY_CREATIVES              = SETUP_ERROR | 8;
+        static constexpr StatusCode MISPLACED_CREATIVE_ID           = SETUP_ERROR | 9;
 
-        static constexpr StatusCode NO_API_RESPONSE = 15;
-        static constexpr StatusCode FORBIDDEN = 16;
-        static constexpr StatusCode UNKNOWN_RESOURCE = 17;
-        static constexpr StatusCode OTHER_FETCH_ERROR = 18;
-        static constexpr StatusCode INVALID_CLUSTER_DESCRIPTION = 19;
-        static constexpr StatusCode SCHEMA_UNAVAILABLE = 21;
+        static constexpr StatusCode NO_API_RESPONSE                 = SETUP_ERROR | 10;
+        static constexpr StatusCode FORBIDDEN                       = SETUP_ERROR | 11;
+        static constexpr StatusCode UNKNOWN_RESOURCE                = SETUP_ERROR | 12;
+        static constexpr StatusCode OTHER_FETCH_ERROR               = SETUP_ERROR | 13;
+        static constexpr StatusCode INVALID_CLUSTER_DESCRIPTION     = SETUP_ERROR | 14;
+        static constexpr StatusCode SCHEMA_UNAVAILABLE              = SETUP_ERROR | 15;
 
         static constexpr ApplicationType APP_BID_SHADING = 0;
         static constexpr ApplicationType APP_PROBABILITY = 1;
