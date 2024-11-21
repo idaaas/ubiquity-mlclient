@@ -96,6 +96,7 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
             if (__glibc_unlikely(MESSAGE_TYPE_PREDICTION != this->message.common.type
                         || applicationId >= static_cast<uint16_t>(Ubiquity::APP_UNDEFINED)
                         || expectedInputMessageSize[applicationId] != this->offset)) {
+                DBG("Warning : invalid message received in poll.")
                 break;
             } else {
                 this->statusCode = Ubiquity::SUCCESS;
@@ -110,9 +111,11 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
 Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::predict(void) noexcept {
     if (__glibc_unlikely(Ubiquity::APP_LINE_ITEM == this->message.common.applicationId
                 && 0 == this->message.lineItemQuery.numCreative)) {
+        DBG("Error : Missing creative during call to predict for line-item.")
         this->statusCode = Ubiquity::MISSING_CREATIVES;
     }
     if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
+        DBG("Warning : predict skipped due to previous blocking error.")
         return this->statusCode;
     }
     this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
@@ -189,10 +192,12 @@ void Ubiquity::ClientHandle::Impl::putCreative(
     static constexpr int32_t MAX_CREATIVE_COUNT = 20;
 
     if (__glibc_unlikely(this->featureOrdinal > 0)) {
+        DBG("Error : Creative ID was put using putCreative *after* calling a feature putting function like putNumeric.")
         this->statusCode = Ubiquity::MISPLACED_CREATIVE_ID;
         return;
     }
     if (__glibc_unlikely(MAX_CREATIVE_COUNT <= this->message.lineItemQuery.numCreative)) {
+        DBG("Error : Too many creative IDs were put using putCreative (numCreative = " << this->message.lineItemQuery.numCreative << ").")
         this->statusCode = Ubiquity::TOO_MANY_CREATIVES;
         return;
     }
@@ -232,6 +237,7 @@ inline Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::getSchema(
     auto schemaCache = atomic_load(&ClusterClient::s_schemaCache);
     auto it = schemaCache->find(modelId);
     if (__glibc_unlikely(schemaCache->end() == it)) {
+        DBG("Warning : could not load schema for model " << modelId << " from cache.")
         return Ubiquity::SCHEMA_UNAVAILABLE;
     }
     this->schema = it->second;
@@ -249,6 +255,7 @@ inline void Ubiquity::ClientHandle::Impl::prepareCommonHeader(
 {
     this->statusCode = this->getSchema(modelId);
     if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
+        DBG("Warning : prepareCommonHeader aborted because there was an error while getting the schema.")
         return;
     }
     if (__glibc_unlikely(applicationId != this->schema.applicationId)) {
@@ -282,6 +289,7 @@ inline void Ubiquity::ClientHandle::Impl::prepareQueryHeader(
 
     uint64_t modelId;
     if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
+        DBG("Error : prepareQueryHeader aborted due to invalid model ID provided to a start method like startProbability.")
         this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
         return;
     }
@@ -333,6 +341,7 @@ void Ubiquity::ClientHandle::Impl::prepareFeedbackHeader(
     prepareCommonHeader(modelId, queryId, applicationId, MessageType::FEEDBACK);
     this->message.common.reserved.feedbackLevel = feedbackLevel;
     if (__glibc_unlikely(feedbackLevel + 1u >= this->schema.feedbackDelays.size())) {
+        DBG("Error : prepareFeedbackHeader aborted due to invalid feedback level providee to a method train.")
         this->statusCode = Ubiquity::INVALID_FEEDBACK_LEVEL;
         return;
     }
@@ -353,16 +362,19 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
     };
 
     if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
+        DBG("Error : train aborted due to previous blocking error.")
         return this->statusCode;
     }
 
     uint64_t modelId;
     if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
+        DBG("Error : train aborted due to invalid model ID provided.")
         this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
         return this->statusCode;
     }
     this->statusCode = this->getSchema(modelId);
     if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
+        DBG("Warning : train aborted because there was an error while getting the schema.")
         return this->statusCode;
     }
     const Ubiquity::ApplicationType feedbackType = this->schema.applicationId;
