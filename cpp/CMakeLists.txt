@@ -52,6 +52,8 @@ FetchContent_MakeAvailable(aeron json xxHash)
 # The compiled library code is here
 add_subdirectory(src)
 
+add_subdirectory(packaging)
+
 if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR MODERN_CMAKE_BUILD_TESTING)
    AND BUILD_TESTING)
   add_subdirectory(tests)

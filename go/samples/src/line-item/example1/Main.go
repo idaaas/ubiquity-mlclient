@@ -1,14 +1,11 @@
 package main
 
-//#cgo LDFLAGS: ./lib/Ubiquity/ubiquityclient.so -Wl,-rpath=./lib/Ubiquity/
-import "C"
-
 import (
 	"fmt"
 	"math/rand"
 	"os"
 	"runtime"
-	"samples/lib/Ubiquity"
+	"samples/Ubiquity"
 	"samples/src/common"
 	"time"
 )
@@ -48,11 +45,18 @@ func example1() int {
 	defer clientHandle.Close()
 
 	// 3. Prepare data and feedback streams
+
+	// unzip datasets
+	const feedbackPath string = "./datasets/feedback.csv"
+	const bidRequestPath string = "./datasets/features.csv"
+
+	common.Unzip(bidRequestPath+".gz", bidRequestPath)
+	common.Unzip(feedbackPath+".gz", feedbackPath)
+
 	const maxCPM float32 = 2.0
 	creativeIds := [5]int64{1, 2, 3, 4, 5} // a list of all creatives ids used when creating the model
+
 	// load BidRequest data and Feedback data from files
-	const feedbackPath string = "./rsc/datasets/feedback.csv"
-	const bidRequestPath string = "./rsc/datasets/features.csv"
 	bidRequests := common.LoadBidRequests(bidRequestPath)
 	feedbacks := common.LoadFeedbacks(feedbackPath)
 	feedbackHashMap := make(map[int64]common.Feedback)
@@ -82,7 +86,13 @@ func example1() int {
 		clientHandle.StartLineItem(modelId, queryId, maxCPM)
 		// fill in a random subset of eligible creatives
 		rand.Shuffle(len(creativeIds), func(i int, j int) { creativeIds[i], creativeIds[j] = creativeIds[j], creativeIds[i] })
-		numEligibleCreatives := max(1, rand.Intn(len(creativeIds))) // at least one creative
+		n := rand.Intn(len(creativeIds))
+		// at least one creative
+		numEligibleCreatives := 1
+		if n > 1 {
+			numEligibleCreatives = n
+		}
+
 		for i := 0; i < numEligibleCreatives; i++ {
 			clientHandle.PutCreative(creativeIds[i])
 		}
@@ -127,7 +137,7 @@ func example1() int {
 			statusCode = clientHandle.Poll()
 		}
 		if statusCode != Ubiquity.SUCCESS {
-			continue;
+			continue
 		}
 
 		conversionProbability := clientHandle.GetProbability()
