@@ -55,27 +55,27 @@ set_property(SOURCE ubiquityclient.i PROPERTY CPLUSPLUS ON)
 #set_property(SOURCE UbiquityClient.i PROPERTY COMPILE_OPTIONS
 #  -package ai.ubiquity)
 
-swig_add_library(ubiquityclient
-  TYPE SHARED
+swig_add_library(libubiquityclientwrapper
+  TYPE STATIC
   LANGUAGE go
   OUTPUT_DIR output
   OUTFILE_DIR .
   SOURCES ubiquityclient.i)
 
-set_target_properties(ubiquityclient PROPERTIES
+set_target_properties(libubiquityclientwrapper PROPERTIES
   SWIG_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
   SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON
   POSITION_INDEPENDENT_CODE ON)
 
 # required by SWIG 4.2 to compile: https://www.swig.org/Doc4.2/Java.html#Java
-target_compile_options(ubiquityclient PRIVATE -fno-strict-aliasing)
+target_compile_options(libubiquityclientwrapper PRIVATE -fno-strict-aliasing)
 
-target_link_libraries(ubiquityclient PRIVATE ubiquity_client_static curl bsd uuid)
+target_link_libraries(libubiquityclientwrapper PRIVATE ubiquity_client_static curl bsd uuid)
 
 # add custom code to complete the binding
 add_custom_command(
-  TARGET ubiquityclient POST_BUILD
+  TARGET libubiquityclientwrapper POST_BUILD
+  COMMAND chmod a+x ${CMAKE_CURRENT_SOURCE_DIR}/postbuild.sh
   # Swig 4.2.1 `%proxycode` directive varies in functionnality depending on the language, doing it by hand
-  COMMAND grep -q 'import \"math\"' ${CMAKE_CURRENT_BINARY_DIR}/output/Ubiquity.go || sed -i '/import \"C\"/a import \"math\"' ${CMAKE_CURRENT_BINARY_DIR}/output/Ubiquity.go
-  COMMAND cat ${CMAKE_CURRENT_SOURCE_DIR}/proxycode.go >>${CMAKE_CURRENT_BINARY_DIR}/output/Ubiquity.go
+  COMMAND /bin/bash ${CMAKE_CURRENT_SOURCE_DIR}/postbuild.sh ${CMAKE_CURRENT_BINARY_DIR}/output/Ubiquity.go ${CMAKE_CURRENT_SOURCE_DIR}/proxycode.go
 )

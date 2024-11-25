@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Import the target from the installation
+include("${CMAKE_CURRENT_LIST_DIR}/UbiquityTargets.cmake")
+
+set(Ubiquity_FOUND TRUE)
