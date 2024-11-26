@@ -28,6 +28,10 @@ jobs:
       run: earthly --ci --no-cache +java-publish --os=ubuntu:16.04 --release=17 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Ubuntu 16.04 go 1.16
+      run: earthly --ci +go-publish --os=ubuntu:16.04 --token=${GO_REPO_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GO_REPO_TOKEN: ${{ secrets.GO_REPO_TOKEN }}
   build-ubuntu-focal:
     runs-on: ubuntu-latest
     steps:
@@ -47,6 +51,10 @@ jobs:
       run: earthly --ci --no-cache +java-publish --os=ubuntu:20.04 --release=17 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Ubuntu 20.04 go 1.16
+      run: earthly --ci +go-publish --os=ubuntu:20.04 --token=${GO_REPO_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GO_REPO_TOKEN: ${{ secrets.GO_REPO_TOKEN }}
   build-ubuntu-jammy:
     runs-on: ubuntu-latest
     steps:
@@ -66,6 +74,10 @@ jobs:
       run: earthly --ci --no-cache +java-publish --os=ubuntu:22.04 --release=17 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Ubuntu 22.04 go 1.16
+      run: earthly --ci +go-publish --os=ubuntu:22.04 --token=${GO_REPO_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GO_REPO_TOKEN: ${{ secrets.GO_REPO_TOKEN }}
   build-ubuntu-noble:
     runs-on: ubuntu-latest
     steps:
@@ -85,3 +97,7 @@ jobs:
       run: earthly --ci --no-cache +java-publish --os=ubuntu:24.04 --release=17 --token=${GITHUB_TOKEN} --version=${GITHUB_REF_NAME}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Ubuntu 24.04 go 1.16
+      run: earthly --ci +go-publish --os=ubuntu:24.04 --token=${GO_REPO_TOKEN} --version=${GITHUB_REF_NAME}
+      env:
+        GO_REPO_TOKEN: ${{ secrets.GO_REPO_TOKEN }}
