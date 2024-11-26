@@ -34,7 +34,7 @@ java-bindings:
   FROM +java-swig-image
   COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY java/swig .
-  COPY java/settings.xml .
+  COPY java/publish/settings.xml .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
   RUN cmake --build build --parallel $(nproc) --target jniUbiquityClient
   RUN mkdir -p jar-root/NATIVE && cp build/libjniUbiquityClient.so jar-root/NATIVE
@@ -83,15 +83,33 @@ java-examples:
   ENTRYPOINT ["java","-cp","main.jar"]
   SAVE IMAGE java-examples:latest
 
+go-publish:
+  FROM +go-bindings
+  ARG version
+  ARG token
+  ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
+  COPY +go-bindings/libubiquity_client_static.a package/Ubiquity/
+  COPY +go-bindings/libubiquityclientwrapper.a package/Ubiquity/
+  COPY +go-bindings/Ubiquity.go package/Ubiquity/
+  COPY +go-bindings/pushToPackagePublicRepo.sh .
+  COPY +go-bindings/README.md package/
+  RUN apt-get -y update && apt-get -y install git \
+      && cd package/Ubiquity && go mod init github.com/idaaas/ubiquity-go-mlclient/Ubiquity && go mod tidy && cd ../.. \
+      && chmod a+x pushToPackagePublicRepo.sh && ./pushToPackagePublicRepo.sh ${token} package/ ${OS_NAME}-${version} ${OS_NAME}
+
+
 go-bindings:
   FROM +go-swig-image
   COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY go/swig .
+  COPY go/publish/* .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build \
       && cmake --build build --parallel $(nproc) --target libubiquityclientwrapper
   SAVE ARTIFACT build/output/Ubiquity.go AS LOCAL local-output/go/Ubiquity/
   SAVE ARTIFACT build/libubiquityclientwrapper.a AS LOCAL local-output/go/Ubiquity/
   SAVE ARTIFACT libubiquity_client_static.a AS LOCAL local-output/go/Ubiquity/
+  SAVE ARTIFACT pushToPackagePublicRepo.sh
+  SAVE ARTIFACT README.md
 
 go-examples-build:
   FROM +go-image
