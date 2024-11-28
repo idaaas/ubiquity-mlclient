@@ -27,3 +27,5 @@ Java examples are provided in a docker to quickly run scenarios:
 earthly +java-examples --os=ubuntu:22.04
 docker run java-examples ai.ubiquity.samples.lineitem.Example1 API_TOKEN CLUSTER_ID
 ```
+
+## Use release
