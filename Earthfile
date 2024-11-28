@@ -39,8 +39,8 @@ java-bindings:
   RUN cmake --build build --parallel $(nproc) --target jniUbiquityClient
   RUN mkdir -p jar-root/NATIVE && cp build/libjniUbiquityClient.so jar-root/NATIVE
   RUN javac -Werror -Xlint -d jar-root build/output/*.java $([ -z "$release" ] || echo --release $release)
-  RUN jar cf ubiquity-client.jar -C jar-root .
-  SAVE ARTIFACT ubiquity-client.jar AS LOCAL local-output/java/
+  RUN jar cf ubiquity-mlclient.jar -C jar-root .
+  SAVE ARTIFACT ubiquity-mlclient.jar AS LOCAL local-output/java/
   SAVE ARTIFACT settings.xml
 
 java-publish:
@@ -51,7 +51,7 @@ java-publish:
   ARG repo
   ARG snap
   ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
-  COPY +java-bindings/ubiquity-client.jar .
+  COPY +java-bindings/ubiquity-mlclient.jar .
   COPY +java-bindings/settings.xml .
   RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz \
       && tar -xzvf apache-maven-3.9.9-bin.tar.gz \
@@ -64,17 +64,17 @@ java-publish:
       && echo $SNAP \
       && mvn deploy:deploy-file \
       -DgroupId=com.idaaas.${OS_NAME}-java-${release} \
-      -DartifactId=ubiquity-client \
+      -DartifactId=ubiquity-mlclient \
       -Dversion=${version}${SNAP} \
       -Dpackaging=jar \
-      -Dfile=./ubiquity-client.jar \
+      -Dfile=./ubiquity-mlclient.jar \
       -DrepositoryId=github \
       -Durl=https://maven.pkg.github.com/idaaas/${repo} \
       -Dsettings.token=${token}
 
 java-examples-build:
   FROM +sbt-image
-  COPY +java-bindings/ubiquity-client.jar .
+  COPY +java-bindings/ubiquity-mlclient.jar .
   COPY java/sbt .
   RUN sbt assembly
   SAVE ARTIFACT target/main.jar
@@ -137,6 +137,26 @@ go-examples:
   COPY +go-examples-build/bin/ .
   COPY +go-examples-build/datasets/* ./datasets/
   SAVE IMAGE go-examples:latest
+
+python-bindings:
+  FROM +python-swig-image
+  COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
+  COPY python/swig .
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build \
+      && cmake --build build --parallel $(nproc) --target libUbiquityClientWrapper
+  SAVE ARTIFACT build/output/Ubiquity.py AS LOCAL local-output/python/Ubiquity/
+  SAVE ARTIFACT build/_libUbiquityClientWrapper.so AS LOCAL local-output/python/Ubiquity/
+
+python-examples:
+  FROM +python-image
+  RUN wget -q https://bootstrap.pypa.io/get-pip.py && python3 get-pip.py \
+    && pip install requests
+  COPY +python-bindings/Ubiquity.py Ubiquity/
+  COPY +python-bindings/_libUbiquityClientWrapper.so Ubiquity/
+  COPY python/samples .
+  COPY datasets datasets
+  ENTRYPOINT ["python3","-m"]
+  SAVE IMAGE python-examples:latest
 
 base-image:
   LET supportedOs=ubuntu:16.04 ubuntu:20.04 ubuntu:22.04 ubuntu:24.04
@@ -213,10 +233,25 @@ JAVA_INSTALL:
     ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
   END
 
+python-swig-image:
+  FROM +cmake-image
+  DO +PYTHON_INSTALL
+  DO +SWIG_INSTALL
+
+PYTHON_INSTALL:
+  FUNCTION
+  IF echo $os | grep -q ubuntu
+      RUN apt-get install --no-install-recommends -qq python3-dev python3 && apt-get clean
+  END
+
 go-swig-image:
   FROM +cmake-image
   DO +GO_INSTALL
   DO +SWIG_INSTALL
+
+python-image:
+  FROM +base-image
+  DO +PYTHON_INSTALL
 
 go-image:
   FROM +base-image
@@ -244,4 +279,3 @@ SWIG_INSTALL:
     GIT CLONE --branch v4.3.0 https://github.com/swig/swig /swig
     RUN cd /swig && ./autogen.sh && ./configure && make -j $(nproc) && make install && rm -rf /swig
   END
-
