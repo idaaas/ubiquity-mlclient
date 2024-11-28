@@ -5,7 +5,7 @@ ThisBuild / organization := "ai.ubiquity"
 libraryDependencies += "com.squareup.okhttp3" % "okhttp" % "4.12.0"
 libraryDependencies += "org.json" % "json" % "20231013"
 libraryDependencies += "com.opencsv" % "opencsv" % "5.9"
-Compile / unmanagedJars += baseDirectory.value / "ubiquity-client.jar"
+Compile / unmanagedJars += baseDirectory.value / "ubiquity-mlclient.jar"
 
 // assembly settings
 // no cross-build for the fat jar. If you disable this it will be set in target/scala_something

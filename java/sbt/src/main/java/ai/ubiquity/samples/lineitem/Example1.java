@@ -90,6 +90,8 @@ public class Example1 {
             clientHandle.putBoolean(request.getImpInstl() ? (byte)1 : (byte)0);
             clientHandle.putNominal(request.getAppPageCat());
 
+            System.out.printf("Client handle status: %s%n", clientHandle.getStatusString());
+
             // 4.2. send the prediction request
             if(clientHandle.predict() == Ubiquity.SUCCESS)
                 count ++;
