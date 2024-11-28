@@ -48,6 +48,8 @@ java-publish:
   ARG token
   ARG release
   ARG version
+  ARG repo
+  ARG snap
   ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
   COPY +java-bindings/ubiquity-client.jar .
   COPY +java-bindings/settings.xml .
@@ -58,14 +60,16 @@ java-publish:
   RUN mvn -v
   RUN mkdir ~/.m2 && mv settings.xml ~/.m2/
   RUN echo $(ls ~/.m2)
-  RUN mvn deploy:deploy-file \
-      -DgroupId=com.idaaas \
-      -DartifactId=ubiquity-client-${OS_NAME}-java-${release} \
-      -Dversion=${version} \
+  RUN SNAP=$(if [ "$snap" = "true" ]; then echo "-SNAPSHOT"; else echo ""; fi) \
+      && echo $SNAP \
+      && mvn deploy:deploy-file \
+      -DgroupId=com.idaaas.${OS_NAME}-java-${release} \
+      -DartifactId=ubiquity-client \
+      -Dversion=${version}${SNAP} \
       -Dpackaging=jar \
       -Dfile=./ubiquity-client.jar \
       -DrepositoryId=github \
-      -Durl=https://maven.pkg.github.com/idaaas/ubiquity-mlclient-private \
+      -Durl=https://maven.pkg.github.com/idaaas/${repo} \
       -Dsettings.token=${token}
 
 java-examples-build:
@@ -117,7 +121,8 @@ go-examples-build:
   COPY +go-bindings/libubiquityclientwrapper.a Ubiquity/
   COPY +go-bindings/libubiquity_client_static.a Ubiquity/
   COPY go/samples .
-  RUN apt-get install --no-install-recommends -qq gzip g++
+  COPY datasets datasets
+  RUN apt-get install --no-install-recommends -qq g++
   RUN SUBDIRS=$(find ./src -maxdepth 2 -mindepth 2 -type d -printf '%P\n') && \
       for dir in $SUBDIRS; \
       do \
@@ -125,10 +130,12 @@ go-examples-build:
         go build -o bin/$dir src/$dir/Main.go; \
       done
   SAVE ARTIFACT bin
+  SAVE ARTIFACT ./datasets
 
 go-examples:
   FROM +base-image
   COPY +go-examples-build/bin/ .
+  COPY +go-examples-build/datasets/* ./datasets/
   SAVE IMAGE go-examples:latest
 
 base-image:
