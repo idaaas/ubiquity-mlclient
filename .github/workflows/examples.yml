@@ -1,0 +1,43 @@
+name: Examples build & publish
+
+on:
+    workflow_call:
+      inputs:
+        new-tag:
+          description: "new version value"
+          required: true
+          type: string
+        release:
+          description: "is it a release build ? (value = true/false)"
+          required: true
+          type: string
+        private:
+          description: "is built on private repo ? (true/false)"
+          required: false
+          default: "false"
+          type: string
+
+jobs:
+    build-docker-examples:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Populate private prefix value
+          run: |
+            PRIVATE_PREFIX=$(if [ "${{ inputs.private }}" = "true" ]; then echo "private-"; else echo ""; fi)
+            echo "PRIVATE_PREFIX=$PRIVATE_PREFIX" >> $GITHUB_ENV
+            DEV_SUFFIX=$(if [ "${{ inputs.release }}" = "true" ]; then echo ""; else echo "-dev"; fi)
+            echo "DEV_SUFFIX=$DEV_SUFFIX" >> $GITHUB_ENV
+        - name: Login to github registry
+          run: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+        - name: Build & Push Examples
+          run: earthly --push --ci +build-examples --os=ubuntu:24.04 --release=17 --imagePrefix=ghcr.io/idaaas/${{ env.PRIVATE_PREFIX }} --imageVersion=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }}
+          if: inputs.release == 'true'
+        - name: Build & Push Examples
+          run: earthly --push --ci +build-examples --os=ubuntu:24.04 --release=17 --imagePrefix=ghcr.io/idaaas/ --imageVersion=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }} --latest=true
+          if: inputs.release == 'false'

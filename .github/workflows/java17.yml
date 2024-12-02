@@ -1,0 +1,83 @@
+name: Java 17 Build And Publish
+
+on:
+    workflow_call:
+      inputs:
+        repo-name:
+          description: "Name of repository"
+          required: true
+          type: string
+        new-tag:
+          description: "new version value"
+          required: true
+          type: string
+        snap:
+          description: "build snapshot"
+          required: true
+          type: string
+        private:
+          description: "is built on private repo ? (true/false)"
+          required: false
+          default: "false"
+          type: string
+
+jobs:
+    build-ubuntu-xenial:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Ubuntu 16.04 java 17
+          run: earthly --ci --no-cache +java-publish --os=ubuntu:16.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
+    
+    build-ubuntu-focal:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 20.04 java 17
+          run: earthly --ci --no-cache +java-publish --os=ubuntu:20.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
+
+    build-ubuntu-jammy:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 22.04 java 17
+          run: earthly --ci --no-cache +java-publish --os=ubuntu:22.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
+
+    build-ubuntu-noble:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 24.04 java 17
+          run: earthly --ci --no-cache +java-publish --os=ubuntu:24.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
+
+
+            

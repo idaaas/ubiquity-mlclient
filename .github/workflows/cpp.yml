@@ -1,0 +1,91 @@
+name: Cpp Build And Publish
+
+on:
+    workflow_call:
+      inputs:
+        release:
+          description: "is a release built ? (true/false)"
+          required: true
+          type: string
+  
+
+jobs:
+    build-ubuntu-xenial:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Ubuntu 16.04
+          run: earthly --push --no-cache +cpp-bindings --os=ubuntu:16.04
+        - name: Upload artifact
+          uses: actions/upload-artifact@v3
+          with:
+            name: ubiquity-mlclient-ubuntu-16.04
+            path: local-output/cpp
+    
+    build-ubuntu-focal:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 20.04
+          run: earthly --push --no-cache +cpp-bindings --os=ubuntu:20.04
+        - name: Upload artifact
+          uses: actions/upload-artifact@v3
+          with:
+            name: ubiquity-mlclient-ubuntu-20.04
+            path: local-output/cpp
+
+    build-ubuntu-jammy:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 22.04
+          run: earthly --push --no-cache +cpp-bindings --os=ubuntu:22.04
+        - name: Upload artifact
+          uses: actions/upload-artifact@v3
+          with:
+            name: ubiquity-mlclient-ubuntu-22.04
+            path: local-output/cpp
+
+    build-ubuntu-noble:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 24.04
+          run: earthly --push --no-cache +cpp-bindings --os=ubuntu:24.04
+        - name: Upload artifact
+          uses: actions/upload-artifact@v3
+          with:
+            name: ubiquity-mlclient-ubuntu-24.04
+            path: local-output/cpp
+
+
+            

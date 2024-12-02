@@ -5,6 +5,12 @@ ARG --global --required os
 ARG --global type=Release
 ARG --global disableIdChecks=OFF
 
+# to publish artefacts
+ARG --global imagePrefix
+ARG --global imageVersion=latest
+ARG --global latest=false
+ARG --global private=true
+
 
 all:
   BUILD +cpp-bindings
@@ -12,6 +18,11 @@ all:
   BUILD +go-bindings
   BUILD +java-examples-build
   BUILD +go-examples-build
+
+build-examples:
+  BUILD +java-examples
+  BUILD +go-examples
+  BUILD +python-examples
 
 build:
   FROM +cmake-image
@@ -34,14 +45,12 @@ java-bindings:
   FROM +java-swig-image
   COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY java/swig .
-  COPY java/publish/settings.xml .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
   RUN cmake --build build --parallel $(nproc) --target jniUbiquityClient
   RUN mkdir -p jar-root/NATIVE && cp build/libjniUbiquityClient.so jar-root/NATIVE
   RUN javac -Werror -Xlint -d jar-root build/output/*.java $([ -z "$release" ] || echo --release $release)
   RUN jar cf ubiquity-mlclient.jar -C jar-root .
   SAVE ARTIFACT ubiquity-mlclient.jar AS LOCAL local-output/java/
-  SAVE ARTIFACT settings.xml
 
 java-publish:
   FROM +sbt-image
@@ -52,18 +61,18 @@ java-publish:
   ARG snap
   ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
   COPY +java-bindings/ubiquity-mlclient.jar .
-  COPY +java-bindings/settings.xml .
+  COPY java/publish/settings.xml .
   RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz \
       && tar -xzvf apache-maven-3.9.9-bin.tar.gz \
       && mv apache-maven-3.9.9 /opt/
   ENV PATH=/opt/apache-maven-3.9.9/bin:$PATH
-  RUN mvn -v
   RUN mkdir ~/.m2 && mv settings.xml ~/.m2/
-  RUN echo $(ls ~/.m2)
+  #TODO : refacto this to make it clearer
   RUN SNAP=$(if [ "$snap" = "true" ]; then echo "-SNAPSHOT"; else echo ""; fi) \
-      && echo $SNAP \
+      PRIVATE_GROUP=$(if [ "$private" = "true" ]; then echo "private."; else echo ""; fi) \
+      && echo $PRIVATE_GROUP \
       && mvn deploy:deploy-file \
-      -DgroupId=com.idaaas.${OS_NAME}-java-${release} \
+      -DgroupId=com.idaaas.${PRIVATE_GROUP}${OS_NAME}-java-${release} \
       -DartifactId=ubiquity-mlclient \
       -Dversion=${version}${SNAP} \
       -Dpackaging=jar \
@@ -85,7 +94,10 @@ java-examples:
   COPY +java-examples-build/main.jar .
   COPY datasets datasets
   ENTRYPOINT ["java","-cp","main.jar"]
-  SAVE IMAGE java-examples:latest
+  SAVE IMAGE --push ${imagePrefix}java-examples:${imageVersion}
+  IF [ "$latest" = "true" ]
+    SAVE IMAGE --push ${imagePrefix}java-examples:latest
+  END
 
 go-publish:
   FROM +go-bindings
@@ -95,25 +107,21 @@ go-publish:
   COPY +go-bindings/libubiquity_client_static.a package/Ubiquity/
   COPY +go-bindings/libubiquityclientwrapper.a package/Ubiquity/
   COPY +go-bindings/Ubiquity.go package/Ubiquity/
-  COPY +go-bindings/pushToPackagePublicRepo.sh .
-  COPY +go-bindings/README.md package/
+  COPY go/publish/pushToPackagePublicRepo.sh .
+  COPY go/publish/README.md ./package
   RUN apt-get -y update && apt-get -y install git \
       && cd package/Ubiquity && go mod init github.com/idaaas/ubiquity-go-mlclient/Ubiquity && go mod tidy && cd ../.. \
       && chmod a+x pushToPackagePublicRepo.sh && ./pushToPackagePublicRepo.sh ${token} package/ ${OS_NAME}-${version} ${OS_NAME}
-
 
 go-bindings:
   FROM +go-swig-image
   COPY +build/libubiquity_client_static.a +build/Ubiquity.hpp .
   COPY go/swig .
-  COPY go/publish/* .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build \
       && cmake --build build --parallel $(nproc) --target libubiquityclientwrapper
   SAVE ARTIFACT build/output/Ubiquity.go AS LOCAL local-output/go/Ubiquity/
   SAVE ARTIFACT build/libubiquityclientwrapper.a AS LOCAL local-output/go/Ubiquity/
   SAVE ARTIFACT libubiquity_client_static.a AS LOCAL local-output/go/Ubiquity/
-  SAVE ARTIFACT pushToPackagePublicRepo.sh
-  SAVE ARTIFACT README.md
 
 go-examples-build:
   FROM +go-image
@@ -136,7 +144,10 @@ go-examples:
   FROM +base-image
   COPY +go-examples-build/bin/ .
   COPY +go-examples-build/datasets/* ./datasets/
-  SAVE IMAGE go-examples:latest
+  SAVE IMAGE --push ${imagePrefix}go-examples:${imageVersion}
+  IF [ "$latest" = "true" ]
+    SAVE IMAGE --push ${imagePrefix}go-examples:latest
+  END
 
 python-bindings:
   FROM +python-swig-image
@@ -149,14 +160,22 @@ python-bindings:
 
 python-examples:
   FROM +python-image
-  RUN wget -q https://bootstrap.pypa.io/get-pip.py && python3 get-pip.py \
-    && pip install requests
+  IF [ "$os" = "ubuntu:24.04" ]
+    RUN apt-get update && apt-get install -qq --no-install-recommends pipx \
+      && pipx install --include-deps requests
+  ELSE
+    RUN apt-get update && apt-get install -qq --no-install-recommends python3-pip \
+      && pip3 install requests
+  END
   COPY +python-bindings/Ubiquity.py Ubiquity/
   COPY +python-bindings/_libUbiquityClientWrapper.so Ubiquity/
   COPY python/samples .
   COPY datasets datasets
   ENTRYPOINT ["python3","-m"]
-  SAVE IMAGE python-examples:latest
+  SAVE IMAGE --push ${imagePrefix}python-examples:${imageVersion}
+  IF [ "$latest" = "true" ]
+    SAVE IMAGE --push ${imagePrefix}python-examples:latest
+  END
 
 base-image:
   LET supportedOs=ubuntu:16.04 ubuntu:20.04 ubuntu:22.04 ubuntu:24.04

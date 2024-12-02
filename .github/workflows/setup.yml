@@ -1,0 +1,81 @@
+name: Global Setup
+
+on:
+    push:
+      tags:
+        - '*'
+      branches:
+        - develop*
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      # Expose new tag for other jobs
+      NEW_TAG: ${{ env.NEW_TAG }}
+      SNAP: ${{ env.SNAP }}
+      RELEASE: ${{ env.RELEASE }}
+      PRIVATE: ${{ env.PRIVATE }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+    # Get latest tag and update minor version
+    - uses: actions-ecosystem/action-get-latest-tag@v1
+      id: get-latest-tag
+    - uses: actions-ecosystem/action-bump-semver@v1
+      id: bump-semver
+      with:
+        current_version: ${{ steps.get-latest-tag.outputs.tag }}
+        level: patch 
+    - name: Setup variables
+      id: setup-variables
+      run: |
+          if [[ "${{ github.event.repository.name }}" == "ubiquity-mlclient" ]]; then
+            echo "PRIVATE=false" >> $GITHUB_ENV
+          else
+            echo "PRIVATE=true" >> $GITHUB_ENV
+          fi
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "NEW_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+            echo "SNAP=false" >> $GITHUB_ENV
+            echo "RELEASE=false" >> $GITHUB_ENV
+          else
+            echo "NEW_TAG=${{ steps.bump-semver.outputs.new_version }}" >> $GITHUB_ENV
+            echo "SNAP=true" >> $GITHUB_ENV
+            echo "RELEASE=true" >> $GITHUB_ENV
+          fi
+  deploy-cpp:
+    needs: setup
+    uses: ./.github/workflows/cpp.yml
+    with:
+      release: ${{ needs.setup.outputs.RELEASE }}
+  deploy-java8:
+    needs: setup
+    uses: ./.github/workflows/java8.yml
+    with:
+      repo-name: ${{ github.event.repository.name }}
+      new-tag: ${{ needs.setup.outputs.NEW_TAG }}
+      snap: ${{ needs.setup.outputs.RELEASE }}
+      private: ${{ needs.setup.outputs.PRIVATE }}
+  deploy-java17:
+    needs: setup
+    uses: ./.github/workflows/java17.yml
+    with:
+      repo-name: ${{ github.event.repository.name }}
+      new-tag: ${{ needs.setup.outputs.NEW_TAG }}
+      snap: ${{ needs.setup.outputs.RELEASE }}
+      private: ${{ needs.setup.outputs.PRIVATE }}
+  deploy-go:
+    needs: setup
+    uses: ./.github/workflows/go.yml
+    with:
+      new-tag: ${{ needs.setup.outputs.NEW_TAG }}
+      release: ${{ needs.setup.outputs.RELEASE }}
+  deploy-examples:
+    needs: setup
+    uses: ./.github/workflows/examples.yml
+    with:
+      new-tag: ${{ needs.setup.outputs.NEW_TAG }}
+      release: ${{ needs.setup.outputs.RELEASE }}
+      private: ${{ needs.setup.outputs.PRIVATE }}
