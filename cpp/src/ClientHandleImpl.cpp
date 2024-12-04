@@ -10,6 +10,10 @@ Ubiquity::ClientHandle::Impl::Impl(void) {
     this->atomicBuffer.wrap(this->message.buffer, ClusterClient::MAXIMUM_TRANSMISSION_UNIT);
 }
 
+Ubiquity::ClientHandle::Impl::Impl(const Ubiquity::StatusCode statusCode) {
+    this->statusCode = statusCode;
+}
+
 Ubiquity::ClientHandle::Impl::~Impl(void) {
 }
 

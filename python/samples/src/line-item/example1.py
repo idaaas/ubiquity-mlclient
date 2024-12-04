@@ -4,6 +4,7 @@ import itertools
 from datetime import datetime, timedelta
 import json
 
+import requests
 from Ubiquity import Ubiquity
 from src.utils import apiUtils
 from src.utils import unzip as u

@@ -8,6 +8,7 @@
 class Ubiquity::ClientHandle::Impl {
     public:
         Impl(void);
+        Impl(const Ubiquity::StatusCode);
         ~Impl(void);
         Ubiquity::StatusCode getStatusCode(void) noexcept;
         const char *getStatusString(void) noexcept;

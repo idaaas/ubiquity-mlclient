@@ -177,6 +177,19 @@ python-examples:
     SAVE IMAGE --push ${imagePrefix}python-examples:latest
   END
 
+python-publish:
+  FROM +python-bindings
+  ARG version
+  ARG token
+  ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
+  COPY +python-bindings/_libUbiquityClientWrapper.so +python-bindings/Ubiquity.py package/Ubiquity/
+  COPY python/publish/__init__.py package/Ubiquity/
+  COPY python/publish/setup.cfg python/publish/pyproject.toml python/publish/README.md package/
+  COPY python/publish/pushToPackagePublicRepo.sh .
+  RUN sed -i "s/%%VERSION%%/${version}/g" package/setup.cfg
+  RUN apt-get -y update && apt-get -y install git \
+      && chmod a+x pushToPackagePublicRepo.sh && ./pushToPackagePublicRepo.sh ${token} package/ ${OS_NAME}-${version} ${OS_NAME}
+
 base-image:
   LET supportedOs=ubuntu:16.04 ubuntu:20.04 ubuntu:22.04 ubuntu:24.04
   IF echo $supportedOs | grep -q $os
