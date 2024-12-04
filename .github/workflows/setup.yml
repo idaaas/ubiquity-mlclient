@@ -56,7 +56,7 @@ jobs:
     with:
       repo-name: ${{ github.event.repository.name }}
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
-      snap: ${{ needs.setup.outputs.RELEASE }}
+      snap: ${{ needs.setup.outputs.SNAP }}
       private: ${{ needs.setup.outputs.PRIVATE }}
   deploy-java17:
     needs: setup
@@ -64,7 +64,7 @@ jobs:
     with:
       repo-name: ${{ github.event.repository.name }}
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
-      snap: ${{ needs.setup.outputs.RELEASE }}
+      snap: ${{ needs.setup.outputs.SNAP }}
       private: ${{ needs.setup.outputs.PRIVATE }}
   deploy-go:
     needs: setup
@@ -72,6 +72,16 @@ jobs:
     with:
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
       release: ${{ needs.setup.outputs.RELEASE }}
+    secrets:
+      secret_token: ${{ secrets.GO_REPO_TOKEN }}
+  deploy-python:
+    needs: setup
+    uses: ./.github/workflows/python.yml
+    with:
+      new-tag: ${{ needs.setup.outputs.NEW_TAG }}
+      release: ${{ needs.setup.outputs.RELEASE }}
+    secrets:
+      secret_token: ${{ secrets.GO_REPO_TOKEN }}
   deploy-examples:
     needs: setup
     uses: ./.github/workflows/examples.yml

@@ -657,15 +657,16 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
                 return;
             }
             isGlobalMessage = MessageType::isGlobalMessage[type];
-            if (ctExpectedInputMessageSize[type] != 0) {
-                DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Received " << MessageType::strings[type] << " (" << messageLength << " bytes)");
-                if (MessageType::MODEL_ADD != type) {
-                    hexDump(message->buffer, messageLength);
-                }
-                if (ctExpectedInputMessageSize[type] > messageLength) {
-                    DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Invalid length " << messageLength << " for message type " << MessageType::strings[type]);
-                    return;
-                }
+
+            if (ctExpectedInputMessageSize[type] == 0) return;
+
+            DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Received " << MessageType::strings[type] << " (" << messageLength << " bytes)");
+            if (MessageType::MODEL_ADD != type) {
+                hexDump(message->buffer, messageLength);
+            }
+            if (ctExpectedInputMessageSize[type] > messageLength) {
+                DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Invalid length " << messageLength << " for message type " << MessageType::strings[type]);
+                return;
             }
         };
 

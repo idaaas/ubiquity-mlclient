@@ -23,6 +23,7 @@ build-examples:
   BUILD +java-examples
   BUILD +go-examples
   BUILD +python-examples
+  BUILD +cpp-examples
 
 build:
   FROM +cmake-image
@@ -40,11 +41,17 @@ cpp-bindings:
   COPY --dir +build/* local-output/
   SAVE ARTIFACT local-output AS LOCAL local-output/cpp
 
-cpp-publish:
-  COPY +build/libubiquity_client_static.a ./artefacts/
-  COPY +build/Ubiquity.hpp ./artefacts/
-  RUN tar -cvzf artefacts.tar.gz  ./artefacts
-  SAVE ARTIFACT artefacts.tar.gz AS LOCAL local-output/cpp/
+cpp-examples:
+  FROM +cmake-image
+  COPY --keep-ts cpp .git .
+  COPY datasets datasets
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBUILD_AERON_ARCHIVE_API=OFF -DBUILD_SAMPLES=ON -DCMAKE_BUILD_TYPE=$type -DDISABLE_ID_CHECKS=$disableIdChecks -S . -B build
+  RUN cmake --build build --parallel $(nproc) --target line-item
+  RUN cp ./build/samples/line-item .
+  SAVE IMAGE --push ${imagePrefix}cpp-examples:${imageVersion}
+  IF [ "$latest" = "true" ]
+    SAVE IMAGE --push ${imagePrefix}cpp-examples:latest
+  END
 
 java-bindings:
   ARG release
