@@ -37,6 +37,8 @@
   public final static int UNKNOWN_RESOURCE = 0x2000C;
   public final static int OTHER_FETCH_ERROR = 0x2000D;
   public final static int INVALID_CLUSTER_DESCRIPTION = 0x2000E;
+  public final static int SCHEMA_UNAVAILABLE = 0x2000F;
+  public final static int INVALID_HANDLE = 0x20010;
 
   public final static int APP_BID_SHADING = 0;
   public final static int APP_PROBABILITY = 1;

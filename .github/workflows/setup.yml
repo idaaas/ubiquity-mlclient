@@ -39,11 +39,11 @@ jobs:
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "NEW_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
             echo "SNAP=false" >> $GITHUB_ENV
-            echo "RELEASE=false" >> $GITHUB_ENV
+            echo "RELEASE=true" >> $GITHUB_ENV
           else
             echo "NEW_TAG=${{ steps.bump-semver.outputs.new_version }}" >> $GITHUB_ENV
             echo "SNAP=true" >> $GITHUB_ENV
-            echo "RELEASE=true" >> $GITHUB_ENV
+            echo "RELEASE=false" >> $GITHUB_ENV
           fi
   deploy-cpp:
     needs: setup
@@ -56,7 +56,7 @@ jobs:
     with:
       repo-name: ${{ github.event.repository.name }}
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
-      snap: ${{ needs.setup.outputs.RELEASE }}
+      snap: ${{ needs.setup.outputs.SNAP }}
       private: ${{ needs.setup.outputs.PRIVATE }}
   deploy-java17:
     needs: setup
@@ -64,11 +64,17 @@ jobs:
     with:
       repo-name: ${{ github.event.repository.name }}
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
-      snap: ${{ needs.setup.outputs.RELEASE }}
+      snap: ${{ needs.setup.outputs.SNAP }}
       private: ${{ needs.setup.outputs.PRIVATE }}
   deploy-go:
     needs: setup
     uses: ./.github/workflows/go.yml
+    with:
+      new-tag: ${{ needs.setup.outputs.NEW_TAG }}
+      release: ${{ needs.setup.outputs.RELEASE }}
+  deploy-python:
+    needs: setup
+    uses: ./.github/workflows/python.yml
     with:
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
       release: ${{ needs.setup.outputs.RELEASE }}

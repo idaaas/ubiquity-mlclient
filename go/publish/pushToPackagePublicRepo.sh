@@ -110,6 +110,7 @@ then
     # it is already the current branch and it cannot be switched to
     # (it's not needed)
     # If the branch did not exist: it switches (creating) the branch
+	# For ubuntu 16.04 we needed to create a new branch manually
     git switch -c "$TARGET_BRANCH" || true
 fi
 

@@ -28,7 +28,7 @@ jobs:
         - name: Ubuntu 16.04 go 1.16
           run: earthly --ci +go-publish --os=ubuntu:16.04 --token=${{ secrets.GO_REPO_TOKEN }} --version=${{ inputs.new-tag }}
           # trigger go build only if we are tagging main
-          if: inputs.release == 'false'
+          if: inputs.release == 'true'
     
     build-ubuntu-focal:
         runs-on: ubuntu-latest
@@ -43,7 +43,7 @@ jobs:
           run: earthly --version
         - name: Ubuntu 20.04 go 1.16
           run: earthly --ci +go-publish --os=ubuntu:20.04 --token=${{ secrets.GO_REPO_TOKEN }} --version=${{ inputs.new-tag }}
-          if: inputs.release == 'false'
+          if: inputs.release == 'true'
 
     build-ubuntu-jammy:
         runs-on: ubuntu-latest
@@ -58,7 +58,7 @@ jobs:
           run: earthly --version
         - name: Ubuntu 22.04 go 1.16
           run: earthly --ci +go-publish --os=ubuntu:22.04 --token=${{ secrets.GO_REPO_TOKEN }} --version=${{ inputs.new-tag }}
-          if: inputs.release == 'false'
+          if: inputs.release == 'true'
 
     build-ubuntu-noble:
         runs-on: ubuntu-latest
@@ -73,7 +73,7 @@ jobs:
           run: earthly --version
         - name: Ubuntu 24.04 go 1.16
           run: earthly --ci +go-publish --os=ubuntu:24.04 --token=${{ secrets.GO_REPO_TOKEN }} --version=${{ inputs.new-tag }}
-          if: inputs.release == 'false'
+          if: inputs.release == 'true'
 
 
             

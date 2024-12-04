@@ -1,14 +1,18 @@
 #include "ubiquity_client/Ubiquity.hpp"
 #include "ClientHandleImpl.hpp"
+#include "debug.hpp"
+
+static Ubiquity::ClientHandle::Impl s_invalidHandleImpl{ Ubiquity::INVALID_HANDLE };
 
 Ubiquity::ClientHandle::ClientHandle(void) noexcept {
     this->pimpl = new Ubiquity::ClientHandle::Impl();
 }
 
 void Ubiquity::ClientHandle::close(void) noexcept {
-    if (nullptr != this->pimpl) {
+    if (&s_invalidHandleImpl != this->pimpl) {
+        DBG("Closing one handle.");
         delete this->pimpl;
-        this->pimpl = nullptr;
+        this->pimpl = &s_invalidHandleImpl;
     }
 }
 

@@ -35,8 +35,9 @@ const char *Ubiquity::getStatusString(
             "OTHER_FETCH_ERROR",
             "INVALID_CLUSTER_DESCRIPTION",
             "SCHEMA_UNAVAILABLE",
+            "INVALID_HANDLE",
         };
-        return statusCode <= Ubiquity::SCHEMA_UNAVAILABLE
+        return statusCode <= Ubiquity::INVALID_HANDLE
             ? statusStrings[statusCode - Ubiquity::ARCHITECTURE_NOT_SUPPORTED]
             : "UNDEFINED";
     } else {

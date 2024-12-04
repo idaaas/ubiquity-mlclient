@@ -1,0 +1,79 @@
+name: Python Build And Publish
+
+on:
+    workflow_call:
+      inputs:
+        new-tag:
+          description: "new version value"
+          required: true
+          type: string
+        release:
+          description: "is a release build ? (value = true/false)"
+          required: true
+          type: string
+
+jobs:
+    build-ubuntu-xenial:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Ubuntu 16.04 python 1.16
+          run: earthly --ci +python-publish --os=ubuntu:16.04 --token=${{ secrets.GO_REPO_TOKEN }} --version=${{ inputs.new-tag }}
+          # trigger python build only if we are tagging main
+          if: inputs.release == 'true'
+    
+    build-ubuntu-focal:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 20.04 python 1.16
+          run: earthly --ci +python-publish --os=ubuntu:20.04 --token=${{ secrets.GO_REPO_TOKEN }} --version=${{ inputs.new-tag }}
+          if: inputs.release == 'true'
+
+    build-ubuntu-jammy:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 22.04 python 1.16
+          run: earthly --ci +python-publish --os=ubuntu:22.04 --token=${{ secrets.GO_REPO_TOKEN }} --version=${{ inputs.new-tag }}
+          if: inputs.release == 'true'
+
+    build-ubuntu-noble:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.15
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.ref }}
+        - name: Earthly version
+          run: earthly --version
+        - name: Ubuntu 24.04 python 1.16
+          run: earthly --ci +python-publish --os=ubuntu:24.04 --token=${{ secrets.GO_REPO_TOKEN }} --version=${{ inputs.new-tag }}
+          if: inputs.release == 'true'
+
+
+            

@@ -6,8 +6,8 @@
 namespace Ubiquity {
 
 #ifndef SWIG
-using StatusCode = int32_t;
-using ApplicationType = int16_t;
+        using StatusCode = int32_t;
+        using ApplicationType = int16_t;
 
         static constexpr StatusCode SETUP_ERROR = 0x20000;
 
@@ -35,6 +35,7 @@ using ApplicationType = int16_t;
         static constexpr StatusCode OTHER_FETCH_ERROR               = SETUP_ERROR | 13;
         static constexpr StatusCode INVALID_CLUSTER_DESCRIPTION     = SETUP_ERROR | 14;
         static constexpr StatusCode SCHEMA_UNAVAILABLE              = SETUP_ERROR | 15;
+        static constexpr StatusCode INVALID_HANDLE                  = SETUP_ERROR | 16;
 
         static constexpr ApplicationType APP_BID_SHADING = 0;
         static constexpr ApplicationType APP_PROBABILITY = 1;
