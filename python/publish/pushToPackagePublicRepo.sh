@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ####################################################################################
-##       Publish go package on github so it can be accessed by "go get" cmd       ##
+##       Publish python package on github so it can be accessed by "pip" cmd      ##
 ####################################################################################
 
 CREATE_TARGET_BRANCH_IF_NEEDED=true

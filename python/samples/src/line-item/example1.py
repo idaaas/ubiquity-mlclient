@@ -236,12 +236,10 @@ def main(api_token, cluster_id, num_queries):
             deadline = time.time_ns() + 200000000 # POLL_TIMEOUT
             status_code = Ubiquity.NO_DATA
             while time.time_ns() < deadline:
-                #time.sleep(0)
                 status_code = client_handle.poll()
                 if status_code != Ubiquity.NO_DATA:
                     break
             if status_code != Ubiquity.SUCCESS:
-                #print(f"wrong status code : {status_code}", flush=True)
                 continue
 
             # 4.4 read the response data
@@ -255,9 +253,7 @@ def main(api_token, cluster_id, num_queries):
             # if the bid price is larger than the adversary price, then bid price has won the auction, and feedback should be sent to the cluster.
             if price > adversary_price:
                 query_id = client_handle.getQueryId()
-                #print(feedback_hash_map, flush=True)
                 feedback = feedback_hash_map[query_id]
-                del feedback_hash_map[query_id]
 
                 # 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
                 client_handle.train(model_id, query_id, 0)  # Notify execution

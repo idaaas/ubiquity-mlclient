@@ -31,3 +31,10 @@ target_compile_features(main PRIVATE cxx_std_11)
 
 target_link_libraries(main PRIVATE ubiquity_client_static) 
 ```
+## Running Examples
+
+Cpp examples are provided in a docker to quickly run scenarios:
+```bash
+earthly +cpp-examples --os=ubuntu:22.04
+docker run cpp-examples ./line-item API_TOKEN CLUSTER_ID
+```
