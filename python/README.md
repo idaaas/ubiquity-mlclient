@@ -36,4 +36,6 @@ See the general documentation for more information about using the client.
 Python examples are provided in a docker to quickly run scenarios:
 ```bash
 earthly +python-examples --os=ubuntu:22.04
-docker run python-examples src.line-item.main API_TOKEN CLUSTER_ID
+docker run python-examples src.line-item.example1 API_TOKEN CLUSTER_ID NUM_QUERIES
+```
+NUM_QUERIES is optional and 500000 by default.

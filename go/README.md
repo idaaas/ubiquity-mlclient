@@ -27,5 +27,6 @@ See the general documentation for more information about using the client.
 Go examples are provided in a docker to quickly run scenarios:
 ```bash
 earthly +go-examples --os=ubuntu:22.04
-docker run go-examples ./line-item/example1 API_TOKEN CLUSTER_ID
+docker run go-examples ./line-item/example1 API_TOKEN CLUSTER_ID NUM_QUERIES
 ```
+NUM_QUERIES is optional and 500000 by default.

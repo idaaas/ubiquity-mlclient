@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"samples/Ubiquity"
 	"samples/src/common"
+	"strconv"
 	"time"
 )
 
@@ -23,6 +24,14 @@ func example1() int {
 	}
 	apiToken := os.Args[1]
 	clusterId := os.Args[2]
+	numQueries := 500000
+	var e error
+	if len(os.Args) > 2 {
+		numQueries, e = strconv.Atoi(os.Args[3])
+		if e != nil {
+			panic(fmt.Sprintf("%s must be an integer", os.Args[3]))
+		}
+	}
 
 	// 1. Create your models via API
 	var lineItemSchema string = getLineItemBody(clusterId)
@@ -54,13 +63,13 @@ func example1() int {
 	common.Unzip(feedbackPath+".gz", feedbackPath)
 
 	const maxCPM float32 = 2.0
-	creativeIds := [5]int64{1, 2, 3, 4, 5} // a list of all creatives ids used when creating the model
+	const adversaryPrice = maxCPM / 2.0
+	creativeId := int64(1) // a list of all creatives ids used when creating the model
 
 	// load BidRequest data and Feedback data from files
 	bidRequests := common.LoadBidRequests(bidRequestPath)
 	feedbacks := common.LoadFeedbacks(feedbackPath)
 	feedbackHashMap := make(map[int64]common.Feedback)
-	numQueries := len(bidRequests)
 
 	// The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
 	pace := time.Second / 300
@@ -84,18 +93,8 @@ func example1() int {
 		feedbackHashMap[queryId] = feedback
 		// prepare a line item query using this bid request
 		clientHandle.StartLineItem(modelId, queryId, maxCPM)
-		// fill in a random subset of eligible creatives
-		rand.Shuffle(len(creativeIds), func(i int, j int) { creativeIds[i], creativeIds[j] = creativeIds[j], creativeIds[i] })
-		n := rand.Intn(len(creativeIds))
-		// at least one creative
-		numEligibleCreatives := 1
-		if n > 1 {
-			numEligibleCreatives = n
-		}
-
-		for i := 0; i < numEligibleCreatives; i++ {
-			clientHandle.PutCreative(creativeIds[i])
-		}
+		// fill in the creatives (only one eligible in this example)
+		clientHandle.PutCreative(creativeId)
 		// fill in the features as specified in the model schema in config.json
 		clientHandle.PutNominal(request.AppBundle)
 		clientHandle.PutCategorical(request.ImpBannerPos)
@@ -140,29 +139,34 @@ func example1() int {
 			continue
 		}
 
+		// 4.4 read the response data
+
 		conversionProbability := clientHandle.GetProbability()
-		creativeId := clientHandle.GetCreativeId()
-		price := clientHandle.GetPrice()
-		queryId = clientHandle.GetQueryId()
-		feedback = feedbackHashMap[queryId]
-		// send positive feedback only if conversion occurred
-		// 4.5 Sending back conversion feedback (if any)
-		// 4.5.1. send a notification of execution
-		// notifies the cluster that the predicted pair (price, creative) have entered the auction
-		// here we suppose that all predictions actually enter the auction
-		// if the cluster is not notified of the execution, no feedback will be considered for the given query
-		clientHandle.Train(modelId, queryId, 0)
-		// 4.5.2. Try to send feedback of level 1
-		if feedback.Level1 {
-			clientHandle.Train(modelId, queryId, 1)
-		}
-		// 4.5.3. Try to send feedback of level 2
-		if feedback.Level2 {
-			clientHandle.Train(modelId, queryId, 2)
+		creativeId := clientHandle.GetCreativeId() // in this example, there is only one creative, so it will always be selected
+		price := clientHandle.GetPrice()           // the proposed bid price
+
+		// 4.5 Sending back feedback (if when applicable)
+		// no feedback should be sent to the cluster if the bid did not win the auction.
+		// here we suppose that there is only one adversary in the auction, it bids flat with a predefined price.
+		// if the bid price is larger than the adversary price, then bid price has won the auction, and feedback should be sent to the cluster.
+		if price > adversaryPrice {
+			queryId = clientHandle.GetQueryId()
+			feedback = feedbackHashMap[queryId]
+
+			// 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
+			clientHandle.Train(modelId, queryId, 0)
+			// 4.5.2 send a positive feedback of level 1 only when it is positive
+			if feedback.Level1 {
+				clientHandle.Train(modelId, queryId, 1)
+			}
+			// 4.5.3 send a positive feedback of level 2 only when it is positive
+			if feedback.Level2 {
+				clientHandle.Train(modelId, queryId, 2)
+			}
 		}
 
 		if count%dumpPeriod == 0 {
-			fmt.Printf("Total queries = %d, last response: predicted price = %f, conversion probability = %f, selected creative id = %d\n", count, price, conversionProbability, creativeId)
+			fmt.Printf("Total queries = %d, last response: predicted price = %f, conversion probability = %.7f, selected creative id = %d\n", count, price, conversionProbability, creativeId)
 		}
 	}
 
@@ -289,70 +293,19 @@ func getLineItemBody(clusterId string) string {
               ],
             "creatives": {
               "features": [
-                {
-                  "name": "a0",
-                  "type": "numeric"
-                },
-                {
-                  "name": "a1",
-                  "type": "nominal"
-                },
-                {
-                  "name": "a2",
-                  "type": "boolean"
-                },
-                {
-                  "name": "a3",
-                  "type": "categorical"
-                }
-              ],
-              "values": [
-                {
-                  "id": 5,
-                  "features": [
-                    "0.79626095",
-                    "Arabic",
-                    "true",
-                    "6"
-                  ]
-                },
-                {
-                  "id": 1,
-                  "features": [
-                    "0.72317415",
-                    "French",
-                    "true",
-                    "9"
-                  ]
-                },
-                {
-                  "id": 2,
-                  "features": [
-                    "0.2532931",
-                    "German",
-                    "true",
-                    "7"
-                  ]
-                },
-                {
-                  "id": 3,
-                  "features": [
-                    "0.80586946",
-                    "German",
-                    "true",
-                    "6"
-                  ]
-                },
-                {
-                  "id": 4,
-                  "features": [
-                    "0.7160485",
-                    "French",
-                    "false",
-                    "9"
-                  ]
-                }
-              ]
+                  {
+                    "name": "a1",
+                    "type": "categorical"
+                  }
+                ],
+                "values": [
+                  {
+                    "id": 1,
+                    "features": [
+                      "0"
+                    ]
+                  }
+                ]
             }
             }`
 }

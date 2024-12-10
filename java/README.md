@@ -84,8 +84,9 @@ TOKEN=<yourPAT> mvn install -s=my/path/to/settings.xml
 Java examples are provided in a docker to quickly run scenarios:
 ```bash
 earthly +java-examples --os=ubuntu:22.04
-docker run java-examples ai.ubiquity.samples.lineitem.Example1 API_TOKEN CLUSTER_ID
+docker run java-examples ai.ubiquity.samples.lineitem.Example1 API_TOKEN CLUSTER_ID NUM_QUERIES
 ```
+NUM_QUERIES is optional and 500000 by default.
 
 ## Sample Maven Project
 

@@ -133,75 +133,24 @@ model_schema = """
     ],
 "creatives": {{
     "features": [
-    {{
-        "name": "a0",
-        "type": "numeric"
-    }},
-    {{
+        {{
         "name": "a1",
-        "type": "nominal"
-    }},
-    {{
-        "name": "a2",
-        "type": "boolean"
-    }},
-    {{
-        "name": "a3",
         "type": "categorical"
-    }}
+        }} 
     ],
     "values": [
-    {{
-        "id": 5,
-        "features": [
-        "0.79626095",
-        "Arabic",
-        "true",
-        "6"
-        ]
-    }},
-    {{
+        {{
         "id": 1,
         "features": [
-        "0.72317415",
-        "French",
-        "true",
-        "9"
+            "0"
         ]
-    }},
-    {{
-        "id": 2,
-        "features": [
-        "0.2532931",
-        "German",
-        "true",
-        "7"
-        ]
-    }},
-    {{
-        "id": 3,
-        "features": [
-        "0.80586946",
-        "German",
-        "true",
-        "6"
-        ]
-    }},
-    {{
-        "id": 4,
-        "features": [
-        "0.7160485",
-        "French",
-        "false",
-        "9"
-        ]
-    }}
+        }}
     ]
 }}
 }}"""
 
 
-def main(api_token, cluster_id):
+def main(api_token, cluster_id, num_queries):
     
     # 1. Create model via API
     api_util = apiUtils.ApiUtil(api_token)
@@ -225,17 +174,17 @@ def main(api_token, cluster_id):
         next_send_time = time.time_ns()
 
         max_cpm = 2.0
-        creative_ids = [1, 2, 3, 4, 5]
+        adversary_price = max_cpm / 2.0
+        creative_id = 1
 
         bid_requests = d.load_bid_requests(bid_request_path)
         feedbacks = d.load_feedbacks(feedback_path)
         feedback_hash_map = {}
 
-        num_queries = len(bid_requests)
         next_send_time = time.time_ns()
 
         # 4. Loop and send prediction queries with their associated feedbacks
-        dump_period = 1000
+        dump_period = 500
         count = 0
         while count < num_queries:
             if time.time_ns() < next_send_time:
@@ -249,13 +198,8 @@ def main(api_token, cluster_id):
 
             feedback_hash_map[query_id] = feedback
             client_handle.startLineItem(model_id, query_id, max_cpm)
-
-            # Fill in a random subset of eligible creatives
-            random.shuffle(creative_ids)
-            num_eligible_creatives = max(1, random.randint(1, len(creative_ids)))
-            for i in range(num_eligible_creatives):
-                client_handle.putCreative(creative_ids[i])
-
+            # fill in the creatives (only one eligible in this example)
+            client_handle.putCreative(creative_id)
             # Add features
             client_handle.putNominal(request.app_bundle)
             client_handle.putCategorical(request.imp_banner_pos)
@@ -289,38 +233,55 @@ def main(api_token, cluster_id):
                 count += 1
 
             # 4.3 Poll prediction response and validate its QueryId", flush=True
-            deadline = time.time_ns() + 10  # POLL_TIMEOUT
+            deadline = time.time_ns() + 200000000 # POLL_TIMEOUT
+            status_code = Ubiquity.NO_DATA
             while time.time_ns() < deadline:
-                if client_handle.poll() == "SUCCESS":
+                #time.sleep(0)
+                status_code = client_handle.poll()
+                if status_code != Ubiquity.NO_DATA:
                     break
+            if status_code != Ubiquity.SUCCESS:
+                #print(f"wrong status code : {status_code}", flush=True)
+                continue
 
+            # 4.4 read the response data
             conversion_probability = client_handle.getProbability()
-            creative_id = client_handle.getCreativeId()
-            price = client_handle.getPrice()
-            query_id = client_handle.getQueryId()
-            feedback = feedback_hash_map[query_id]
+            creative_id = client_handle.getCreativeId() # in this example, there is only one creative, so it will always be selected
+            price = client_handle.getPrice() # the proposed bid price
 
-            # 4.4 Sending back conversion feedback (if any)", flush=True
-            client_handle.train(model_id, query_id, 0)  # Notify execution
-            if feedback.level1:
-                client_handle.train(model_id, query_id, 1)
-            if feedback.level2:
-                client_handle.train(model_id, query_id, 2)
+            # 4.5 Sending back feedback (if when applicable)
+            # no feedback should be sent to the cluster if the bid did not win the auction.
+            # here we suppose that there is only one adversary in the auction, it bids flat with a predefined price.
+            # if the bid price is larger than the adversary price, then bid price has won the auction, and feedback should be sent to the cluster.
+            if price > adversary_price:
+                query_id = client_handle.getQueryId()
+                #print(feedback_hash_map, flush=True)
+                feedback = feedback_hash_map[query_id]
+                del feedback_hash_map[query_id]
+
+                # 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
+                client_handle.train(model_id, query_id, 0)  # Notify execution
+                # 4.5.2 send a positive feedback of level 1 only when it is positive
+                if feedback.level1:
+                    client_handle.train(model_id, query_id, 1)
+                # 4.5.3 send a positive feedback of level 2 only when it is positive
+                if feedback.level2:
+                    client_handle.train(model_id, query_id, 2)
 
             if count % dump_period == 0:
-                print(f"Total queries = {count}, last response: predicted price = {price}, "
-                        f"conversion probability = {conversion_probability}, selected creative id = {creative_id}", flush=True)
+                print(f"Total queries = {count}, last response: predicted price = {price}, conversion probability = {conversion_probability:.7f}, selected creative id = {creative_id}", flush=True)
 
     finally:
         # 5. Wait for feedbacks to be processed and delete the models
         time.sleep(10)
         api_util.delete_model(model_id)
-        client_handle.Close()
+        client_handle.close()
         Ubiquity.closeClient()
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 3:
         raise RuntimeError("You need to provide API token and cluster ID to run the LineItemExample")
-    main(sys.argv[1], sys.argv[2])
+    numQueries = 500000 if len(sys.argv) <= 2 else int(sys.argv[3])
+    main(sys.argv[1], sys.argv[2], numQueries)
 
