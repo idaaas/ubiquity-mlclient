@@ -14,9 +14,11 @@ public class Example1 {
     private static final int THROUGHPUT_IN_QPS = 300;
 
     public static void main(String[] args) throws Exception {
-        if(args.length < 2) throw new RuntimeException("You need to provide API token and cluster ID to run the LineItemExample");
+        if (args.length < 2)
+            throw new RuntimeException("You need to provide API token and cluster ID to run the LineItemExample");
         final String apiToken = args[0];
         final String clusterId = args[1];
+        final int numQueries = args.length <= 2 ? 500000 : Integer.parseInt(args[2]);
 
         // 1. Create your models via API
         ApiUtil apiUtil = new ApiUtil(apiToken);
@@ -29,10 +31,10 @@ public class Example1 {
         ClientHandle clientHandle = Ubiquity.getClientHandle();
 
         // 3. Prepare data and feedback streams
-        int numQueries = 250000;
         float maxCPM = 2.0F;
+        float adversaryPrice = maxCPM / 2;
         Random rand = new Random(123); // to generate query ids
-        List<Long> creativeIds = Arrays.asList(1L, 2L, 3L, 4L, 5L); // a list of all creatives ids used when creating the model
+        long creativeId = 1L;
         // use cycle iterators in order to loop infinitely over the data
         Iterator<BidRequest> dataIterator = CycleIterator.bidRequestIterator("/client/datasets/features.csv.gz");
         Iterator<Feedback> feedbackIterator = CycleIterator.feedbackIterator("/client/datasets/feedback.csv.gz");
@@ -46,7 +48,7 @@ public class Example1 {
         final int dumpPeriod = 1000;
         int count = 0;
         while (count < numQueries) {
-            if(System.nanoTime() < nextSendNanoTime) continue;
+            if (System.nanoTime() < nextSendNanoTime) continue;
             nextSendNanoTime = nextSendNanoTime + paceInNanos;
 
             // 4.1 prepare a line item query
@@ -58,10 +60,8 @@ public class Example1 {
             feedbackHashMap.put(queryId, feedback);
             // prepare a line item query using this bid request
             clientHandle.startLineItem(modelId, queryId, maxCPM);
-            // fill in a random subset of eligible creatives
-            Collections.shuffle(creativeIds);
-            int numEligibleCreatives = 1 + rand.nextInt(creativeIds.size()); // at least one creative
-            for (int i = 0; i < numEligibleCreatives; i++) clientHandle.putCreative(creativeIds.get(i));
+            // fill in the creatives (only one eligible in this example)
+            clientHandle.putCreative(creativeId);
             // fill in the features as specified in the model schema in config.json
             clientHandle.putNominal(request.getAppBundle());
             clientHandle.putCategorical(request.getImpBannerPos());
@@ -85,16 +85,14 @@ public class Example1 {
             clientHandle.putNominal(request.getDeviceGeoCountry());
             clientHandle.putNominal(request.getAppContentLanguage());
             clientHandle.putCategorical(request.getAppContentContext());
-            clientHandle.putBoolean(request.getImpBannerTopFrame() ? (byte)1 : (byte)0);
+            clientHandle.putBoolean(request.getImpBannerTopFrame() ? (byte) 1 : (byte) 0);
             clientHandle.putCategorical(request.getDeviceType());
-            clientHandle.putBoolean(request.getImpInstl() ? (byte)1 : (byte)0);
+            clientHandle.putBoolean(request.getImpInstl() ? (byte) 1 : (byte) 0);
             clientHandle.putNominal(request.getAppPageCat());
 
-            System.out.printf("Client handle status: %s%n", clientHandle.getStatusString());
-
             // 4.2. send the prediction request
-            if(clientHandle.predict() == Ubiquity.SUCCESS)
-                count ++;
+            if (clientHandle.predict() == Ubiquity.SUCCESS)
+                count++;
 
             // 4.3. wait to poll prediction response and validate its QueryId
             long deadline = System.nanoTime() + POLL_TIMEOUT;
@@ -104,25 +102,28 @@ public class Example1 {
             } while (statusCode == Ubiquity.NO_DATA && System.nanoTime() < deadline);
             if (statusCode != Ubiquity.SUCCESS) continue;
 
+            // 4.4 read the response data
             float conversionProbability = clientHandle.getProbability();
-            long creativeId = clientHandle.getCreativeId();
-            float price = clientHandle.getPrice();
-            queryId = clientHandle.getQueryId();
-            feedback = feedbackHashMap.get(queryId);
-            // send positive feedback only if conversion occurred
-            // 4.5 Sending back conversion feedback (if any)
-            // 4.5.1. send a notification of execution
-            // notifies the cluster that the predicted pair (price, creative) have entered the auction
-            // here we suppose that all predictions actually enter the auction
-            // if the cluster is not notified of the execution, no feedback will be considered for the given query
-            clientHandle.train(modelId, queryId, 0);
-            // 4.5.2. Try to send feedback of level 1
-            if (feedback.getLevel1()) clientHandle.train(modelId, queryId, 1);
-            // 4.5.3. Try to send feedback of level 2
-            if (feedback.getLevel2()) clientHandle.train(modelId, queryId, 2);
+            long selectedCreativeId = clientHandle.getCreativeId(); // in this example, there is only one creative, so it will always be selected
+            float price = clientHandle.getPrice(); // the proposed bid price
+
+            // 4.5 Sending back feedback (if when applicable)
+            // no feedback should be sent to the cluster if the bid did not win the auction.
+            // here we suppose that there is only one adversary in the auction, it bids flat with a predefined price.
+            // if the bid price is larger than the adversary price, then bid price has won the auction, and feedback should be sent to the cluster.
+            if (price > adversaryPrice) {
+                queryId = clientHandle.getQueryId();
+                feedback = feedbackHashMap.get(queryId);
+                // 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
+                clientHandle.train(modelId, queryId, 0);
+                // 4.5.2 send a positive feedback of level 1 only when it is positive
+                if (feedback.getLevel1()) clientHandle.train(modelId, queryId, 1);
+                // 4.5.3 send a positive feedback of level 2 only when it is positive
+                if (feedback.getLevel2()) clientHandle.train(modelId, queryId, 2);
+            }
 
             if (count % dumpPeriod == 0) {
-                System.out.printf("Total queries = %d, last response: predicted price = %f, conversion probability = %f, selected creative id = %d\n", count, price, conversionProbability, creativeId);
+                System.out.printf("Total queries = %d, last response: predicted price = %f, conversion probability = %.7f, selected creative id = %d\n", count, price, conversionProbability, selectedCreativeId);
             }
         }
         clientHandle.close();
@@ -134,186 +135,136 @@ public class Example1 {
     }
 
     private final static String modelSchema = """
-        {
-          "cluster_id": "%s",
-          "name": "lineitem/Example1",
-          "feedback_delays": [
-            20,
-            30,
-            40
-          ],
-          "features": [
             {
-              "name": "app.bundle",
-              "type": "nominal"
-            },
-            {
-              "name": "imp.banner.pos",
-              "type": "categorical"
-            },
-            {
-              "name": "localtime",
-              "type": "categorical"
-            },
-            {
-              "name": "device.os",
-              "type": "nominal"
-            },
-            {
-              "name": "device.geo.city",
-              "type": "nominal"
-            },
-            {
-              "name": "device.model",
-              "type": "nominal"
-            },
-            {
-              "name": "bcat",
-              "type": "nominal"
-            },
-            {
-              "name": "device.geo.zip",
-              "type": "nominal"
-            },
-            {
-              "name": "user.yob",
-              "type": "nominal"
-            },
-            {
-              "name": "app.publisher.name",
-              "type": "nominal"
-            },
-            {
-              "name": "device.connectiontype",
-              "type": "categorical"
-            },
-            {
-              "name": "device.geo.region",
-              "type": "nominal"
-            },
-            {
-              "name": "app.cat",
-              "type": "nominal"
-            },
-            {
-              "name": "device.make",
-              "type": "nominal"
-            },
-            {
-              "name": "device.HxW",
-              "type": "nominal"
-            },
-            {
-              "name": "user.gender",
-              "type": "categorical"
-            },
-            {
-              "name": "device.language",
-              "type": "nominal"
-            },
-            {
-              "name": "imp.displaymanager",
-              "type": "nominal"
-            },
-            {
-              "name": "imp.banner.battr",
-              "type": "nominal"
-            },
-            {
-              "name": "device.geo.country",
-              "type": "nominal"
-            },
-            {
-              "name": "app.content.language",
-              "type": "nominal"
-            },
-            {
-              "name": "app.content.context",
-              "type": "categorical"
-            },
-            {
-              "name": "imp.banner.topframe",
-              "type": "boolean"
-            },
-            {
-              "name": "device.devicetype",
-              "type": "categorical"
-            },
-            {
-              "name": "imp.instl",
-              "type": "boolean"
-            },
-            {
-              "name": "app.pagecat",
-              "type": "nominal"
+              "cluster_id": "%s",
+              "name": "lineitem/Example1",
+              "feedback_delays": [
+                20,
+                30,
+                40
+              ],
+              "features": [
+                {
+                  "name": "app.bundle",
+                  "type": "nominal"
+                },
+                {
+                  "name": "imp.banner.pos",
+                  "type": "categorical"
+                },
+                {
+                  "name": "localtime",
+                  "type": "categorical"
+                },
+                {
+                  "name": "device.os",
+                  "type": "nominal"
+                },
+                {
+                  "name": "device.geo.city",
+                  "type": "nominal"
+                },
+                {
+                  "name": "device.model",
+                  "type": "nominal"
+                },
+                {
+                  "name": "bcat",
+                  "type": "nominal"
+                },
+                {
+                  "name": "device.geo.zip",
+                  "type": "nominal"
+                },
+                {
+                  "name": "user.yob",
+                  "type": "nominal"
+                },
+                {
+                  "name": "app.publisher.name",
+                  "type": "nominal"
+                },
+                {
+                  "name": "device.connectiontype",
+                  "type": "categorical"
+                },
+                {
+                  "name": "device.geo.region",
+                  "type": "nominal"
+                },
+                {
+                  "name": "app.cat",
+                  "type": "nominal"
+                },
+                {
+                  "name": "device.make",
+                  "type": "nominal"
+                },
+                {
+                  "name": "device.HxW",
+                  "type": "nominal"
+                },
+                {
+                  "name": "user.gender",
+                  "type": "categorical"
+                },
+                {
+                  "name": "device.language",
+                  "type": "nominal"
+                },
+                {
+                  "name": "imp.displaymanager",
+                  "type": "nominal"
+                },
+                {
+                  "name": "imp.banner.battr",
+                  "type": "nominal"
+                },
+                {
+                  "name": "device.geo.country",
+                  "type": "nominal"
+                },
+                {
+                  "name": "app.content.language",
+                  "type": "nominal"
+                },
+                {
+                  "name": "app.content.context",
+                  "type": "categorical"
+                },
+                {
+                  "name": "imp.banner.topframe",
+                  "type": "boolean"
+                },
+                {
+                  "name": "device.devicetype",
+                  "type": "categorical"
+                },
+                {
+                  "name": "imp.instl",
+                  "type": "boolean"
+                },
+                {
+                  "name": "app.pagecat",
+                  "type": "nominal"
+                }
+              ],
+              "creatives": {
+                "features": [
+                  {
+                    "name": "a1",
+                    "type": "categorical"
+                  }
+                ],
+                "values": [
+                  {
+                    "id": 1,
+                    "features": [
+                      "0"
+                    ]
+                  }
+                ]
+              }
             }
-          ],
-        "creatives": {
-          "features": [
-            {
-              "name": "a0",
-              "type": "numeric"
-            },
-            {
-              "name": "a1",
-              "type": "nominal"
-            },
-            {
-              "name": "a2",
-              "type": "boolean"
-            },
-            {
-              "name": "a3",
-              "type": "categorical"
-            }
-          ],
-          "values": [
-            {
-              "id": 5,
-              "features": [
-                "0.79626095",
-                "Arabic",
-                "true",
-                "6"
-              ]
-            },
-            {
-              "id": 1,
-              "features": [
-                "0.72317415",
-                "French",
-                "true",
-                "9"
-              ]
-            },
-            {
-              "id": 2,
-              "features": [
-                "0.2532931",
-                "German",
-                "true",
-                "7"
-              ]
-            },
-            {
-              "id": 3,
-              "features": [
-                "0.80586946",
-                "German",
-                "true",
-                "6"
-              ]
-            },
-            {
-              "id": 4,
-              "features": [
-                "0.7160485",
-                "French",
-                "false",
-                "9"
-              ]
-            }
-          ]
-        }
-      }""";
+            """;
 }
