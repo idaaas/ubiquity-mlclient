@@ -249,6 +249,7 @@ void ClusterClient::ensureSchemaForOneModelIsInCache(
         newSchema.applicationId = applicationId;
 
         // Insert feedback delays.
+        newSchema.feedbackDelays.clear();
         for (int16_t i = 0; i < feedbackDelaysCount; ++i) {
             const auto feedbackDelay = feedbackDelays[i];
             newSchema.feedbackDelays.push_back(feedbackDelay);
