@@ -64,13 +64,34 @@ namespace State {
     };
 }
 
-enum class Output : uint32_t {
-    REGISTRATION_REQUEST = 0x01,
-    DISCONNECTION_REQUEST = 0x5,
-    HEARTBEAT = 0x6,
-    SERVER_OPEN_REQUEST = 0x7,
-    SERVER_READY_REQUEST = 0x8,
-    TOPOLOGY_REQUEST = 0x0f, // TODO move this elsewhere, it should be in an other type
+namespace Output {
+    enum Value : uint32_t {
+        REGISTRATION_REQUEST = 0x1,
+        DISCONNECTION_REQUEST = 0x5,
+        HEARTBEAT = 0x6,
+        SERVER_OPEN_REQUEST = 0x7,
+        SERVER_READY_REQUEST = 0x8,
+        TOPOLOGY_REQUEST = 0xf, // TODO move this elsewhere, it should be in an other type
+        COUNT,
+    };
+    static const char *const strings[COUNT] = {
+        "UNDEFINED",
+        "REGISTRATION_REQUEST",
+        "UNDEFINED",
+        "UNDEFINED",
+        "UNDEFINED",
+        "DISCONNECTION_REQUEST",
+        "HEARTBEAT",
+        "SERVER_OPEN_REQUEST",
+        "SERVER_READY_REQUEST",
+        "UNDEFINED",
+        "UNDEFINED",
+        "UNDEFINED",
+        "UNDEFINED",
+        "UNDEFINED",
+        "UNDEFINED",
+        "TOPOLOGY_REQUEST",
+    };
 };
 
 namespace MessageType {
@@ -118,6 +139,31 @@ namespace MessageType {
         "MODEL_ADD",
         "MODEL_REMOVE",
         "NONE",
+    };
+    static bool isGlobalMessage[COUNT] {
+        false, // UNDEFINED,
+        false, // REGISTRATION_REQUEST,
+        false, // REGISTRATION_CONFIRMATION,
+        false, // REGISTRATION_ERROR,
+        false, // SCHEMA,
+        false, // QUERY,
+        false, // PREDICTION,
+        false, // FEEDBACK,
+        false, // UNDEFINED,
+        false, // UNDEFINED,
+        false, // SERVER_READY,
+        false, // UNDEFINED,
+        false, // SERVER_OPENED,
+        true, // TOPOLOGY_UPDATE,
+        false, // UNDEFINED,
+        false, // TOPOLOGY_REQUEST,
+        true, // TOPOLOGY_RESPONSE,
+        false, // DISCONNECTION_CONFIRMATION,
+        false, // UNDEFINED,
+        false, // UNDEFINED,
+        true, // MODEL_ADD,
+        true, // MODEL_REMOVE,
+        false, // NONE,
     };
 }
 
@@ -174,7 +220,7 @@ struct RegistrationMessage {
     ControlMessageBase _;
     uint64_t correlationIdHigh;
     uint64_t correlationIdLow;
-    Output output;
+    Output::Value output;
 } __attribute__((packed));
 
 union ControlMessage {
@@ -498,7 +544,7 @@ static const TransitionCheck transitionChecks[] = {
 struct PeriodicOutput {
     State::Value state;
     std::chrono::steady_clock::duration period;
-    Output output;
+    Output::Value output;
 }; 
 
 // Finally, this table is checked to periodically send an output message based on current state.
@@ -573,7 +619,7 @@ void NodeClient::switchStateAfterCheck(uint8_t nextState) noexcept {
     while (!ctTransitionChecks[nextState].function(*this)) {
         nextState = ctTransitionChecks[nextState].alternativeState;
     } 
-    DBG("NodeClient " << this->slotId << " (" << this->ipString << ") : Switched to state " << State::strings[nextState] << " from state " << State::strings[this->state]);
+    DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Switched to state " << State::strings[nextState] << " from state " << State::strings[this->state]);
     this->state = nextState;
     this->lastStateChangeTime = std::chrono::steady_clock::now();
 }
@@ -597,7 +643,8 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
 {
     auto *const message = reinterpret_cast<ControlMessage *>(this->clusterClient->inputBuffer);
     size_t messageLength = 0;
-    auto messageReceiver = [this, &message, &messageLength](
+    bool isGlobalMessage = false;
+    auto messageReceiver = [this, &message, &messageLength, &isGlobalMessage](
             aeron::concurrent::AtomicBuffer &atomicBuffer,
             aeron::util::index_t offset,
             aeron::util::index_t length,
@@ -607,22 +654,17 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
             messageLength = static_cast<size_t>(length);
             const int type = message->common.type;
             if (type >= MessageType::COUNT) {
-                DBG("NodeClient " << this->slotId
-                        << " (" << this->ipString
-                        << ") : Received message with invalid type " << type);
+                DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Received message with invalid type " << type);
                 return;
             }
+            isGlobalMessage = MessageType::isGlobalMessage[type];
             if (ctExpectedInputMessageSize[type] != 0) {
-                DBG("NodeClient " << this->slotId
-                        << " (" << this->ipString
-                        << ") : Received " << MessageType::strings[type]
-                        << " (" << messageLength << " bytes)");
-                hexDump(message->buffer, messageLength);
+                DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Received " << MessageType::strings[type] << " (" << messageLength << " bytes)");
+                if (MessageType::MODEL_ADD != type) {
+                    hexDump(message->buffer, messageLength);
+                }
                 if (ctExpectedInputMessageSize[type] > messageLength) {
-                    DBG("NodeClient " << this->slotId
-                            << " (" << this->ipString
-                            << ") : Invalid length " << messageLength
-                            << " for message type " << MessageType::strings[type]);
+                    DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Invalid length " << messageLength << " for message type " << MessageType::strings[type]);
                     return;
                 }
             }
@@ -630,12 +672,10 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
 
     bool messageReceived = false;
     if (nullptr != this->controlSub && 0 < this->controlSub->poll(messageReceiver, 1)) {
-        messageReceived = CLIENT_ID_BROADCAST == message->common.clientId || 
-            this->clientId == message->common.clientId;
-
-        if (this->clientId == CLIENT_ID_UNSET) {
-            messageReceived = messageReceived || isMyCorrelationId(message, this->correlationIdHigh, this->correlationIdLow);
-        }
+        messageReceived = this->clientId == message->common.clientId
+            || isGlobalMessage
+            || (this->clientId == CLIENT_ID_UNSET && CLIENT_ID_BROADCAST == message->common.clientId
+                    && isMyCorrelationId(message, this->correlationIdHigh, this->correlationIdLow));
     }
 
     const uint8_t inputType = messageReceived ? message->common.type : MessageType::NONE;
@@ -665,8 +705,11 @@ void NodeClient::sendOutputBasedOnState() noexcept {
     const int isConnected = nullptr != this->controlPub && this->controlPub->isConnected();
     const auto now = std::chrono::steady_clock::now();
     if (isConnected && now > this->lastOutputTime + ctPeriodicOutputs[this->state].period) {
-        const Output output = ctPeriodicOutputs[this->state].output;
+        const Output::Value output = ctPeriodicOutputs[this->state].output;
         auto *const message = reinterpret_cast<ControlMessage *>(this->clusterClient->inputBuffer);
+        if (Output::HEARTBEAT != output) {
+            DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Sending " << Output::strings[output]);
+        }
         switch (output) {
             case Output::TOPOLOGY_REQUEST:
                 message->common.type = MessageType::TOPOLOGY_REQUEST;
@@ -709,6 +752,7 @@ void NodeClient::bind(uint32_t ip, size_t slotId) noexcept {
 }
 
 void NodeClient::unbind(void) noexcept {
+    DBG("ClusterClient(" << this->clusterClient->clusterId << ") : Unbinding NodeClient " << this->slotId);
     this->ip = 0;
     this->switchStateAfterCheck(State::DISCONNECTING);
 }
