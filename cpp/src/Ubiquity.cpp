@@ -1,6 +1,7 @@
 #include "ubiquity_client/Ubiquity.hpp"
 #include "ClientHandleImpl.hpp"
 #include "debug.hpp"
+#include "GitVersion.hpp"
 
 #include <aeronmd.h>
 #include <xxh3.h>
@@ -220,6 +221,7 @@ Ubiquity::StatusCode Ubiquity::openClient(
         const char *const clusterId
         ) noexcept
 {
+    std::cout << "Ubiquity : Starting driver build " << kGitHash << std::endl;
     std::lock_guard<std::mutex> guard(s_clusterClientsMutex);
 
     Ubiquity::StatusCode statusCode = initialize();

@@ -1,0 +1,4 @@
+#include "GitVersion.hpp"
+
+// this is configured by cmake
+const char *kGitHash = "@GIT_HASH@";

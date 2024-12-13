@@ -2,7 +2,18 @@ if (DISABLE_ID_CHECKS)
   add_definitions(-DDISABLE_ID_CHECKS)
 endif (DISABLE_ID_CHECKS)
 
+# Get the latest abbreviated commit hash of the working branch
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+  OUTPUT_VARIABLE GIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/GitVersion.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/GitVersion.cpp @ONLY)
+
 SET(SOURCE
+  GitVersion.cpp
   ClientHandle.cpp
   ClientHandleImpl.cpp
   ClusterClient.cpp
@@ -14,6 +25,7 @@ SET(SOURCE
 
 SET(HEADERS
   ../include/ubiquity_client/Ubiquity.hpp
+  GitVersion.hpp
   ClientHandleImpl.hpp
   ClusterClient.hpp
   LoadBalancer.hpp
