@@ -26,7 +26,7 @@ func example1() int {
 	clusterId := os.Args[2]
 	numQueries := 500000
 	var e error
-	if len(os.Args) > 2 {
+	if len(os.Args) > 3 {
 		numQueries, e = strconv.Atoi(os.Args[3])
 		if e != nil {
 			panic(fmt.Sprintf("%s must be an integer", os.Args[3]))

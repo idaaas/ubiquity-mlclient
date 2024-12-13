@@ -18,7 +18,7 @@ public class Example1 {
             throw new RuntimeException("You need to provide API token and cluster ID to run the LineItemExample");
         final String apiToken = args[0];
         final String clusterId = args[1];
-        final int numQueries = args.length <= 2 ? 500000 : Integer.parseInt(args[2]);
+        final int numQueries = args.length < 3 ? 500000 : Integer.parseInt(args[2]);
 
         // 1. Create your models via API
         ApiUtil apiUtil = new ApiUtil(apiToken);
