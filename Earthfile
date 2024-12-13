@@ -27,7 +27,7 @@ build-examples:
 build:
   FROM +cmake-image
   CACHE ./build
-  COPY --keep-ts cpp .
+  COPY --keep-ts cpp .git .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBUILD_AERON_ARCHIVE_API=OFF -DCMAKE_BUILD_TYPE=$type -DDISABLE_ID_CHECKS=$disableIdChecks -S . -B build
   RUN cmake --build build --parallel $(nproc) --target ubiquity_client_static docs
   #RUN ctest
