@@ -9,10 +9,10 @@
  */
 
 namespace Period {
-    static constexpr auto CON_TIMEOUT = std::chrono::milliseconds(200);
-    static constexpr auto RETRY_COOLDOWN = std::chrono::milliseconds(800);
+    static constexpr auto CON_TIMEOUT = std::chrono::milliseconds(1000);
+    static constexpr auto RETRY_COOLDOWN = std::chrono::milliseconds(1000);
     static constexpr auto DC_TIMEOUT = std::chrono::milliseconds(1000);
-    static constexpr auto REQUEST = std::chrono::milliseconds(10);
+    static constexpr auto REQUEST = std::chrono::milliseconds(200);
     static constexpr auto HEARTBEAT = std::chrono::milliseconds(1000);
 }
 
@@ -259,6 +259,9 @@ static bool beforeUnbound(NodeClient &nc) noexcept {
     return true;
 }
 
+static constexpr uint16_t CLIENT_ID_BROADCAST = __SHRT_MAX__;
+static constexpr uint16_t CLIENT_ID_UNSET = __UINT16_MAX__;
+
 static bool beforeDisconnected(NodeClient &nc) noexcept {
     nc.clusterClient->loadBalancer->removeNodeForAllModels(nc.ip);  
     if (nc.controlPub) {
@@ -281,6 +284,7 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
         nc.predSub->closeAndRemoveImages();
         nc.predSub = nullptr;
     }
+    nc.clientId = CLIENT_ID_UNSET;
     return 0 != nc.ip;
 }
 
@@ -487,24 +491,24 @@ static const TransitionPerInput transitionsPerInput[] = {
     // State                            Input Message Type                          Function to call                Next state when resolved as true
     State::DISCONNECTED,                MessageType::NONE,                          whileDisconnected,              State::CONNECTING_CONTROL,
     State::CONNECTING_CONTROL,          MessageType::NONE,                          waitingForControlConnection,    State::REQUESTING_TOPOLOGY,
-    State::ANY,                         MessageType::TOPOLOGY_UPDATE,               onTopologyUpdate,               State::ANY,
     State::REQUESTING_TOPOLOGY,         MessageType::TOPOLOGY_UPDATE,               onTopologyUpdate,               State::CONNECTING_PREDICTION,
+    State::ANY,                         MessageType::TOPOLOGY_UPDATE,               onTopologyUpdate,               State::ANY,
     State::DISCONNECTING,               MessageType::TOPOLOGY_UPDATE,               ignore,                         State::ANY,
     State::UNBOUND,                     MessageType::TOPOLOGY_UPDATE,               ignore,                         State::ANY,
     State::CONNECTING_PREDICTION,       MessageType::REGISTRATION_ERROR,            onRegistrationError,            State::WAITING_BEFORE_RETRY,
     State::CONNECTING_PREDICTION,       MessageType::REGISTRATION_CONFIRMATION,     onRegistrationConfirmation,     State::REGISTERED,
     State::REGISTERED,                  MessageType::SERVER_OPENED,                 onServerOpened,                 State::AWAITING_PRED_CONNECTION,
+    State::REGISTERED,                  MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::AWAITING_PRED_CONNECTION,    MessageType::NONE,                          waitingForPredConnection,       State::PRED_CONNECTED,
+    State::AWAITING_PRED_CONNECTION,    MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::PRED_CONNECTED,              MessageType::SERVER_READY,                  onServerReady,                  State::CLIENT_READY,
+    State::PRED_CONNECTED,              MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::CLIENT_READY,                MessageType::NONE,                          whileReady,                     State::LOSING_CONNECTION,
+    State::CLIENT_READY,                MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::LOSING_CONNECTION,           MessageType::NONE,                          whileLosingConnection,          State::CLIENT_READY,
-    State::DISCONNECTING,               MessageType::DISCONNECTION_CONFIRMATION,    onDisconnectionConfirmation,    State::DISCONNECTED,
-    State::ANY,                         MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
-    State::DISCONNECTING,               MessageType::MODEL_ADD,                     ignore,                         State::ANY,
-    State::UNBOUND,                     MessageType::MODEL_ADD,                     ignore,                         State::ANY,
+    State::LOSING_CONNECTION,           MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::ANY,                         MessageType::MODEL_REMOVE,                  onModelRemove,                  State::ANY,
-    State::DISCONNECTING,               MessageType::MODEL_REMOVE,                  ignore,                         State::ANY,
-    State::UNBOUND,                     MessageType::MODEL_REMOVE,                  ignore,                         State::ANY,
+    State::DISCONNECTING,               MessageType::DISCONNECTION_CONFIRMATION,    onDisconnectionConfirmation,    State::DISCONNECTED,
 };
 
 struct TransitionPerPeriod {
@@ -623,9 +627,6 @@ void NodeClient::switchStateAfterCheck(uint8_t nextState) noexcept {
     this->state = nextState;
     this->lastStateChangeTime = std::chrono::steady_clock::now();
 }
-
-static constexpr uint16_t CLIENT_ID_BROADCAST = __SHRT_MAX__;
-static constexpr uint16_t CLIENT_ID_UNSET = __UINT16_MAX__;
 
 inline bool isMyCorrelationId(ControlMessage* const message, uint64_t corrHigh, uint64_t corrLow) {
     if (message->common.type == MessageType::REGISTRATION_CONFIRMATION) {

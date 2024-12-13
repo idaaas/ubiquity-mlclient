@@ -53,8 +53,8 @@ class LoadBalancer  {
                 ~NodeRing() = default;
         };
 
-        using NodeRingMap = std::unordered_map<size_t, std::shared_ptr<NodeRing>>;
-        std::shared_ptr<NodeRingMap> nodeRingByModel;
+        using NodeRingMap = std::unordered_map<size_t, std::shared_ptr<const NodeRing>>;
+        std::shared_ptr<const NodeRingMap> nodeRingByModel;
 
         static constexpr uint64_t seeds[] = {
             0X1E5B5EDF522B8E5CULL,
@@ -67,8 +67,16 @@ class LoadBalancer  {
             0XCBF9F891662632D8ULL
         };
 
-        static inline void removeNodeFromOneRing(
-                std::shared_ptr<NodeRing> &ring,
-                const uint32_t &ip) noexcept;
+        inline NodeRing *copyRingWithAnAdditionalNodeInside(
+                const std::shared_ptr<const NodeRing> &oldRing,
+                const uint32_t &ip,
+                const std::shared_ptr<aeron::Publication> &predictPub,
+                const std::shared_ptr<aeron::Publication> &feedbackPub,
+                const uint16_t &clientId
+                ) noexcept;
 
+        inline std::shared_ptr<const NodeRing> copyRingWithSpecificNodeRemoved(
+                const std::shared_ptr<const NodeRing> &oldRing,
+                const uint32_t &ip
+                ) noexcept;
 };

@@ -45,7 +45,7 @@ func example1() int {
 	Ubiquity.SetCredential(apiToken)
 	statusCode := Ubiquity.OpenClient(clusterId)
 	if Ubiquity.SUCCESS != statusCode {
-		fmt.Println("Error during connection : ")
+		fmt.Println("Error during connection : ", Ubiquity.GetStatusString(statusCode))
 		return 1
 	}
 	defer Ubiquity.CloseClient()
