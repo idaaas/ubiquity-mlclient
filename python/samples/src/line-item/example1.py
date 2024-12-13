@@ -282,6 +282,6 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) < 3:
         raise RuntimeError("You need to provide API token and cluster ID to run the LineItemExample")
-    numQueries = 500000 if len(sys.argv) <= 2 else int(sys.argv[3])
+    numQueries = 500000 if len(sys.argv) < 4 else int(sys.argv[3])
     main(sys.argv[1], sys.argv[2], numQueries)
 
