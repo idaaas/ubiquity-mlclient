@@ -35,15 +35,13 @@ class LoadBalancer  {
                 const size_t messageSize,
                 const bool isFeedback
                 ) noexcept;
-    private:
-        static constexpr size_t VNODES_PER_NODE = 8;
 
         class NodeRing {
             public:
                 struct Node {
                     int64_t key;
                     uint32_t ip;
-                    std::shared_ptr<aeron::Publication> pubs[2];
+                    std::shared_ptr<aeron::Publication> pubs[2] {nullptr, nullptr};
                     uint16_t clientId;
                 };
                 size_t nodeCount;
@@ -52,8 +50,11 @@ class LoadBalancer  {
                 NodeRing(size_t nodeCount) noexcept;
                 ~NodeRing() = default;
         };
-
         using NodeRingMap = std::unordered_map<size_t, std::shared_ptr<const NodeRing>>;
+
+    private:
+        static constexpr size_t VNODES_PER_NODE = 8;
+
         std::shared_ptr<const NodeRingMap> nodeRingByModel;
 
         static constexpr uint64_t seeds[] = {
