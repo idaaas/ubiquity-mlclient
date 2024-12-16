@@ -92,7 +92,7 @@ namespace Output {
         "UNDEFINED",
         "TOPOLOGY_REQUEST",
     };
-};
+}
 
 namespace MessageType {
     enum Value : uint8_t {
