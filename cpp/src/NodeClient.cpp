@@ -373,11 +373,15 @@ static bool onServerOpened(NodeClient &nc, const ControlMessage &message, const 
 }
 
 static bool waitingForPredConnection(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
+    static std::vector<std::shared_ptr<aeron::Publication>> queryPubVector{};
+    static std::vector<std::shared_ptr<aeron::Publication>> feedbackPubVector{};
     if (nullptr == nc.queryPub) {
         nc.queryPub = ClusterClient::s_aeronClient->findPublication(nc.queryPubId);
+        //queryPubVector.push_back(nc.queryPub);
     }
     if (nullptr == nc.feedbackPub) {
         nc.feedbackPub = ClusterClient::s_aeronClient->findPublication(nc.feedbackPubId);
+        //feedbackPubVector.push_back(nc.feedbackPub);
     }
     if (nullptr == nc.predSub) {
         nc.predSub = ClusterClient::s_aeronClient->findSubscription(nc.predSubId);
@@ -623,7 +627,7 @@ void NodeClient::switchStateAfterCheck(uint8_t nextState) noexcept {
     while (!ctTransitionChecks[nextState].function(*this)) {
         nextState = ctTransitionChecks[nextState].alternativeState;
     } 
-    DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Switched to state " << State::strings[nextState] << " from state " << State::strings[this->state]);
+    DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Switched to state " << State::strings[nextState]);
     this->state = nextState;
     this->lastStateChangeTime = std::chrono::steady_clock::now();
 }
@@ -655,17 +659,17 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
             messageLength = static_cast<size_t>(length);
             const int type = message->common.type;
             if (type >= MessageType::COUNT) {
-                DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Received message with invalid type " << type);
+                DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Received message with invalid type " << type);
                 return;
             }
             isGlobalMessage = MessageType::isGlobalMessage[type];
             if (ctExpectedInputMessageSize[type] != 0) {
-                DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Received " << MessageType::strings[type] << " (" << messageLength << " bytes)");
+                DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Received " << MessageType::strings[type] << " (" << messageLength << " bytes)");
                 if (MessageType::MODEL_ADD != type) {
                     hexDump(message->buffer, messageLength);
                 }
                 if (ctExpectedInputMessageSize[type] > messageLength) {
-                    DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Invalid length " << messageLength << " for message type " << MessageType::strings[type]);
+                    DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Invalid length " << messageLength << " for message type " << MessageType::strings[type]);
                     return;
                 }
             }
@@ -709,7 +713,7 @@ void NodeClient::sendOutputBasedOnState() noexcept {
         const Output::Value output = ctPeriodicOutputs[this->state].output;
         auto *const message = reinterpret_cast<ControlMessage *>(this->clusterClient->inputBuffer);
         if (Output::HEARTBEAT != output) {
-            DBG("NodeClient " << this->slotId << " [id " << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] (" << this->ipString << ") : Sending " << Output::strings[output]);
+            DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Sending " << Output::strings[output]);
         }
         switch (output) {
             case Output::TOPOLOGY_REQUEST:

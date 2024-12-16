@@ -4,10 +4,14 @@
 
 #include <xxh3.h>
 
+static std::vector<std::shared_ptr<const LoadBalancer::NodeRing>> nodeRingVector{};
+static std::vector<std::shared_ptr<const LoadBalancer::NodeRingMap>> nodeRingMapVector{};
+
 LoadBalancer::NodeRing::NodeRing() noexcept :
     nodeCount{0},
     nodeList{new Node[1]}
 {
+    IGNORE("LoadBalancer : creating new empty NodeRing [ : " << this << "]");
 }
 
 LoadBalancer::NodeRing::NodeRing(
@@ -16,11 +20,14 @@ LoadBalancer::NodeRing::NodeRing(
     nodeCount{nodeCount},
     nodeList{new Node[0 == nodeCount ? 1 : nodeCount]}
 {
+    IGNORE("LoadBalancer : creating new NodeRing [ : " << this << "] and nodeCount = " << nodeCount);
 }
 
 LoadBalancer::LoadBalancer(void) noexcept :
     nodeRingByModel{new NodeRingMap()}
 {
+    IGNORE("LoadBalancer : creating new empty NodeRingMap [ : " << this->nodeRingByModel << "]");
+    nodeRingMapVector.push_back(this->nodeRingByModel);
 }
 
 inline LoadBalancer::NodeRing *LoadBalancer::copyRingWithAnAdditionalNodeInside(
@@ -76,12 +83,25 @@ void LoadBalancer::addNodeForOneModel(
             }
         }
         newRing = copyRingWithAnAdditionalNodeInside(oldRing, ip, predictPub, feedbackPub, clientId);
+
+        auto newNodeRingByModel = new NodeRingMap(*this->nodeRingByModel);
+        (*newNodeRingByModel)[modelId].reset(newRing);
+        IGNORE("LoadBalancer : copying NodeRing [" << oldRing << " : " << oldRing.use_count() << "] into NodeRing [" << (*newNodeRingByModel)[modelId] << " : " << (*newNodeRingByModel)[modelId].use_count() << "] to ADD ip (" << ip << ")");
+        auto newRingMapPtr = std::shared_ptr<const NodeRingMap>(newNodeRingByModel);
+        IGNORE("LoadBalancer : copying NodeRingMap [" << this->nodeRingByModel << " : " << this->nodeRingByModel.use_count() << "] into new NodeRingMap [" << newRingMapPtr << " : " << newRingMapPtr.use_count() << "]");
+        nodeRingMapVector.push_back(newRingMapPtr);
+        std::atomic_store(&this->nodeRingByModel, newRingMapPtr);
     } catch (const std::out_of_range &e) {
         newRing = copyRingWithAnAdditionalNodeInside(std::make_shared<const NodeRing>(), ip, predictPub, feedbackPub, clientId);
+
+        auto newNodeRingByModel = new NodeRingMap(*this->nodeRingByModel);
+        (*newNodeRingByModel)[modelId].reset(newRing);
+        IGNORE("LoadBalancer : creating new NodeRing [" << (*newNodeRingByModel)[modelId] << " : " << (*newNodeRingByModel)[modelId].use_count() << "] to ADD ip (" << ip << ")");
+        auto newRingMapPtr = std::shared_ptr<const NodeRingMap>(newNodeRingByModel);
+        IGNORE("LoadBalancer : copying NodeRingMap [" << this->nodeRingByModel << " : " << this->nodeRingByModel.use_count() << "] into new NodeRingMap [" << newRingMapPtr << " : " << newRingMapPtr.use_count() << "]");
+        nodeRingMapVector.push_back(newRingMapPtr);
+        std::atomic_store(&this->nodeRingByModel, newRingMapPtr);
     }
-    auto newNodeRingByModel = new NodeRingMap(*this->nodeRingByModel);
-    (*newNodeRingByModel)[modelId].reset(newRing);
-    std::atomic_store(&this->nodeRingByModel, std::shared_ptr<const NodeRingMap>(newNodeRingByModel));
 }
 
 inline std::shared_ptr<const LoadBalancer::NodeRing> LoadBalancer::copyRingWithSpecificNodeRemoved(
@@ -104,7 +124,10 @@ inline std::shared_ptr<const LoadBalancer::NodeRing> LoadBalancer::copyRingWithS
             newRing->nodeList[iWrite++] = oldRing->nodeList[iRead];
         }
     }
-    return std::shared_ptr<const NodeRing>(newRing);
+    auto newRingPtr = std::shared_ptr<const NodeRing>(newRing);
+    IGNORE("LoadBalancer : copying NodeRing [" << oldRing << " : " << oldRing.use_count() << "] into NodeRing [" << newRingPtr << " : " << newRingPtr.use_count() << "] to REMOVE ip (" << ip << ")");
+    nodeRingVector.push_back(newRingPtr);
+    return newRingPtr;
 }
 
 void LoadBalancer::removeNodeForOneModel(
@@ -122,7 +145,10 @@ void LoadBalancer::removeNodeForOneModel(
             auto newNodeRingByModel = new NodeRingMap(*this->nodeRingByModel);
             const auto newRing = copyRingWithSpecificNodeRemoved(it->second, ip);
             (*newNodeRingByModel)[modelId] = newRing;
-            std::atomic_store(&this->nodeRingByModel, std::shared_ptr<const NodeRingMap>(newNodeRingByModel));
+            auto newRingMapPtr = std::shared_ptr<const NodeRingMap>(newNodeRingByModel);
+            IGNORE("LoadBalancer : copying NodeRingMap [" << this->nodeRingByModel << " : " << this->nodeRingByModel.use_count() << "] into new NodeRingMap [" << newRingMapPtr << " : " << newRingMapPtr.use_count() << "]");
+            nodeRingMapVector.push_back(newRingMapPtr);
+            std::atomic_store(&this->nodeRingByModel, newRingMapPtr);
             return;
         }
     }
@@ -137,7 +163,10 @@ void LoadBalancer::removeNodeForAllModels(
         const auto newRing = copyRingWithSpecificNodeRemoved(it.second, ip);
         (*newNodeRingByModel)[it.first] = newRing;
     }
-    std::atomic_store(&this->nodeRingByModel, std::shared_ptr<const NodeRingMap>(newNodeRingByModel));
+    auto newRingMapPtr = std::shared_ptr<const NodeRingMap>(newNodeRingByModel);
+    IGNORE("LoadBalancer : copying NodeRingMap [" << this->nodeRingByModel << " : " << this->nodeRingByModel.use_count() << "] into new NodeRingMap [" << newRingMapPtr << " : " << newRingMapPtr.use_count() << "]");
+    nodeRingMapVector.push_back(newRingMapPtr);
+    std::atomic_store(&this->nodeRingByModel, newRingMapPtr);
 }
 
 Ubiquity::StatusCode LoadBalancer::sendApplicationMessage(
@@ -149,11 +178,13 @@ Ubiquity::StatusCode LoadBalancer::sendApplicationMessage(
         ) noexcept
 {
     const auto &nodeRingByModel = std::atomic_load(&this->nodeRingByModel);
+    IGNORE("LoadBalancer : reading NodeRingMap [" << this->nodeRingByModel << " : " << this->nodeRingByModel.use_count() << "] to send message.");
     const auto &it = nodeRingByModel->find(modelId);
     if (__glibc_unlikely(nodeRingByModel->end() == it)) {
         return Ubiquity::NO_COMPATIBLE_NODE;
     }
     const std::shared_ptr<const NodeRing> &nodeRing = it->second;
+    IGNORE("LoadBalancer : reading NodeRing [" << it->second << " : " << it->second.use_count() << "] to send message.");
     const uint64_t balancingIndex = static_cast<uint64_t>(XXH3_64bits(&queryId, sizeof(queryId)));
     Ubiquity::StatusCode statusCode = Ubiquity::NO_COMPATIBLE_NODE;
     for (size_t i = 0; i < nodeRing->nodeCount; ++i) {
