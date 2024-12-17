@@ -29,8 +29,7 @@ class NodeClient {
 
         std::shared_ptr<aeron::ExclusivePublication> controlPub = nullptr;
         std::shared_ptr<aeron::Subscription> controlSub = nullptr;
-        std::shared_ptr<aeron::Publication> queryPub = nullptr;
-        std::shared_ptr<aeron::Publication> feedbackPub = nullptr;
+        std::shared_ptr<aeron::Publication> predPubs[2] = { nullptr, nullptr };
         std::shared_ptr<aeron::Subscription> predSub = nullptr;
 
     protected:

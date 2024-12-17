@@ -1,6 +1,7 @@
 #pragma once 
 
 #include "ubiquity_client/Ubiquity.hpp"
+#include "NodeClient.hpp"
 
 #include <Aeron.h>
 
@@ -13,10 +14,7 @@ class LoadBalancer  {
 
         void addNodeForOneModel(
                 const int64_t &modelId,
-                const uint32_t &ip,
-                std::shared_ptr<aeron::Publication> &predictPub,
-                std::shared_ptr<aeron::Publication> &feedbackPub,
-                const uint16_t &clientId
+                const NodeClient *const nodeClient
                 ) noexcept;
 
         void removeNodeForOneModel(
@@ -40,9 +38,7 @@ class LoadBalancer  {
             public:
                 struct Node {
                     int64_t key;
-                    uint32_t ip;
-                    std::shared_ptr<aeron::Publication> pubs[2] {nullptr, nullptr};
-                    uint16_t clientId;
+                    const NodeClient *nodeClient;
                 };
                 size_t nodeCount;
                 std::shared_ptr<Node[]> nodeList;
@@ -70,10 +66,7 @@ class LoadBalancer  {
 
         inline NodeRing *copyRingWithAnAdditionalNodeInside(
                 const std::shared_ptr<const NodeRing> &oldRing,
-                const uint32_t &ip,
-                const std::shared_ptr<aeron::Publication> &predictPub,
-                const std::shared_ptr<aeron::Publication> &feedbackPub,
-                const uint16_t &clientId
+                const NodeClient *const nodeClient
                 ) noexcept;
 
         inline std::shared_ptr<const NodeRing> copyRingWithSpecificNodeRemoved(

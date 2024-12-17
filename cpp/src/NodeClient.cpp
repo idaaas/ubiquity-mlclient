@@ -272,13 +272,13 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
         nc.controlSub->closeAndRemoveImages();
         nc.controlSub = nullptr;
     }
-    if (nc.queryPub) {
-        nc.queryPub->close();
-        nc.queryPub = nullptr;
+    if (nc.predPubs[0]) {
+        nc.predPubs[0]->close();
+        std::atomic_store(&nc.predPubs[0], std::shared_ptr<aeron::Publication>(nullptr));
     }
-    if (nc.feedbackPub) {
-        nc.feedbackPub->close();
-        nc.feedbackPub = nullptr;
+    if (nc.predPubs[1]) {
+        nc.predPubs[1]->close();
+        std::atomic_store(&nc.predPubs[1], std::shared_ptr<aeron::Publication>(nullptr));
     }
     if (nc.predSub) {
         nc.predSub->closeAndRemoveImages();
@@ -366,33 +366,29 @@ static bool onServerOpened(NodeClient &nc, const ControlMessage &message, const 
                 .controlMode("dynamic")
                 .build(),
             StreamId::PRED_MDC);
-    nc.queryPub = nullptr;
-    nc.feedbackPub = nullptr;
+    std::atomic_store(&nc.predPubs[0],  std::shared_ptr<aeron::Publication>(nullptr));
+    std::atomic_store(&nc.predPubs[1],  std::shared_ptr<aeron::Publication>(nullptr));
     nc.predSub = nullptr;
     return true;
 }
 
 static bool waitingForPredConnection(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
-    static std::vector<std::shared_ptr<aeron::Publication>> queryPubVector{};
-    static std::vector<std::shared_ptr<aeron::Publication>> feedbackPubVector{};
-    if (nullptr == nc.queryPub) {
-        nc.queryPub = ClusterClient::s_aeronClient->findPublication(nc.queryPubId);
-        //queryPubVector.push_back(nc.queryPub);
+    if (nullptr == nc.predPubs[0]) {
+        std::atomic_store(&nc.predPubs[0],  ClusterClient::s_aeronClient->findPublication(nc.queryPubId));
     }
-    if (nullptr == nc.feedbackPub) {
-        nc.feedbackPub = ClusterClient::s_aeronClient->findPublication(nc.feedbackPubId);
-        //feedbackPubVector.push_back(nc.feedbackPub);
+    if (nullptr == nc.predPubs[1]) {
+        std::atomic_store(&nc.predPubs[1],  ClusterClient::s_aeronClient->findPublication(nc.feedbackPubId));
     }
     if (nullptr == nc.predSub) {
         nc.predSub = ClusterClient::s_aeronClient->findSubscription(nc.predSubId);
     }
     const bool isConnected =
            nullptr != nc.predSub
-        && nullptr != nc.queryPub
-        && nullptr != nc.feedbackPub
+        && nullptr != nc.predPubs[0]
+        && nullptr != nc.predPubs[1]
         && nc.predSub->isConnected()
-        && nc.queryPub->isConnected()
-        && nc.feedbackPub->isConnected();
+        && nc.predPubs[0]->isConnected()
+        && nc.predPubs[1]->isConnected();
     return isConnected;
 }
 
@@ -402,15 +398,15 @@ static bool onServerReady(NodeClient &nc, const ControlMessage &message, const s
         newPredSubList->emplace_back(predSub);
     }
     newPredSubList->emplace_back(nc.predSub);
-    atomic_store(&nc.clusterClient->predSubList, newPredSubList);
+    std::atomic_store(&nc.clusterClient->predSubList, newPredSubList);
     return true;
 }
 
 static bool whileReady(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     const bool ready =
            nc.predSub->isConnected()
-        && nc.queryPub->isConnected()
-        && nc.feedbackPub->isConnected()
+        && nc.predPubs[0]->isConnected()
+        && nc.predPubs[1]->isConnected()
         && nc.controlSub->isConnected()
         && nc.controlPub->isConnected();
     return !ready;
@@ -419,8 +415,8 @@ static bool whileReady(NodeClient &nc, const ControlMessage &message, const size
 static bool whileLosingConnection(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     return
            nc.predSub->isConnected()
-        && nc.queryPub->isConnected()
-        && nc.feedbackPub->isConnected()
+        && nc.predPubs[0]->isConnected()
+        && nc.predPubs[1]->isConnected()
         && nc.controlSub->isConnected()
         && nc.controlPub->isConnected();
 }
@@ -469,7 +465,7 @@ static bool onModelAdd(NodeClient &nc, const ControlMessage &message, const size
             feedbackDelaysCount,
             features
             );
-    nc.clusterClient->loadBalancer->addNodeForOneModel(modelId, nc.ip, nc.queryPub, nc.feedbackPub, nc.clientId);
+    nc.clusterClient->loadBalancer->addNodeForOneModel(modelId, &nc);
     return false;
 }
 
@@ -502,15 +498,13 @@ static const TransitionPerInput transitionsPerInput[] = {
     State::CONNECTING_PREDICTION,       MessageType::REGISTRATION_ERROR,            onRegistrationError,            State::WAITING_BEFORE_RETRY,
     State::CONNECTING_PREDICTION,       MessageType::REGISTRATION_CONFIRMATION,     onRegistrationConfirmation,     State::REGISTERED,
     State::REGISTERED,                  MessageType::SERVER_OPENED,                 onServerOpened,                 State::AWAITING_PRED_CONNECTION,
-    State::REGISTERED,                  MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::AWAITING_PRED_CONNECTION,    MessageType::NONE,                          waitingForPredConnection,       State::PRED_CONNECTED,
-    State::AWAITING_PRED_CONNECTION,    MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::PRED_CONNECTED,              MessageType::SERVER_READY,                  onServerReady,                  State::CLIENT_READY,
-    State::PRED_CONNECTED,              MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::CLIENT_READY,                MessageType::NONE,                          whileReady,                     State::LOSING_CONNECTION,
-    State::CLIENT_READY,                MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
     State::LOSING_CONNECTION,           MessageType::NONE,                          whileLosingConnection,          State::CLIENT_READY,
-    State::LOSING_CONNECTION,           MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
+    State::ANY,                         MessageType::MODEL_ADD,                     onModelAdd,                     State::ANY,
+    State::UNBOUND,                     MessageType::MODEL_ADD,                     ignore,                         State::ANY,
+    State::DISCONNECTING,               MessageType::MODEL_ADD,                     ignore,                         State::ANY,
     State::ANY,                         MessageType::MODEL_REMOVE,                  onModelRemove,                  State::ANY,
     State::DISCONNECTING,               MessageType::DISCONNECTION_CONFIRMATION,    onDisconnectionConfirmation,    State::DISCONNECTED,
 };
