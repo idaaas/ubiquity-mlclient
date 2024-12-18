@@ -40,6 +40,12 @@ cpp-bindings:
   COPY --dir +build/* local-output/
   SAVE ARTIFACT local-output AS LOCAL local-output/cpp
 
+cpp-publish:
+  COPY +build/libubiquity_client_static.a ./artefacts/
+  COPY +build/Ubiquity.hpp ./artefacts/
+  RUN tar -cvzf artefacts.tar.gz  ./artefacts
+  SAVE ARTIFACT artefacts.tar.gz AS LOCAL local-output/cpp/
+
 java-bindings:
   ARG release
   FROM +java-swig-image
