@@ -333,7 +333,7 @@ void ClusterClient::clusterThreadFunction(
         ) noexcept
 {
     DBG("ClusterClient(" << cc->clusterId << ") : Starting dedicated thread");
-    if (cc->loadConfiguration()) {
+    while (cc->loadConfiguration() && !cc->isTerminating) {
         while (cc.use_count() > 1 || cc->boundNcCount > 0) {
             if (cc.use_count() == 1 && !cc->isTerminating && std::atomic_load(&cc->canTerminate)) {
                 cc->terminate();
