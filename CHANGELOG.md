@@ -7,12 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.7.5] - 2025-01-06
+
+### Added
+
+- Cpp examples
+
 ### Changed
 
 - Documentation updated.
 
 ### Fixed
 
+- Try to reconnect in case of a graceful shutdown
 - CI deployement of Go and Python. 
 
 ## [v0.7.4] - 2024-12-17
@@ -31,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - Refactor load balancer to avoid race condition.
 
-[Unreleased]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.4...HEAD
+[Unreleased]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.5...HEAD
+[v0.7.5]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.4...v0.7.5
 [v0.7.4]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.3...v0.7.4
 [v0.7.3]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.2...v0.7.3
