@@ -334,7 +334,8 @@ void ClusterClient::clusterThreadFunction(
 {
     DBG("ClusterClient(" << cc->clusterId << ") : Starting dedicated thread");
     while (cc->loadConfiguration() && !cc->isTerminating) {
-        while (cc.use_count() > 1 || cc->boundNcCount > 0) {
+        cc->topologyAlreadyReceived = false;
+        while(cc.use_count() > 1 || cc->boundNcCount > 0) {
             if (cc.use_count() == 1 && !cc->isTerminating && std::atomic_load(&cc->canTerminate)) {
                 cc->terminate();
             }
@@ -342,6 +343,7 @@ void ClusterClient::clusterThreadFunction(
                 cc->ncArray[i].invoke();
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (cc->boundNcCount == 0) break;
         }
     }
     DBG("ClusterClient(" << cc->clusterId << ") : Terminated");
