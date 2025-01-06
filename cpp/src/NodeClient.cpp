@@ -262,6 +262,16 @@ static bool beforeUnbound(NodeClient &nc) noexcept {
 static constexpr uint16_t CLIENT_ID_BROADCAST = __SHRT_MAX__;
 static constexpr uint16_t CLIENT_ID_UNSET = __UINT16_MAX__;
 
+static inline std::shared_ptr<ClusterClient::PredSubList> getPredSubListCopy(NodeClient &nc, const bool removeNode) noexcept {
+    auto newPredSubList = std::make_shared<std::vector<std::shared_ptr<aeron::Subscription>>>();
+    for (const auto &predSub : *nc.clusterClient->predSubList) {
+        if (!removeNode || nc.predSub != predSub) {
+            newPredSubList->emplace_back(predSub);
+        }
+    }
+    return newPredSubList;
+}
+
 static bool beforeDisconnected(NodeClient &nc) noexcept {
     nc.clusterClient->loadBalancer->removeNodeForAllModels(nc.ip);  
     if (nc.controlPub) {
@@ -284,6 +294,11 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
         nc.predSub->closeAndRemoveImages();
         nc.predSub = nullptr;
     }
+
+    // New list of predSubs without current NodeClient.
+    const auto &newPredSubList = getPredSubListCopy(nc, true);
+    std::atomic_store(&nc.clusterClient->predSubList, newPredSubList);
+
     nc.clientId = CLIENT_ID_UNSET;
     return 0 != nc.ip;
 }
@@ -393,10 +408,7 @@ static bool waitingForPredConnection(NodeClient &nc, const ControlMessage &messa
 }
 
 static bool onServerReady(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
-    auto newPredSubList = std::make_shared<std::vector<std::shared_ptr<aeron::Subscription>>>();
-    for (const auto &predSub : *nc.clusterClient->predSubList) {
-        newPredSubList->emplace_back(predSub);
-    }
+    const auto &newPredSubList = getPredSubListCopy(nc, false);
     newPredSubList->emplace_back(nc.predSub);
     std::atomic_store(&nc.clusterClient->predSubList, newPredSubList);
     return true;
