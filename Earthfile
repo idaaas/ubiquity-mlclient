@@ -260,7 +260,7 @@ sbt-image:
     RUN curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | gpg --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --import
     RUN chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
     RUN apt-get update -qq && apt-get install --no-install-recommends -qq sbt
-    RUN sbt update
+    RUN sbt update --allow-empty
   END
 
 JAVA_INSTALL:
