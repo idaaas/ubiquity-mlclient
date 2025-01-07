@@ -273,7 +273,12 @@ static inline std::shared_ptr<ClusterClient::PredSubList> getPredSubListCopy(Nod
 }
 
 static bool beforeDisconnected(NodeClient &nc) noexcept {
-    nc.clusterClient->loadBalancer->removeNodeForAllModels(nc.ip);  
+    nc.clusterClient->loadBalancer->removeNodeForAllModels(nc.ip);
+
+    // New list of predSubs without current NodeClient.
+    const auto &newPredSubList = getPredSubListCopy(nc, true);
+    std::atomic_store(&nc.clusterClient->predSubList, newPredSubList);
+
     if (nc.controlPub) {
         nc.controlPub->close();
         nc.controlPub = nullptr;
@@ -292,12 +297,8 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
     }
     if (nc.predSub) {
         nc.predSub->closeAndRemoveImages();
-        nc.predSub = nullptr;
+        nc.predSub = nullptr; //clean AFTER removing it from the list
     }
-
-    // New list of predSubs without current NodeClient.
-    const auto &newPredSubList = getPredSubListCopy(nc, true);
-    std::atomic_store(&nc.clusterClient->predSubList, newPredSubList);
 
     nc.clientId = CLIENT_ID_UNSET;
     return 0 != nc.ip;
