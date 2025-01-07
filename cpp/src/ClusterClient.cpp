@@ -223,8 +223,13 @@ inline Ubiquity::StatusCode ClusterClient::fetchResourceFromRestApi(
             return Ubiquity::UNKNOWN_RESOURCE;
         case 400:
             return Ubiquity::INVALID_RESOURCE_ID;
-        case 500:
+        case 401:
+            return Ubiquity::UNAUTHORIZED;
+        case 403:
             return Ubiquity::FORBIDDEN;
+        case 500:
+        case 502:
+            return Ubiquity::INTERNAL_API_ERROR;
         default:
             DBG("Failed to fetch resource from " << url << " (HTTP status " << httpStatus << ")");
             return Ubiquity::OTHER_FETCH_ERROR;

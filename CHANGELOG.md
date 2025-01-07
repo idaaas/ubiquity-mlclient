@@ -11,15 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Cpp examples
+- Cpp examples.
+- Status codes UNAUTHORIZED and INTERNAL_API_ERROR.
 
 ### Changed
 
 - Documentation updated.
+- FORBIDDEN status code now refers to 403 Http error.
 
 ### Fixed
 
-- Try to reconnect in case of a graceful shutdown
+- Try to reconnect in case of a graceful shutdown.
 - CI deployement of Go and Python. 
 
 ## [v0.7.4] - 2024-12-17
