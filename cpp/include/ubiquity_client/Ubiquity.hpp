@@ -36,6 +36,8 @@ namespace Ubiquity {
         static constexpr StatusCode INVALID_CLUSTER_DESCRIPTION     = SETUP_ERROR | 14;
         static constexpr StatusCode SCHEMA_UNAVAILABLE              = SETUP_ERROR | 15;
         static constexpr StatusCode INVALID_HANDLE                  = SETUP_ERROR | 16;
+        static constexpr StatusCode UNAUTHORIZED                    = SETUP_ERROR | 17;
+        static constexpr StatusCode INTERNAL_API_ERROR              = SETUP_ERROR | 18;
 
         static constexpr ApplicationType APP_BID_SHADING = 0;
         static constexpr ApplicationType APP_PROBABILITY = 1;

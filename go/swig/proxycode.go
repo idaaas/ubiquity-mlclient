@@ -2,6 +2,7 @@
 const MISSING_BOOLEAN int8 = -1
 const MISSING_CATEGORICAL int8 = -1
 const MISSING_NOMINAL string = "_MISSING_"
+
 var MISSING_NUMERIC float32 = float32(math.NaN())
 
 const UNDEFINED int = 0
@@ -27,6 +28,8 @@ const OTHER_FETCH_ERROR int = 0x2000D
 const INVALID_CLUSTER_DESCRIPTION int = 0x2000E
 const SCHEMA_UNAVAILABLE int = 0x2000F
 const INVALID_HANDLE int = 0x20010
+const UNAUTHORIZED int = 0x20011
+const INTERNAL_API_ERROR int = 0x20012
 
 const APP_BID_SHADING int = 0
 const APP_PROBABILITY int = 1
