@@ -504,8 +504,8 @@ static const TransitionPerInput transitionsPerInput[] = {
     // State                            Input Message Type                          Function to call                Next state when resolved as true
     State::DISCONNECTED,                MessageType::NONE,                          whileDisconnected,              State::CONNECTING_CONTROL,
     State::CONNECTING_CONTROL,          MessageType::NONE,                          waitingForControlConnection,    State::REQUESTING_TOPOLOGY,
+    State::ANY,                         MessageType::TOPOLOGY_UPDATE,               onTopologyUpdate,               State::ANY, // ANY rule must be declared before more restrictive rules, otherwise it overrides it.
     State::REQUESTING_TOPOLOGY,         MessageType::TOPOLOGY_UPDATE,               onTopologyUpdate,               State::CONNECTING_PREDICTION,
-    State::ANY,                         MessageType::TOPOLOGY_UPDATE,               onTopologyUpdate,               State::ANY,
     State::DISCONNECTING,               MessageType::TOPOLOGY_UPDATE,               ignore,                         State::ANY,
     State::UNBOUND,                     MessageType::TOPOLOGY_UPDATE,               ignore,                         State::ANY,
     State::CONNECTING_PREDICTION,       MessageType::REGISTRATION_ERROR,            onRegistrationError,            State::WAITING_BEFORE_RETRY,
@@ -696,6 +696,10 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
     State::Value nextState = State::ANY;
     if (ctTransitionsPerInput[this->state][inputType].function(*this, *message, messageLength)) {
         nextState = ctTransitionsPerInput[this->state][inputType].nextState;
+    }
+
+    if (inputType != MessageType::NONE) {
+     DBG("DEBUG : from state "<< (int) this->state << " next state : " << (int)nextState);
     }
 
     if (State::ANY != nextState) {
