@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v0.7.5] - 2025-01-06
+## [v0.7.5] - 2025-01-09
 
 ### Added
 
@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Not sending Disconnection request when client Id is not set.
 - Try to reconnect in case of a graceful shutdown.
 - CI deployement of Go and Python. 
 
