@@ -695,7 +695,7 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
 
     const uint8_t inputType = messageProcessed ? message->common.type : MessageType::NONE;
     if (messageReceived && !messageProcessed) {
-      DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Not processing received message");
+      DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Ignoring next message...");
     }
 
     State::Value nextState = State::ANY;
