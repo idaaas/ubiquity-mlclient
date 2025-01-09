@@ -439,13 +439,11 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
 
     uint64_t modelId;
     if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
-        DBG("Error : train aborted due to invalid model ID provided.")
         this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
         return this->statusCode;
     }
     this->statusCode = this->getSchema(modelId);
     if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
-        DBG("Warning : train aborted because there was an error while getting the schema.")
         return this->statusCode;
     }
     const Ubiquity::ApplicationType feedbackType = this->schema.applicationId;
