@@ -1,0 +1,70 @@
+{
+  "version": "1.0.0",
+  "name": "scenario2",
+  "cluster": [
+    {
+      "id": "node_2",
+      "ip": "10.20.0.5",
+      "singleton": true
+    },
+    {
+      "id": "node_3",
+      "ip": "10.20.0.9"
+    },
+    {
+      "id": "node_4",
+      "ip": "10.20.0.13"
+    }
+  ],
+  "mocks": [
+    {
+      "id": "1.0",
+      "on": "TOPOLOGY_REQUEST",
+      "send": "TOPOLOGY_UPDATE"
+    },
+    {
+      "id": "1.1",
+      "on": "TOPOLOGY_REQUEST",
+      "send": "TOPOLOGY_UPDATE",
+      "who": "node_2",
+      "waitMs": "100"
+    },
+    {
+      "id": "2.0",
+      "on": "CONNECTION_REQUEST.REGISTRATION_REQUEST",
+      "send": "CONNECTION_RESPONSE.REGISTRATION_RESPONSE"
+    },
+    {
+      "id": "3.0",
+      "on": "CONNECTION_REQUEST.DISCONNECTING_REQUEST",
+      "send": "CONNECTION_RESPONSE.DISCONNECTION_CONFIRMATION_RESPONSE"
+    },
+    {
+      "id": "4.0",
+      "on": "CONNECTION_REQUEST.SERVER_OPEN_REQUEST",
+      "send": "CONNECTION_RESPONSE.SERVER_OPENED_RESPONSE"
+    },
+    {
+      "id": "5.0",
+      "on": "CONNECTION_REQUEST.SERVER_READY_REQUEST",
+      "send": "CONNECTION_RESPONSE.SERVER_READY_RESPONSE"
+    },
+    {
+      "id": "6.0",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "NONE"
+    },
+    {
+      "id": "7.0",
+      "on": "TIME_MS",
+      "send": "TOPOLOGY_UPDATE.REMOVE",
+      "waitMs": "1500"
+    },
+    {
+      "id": "7.1",
+      "on": "TIME_MS",
+      "send": "DISCONNECT",
+      "waitMs": "1700"
+    }
+  ]
+}

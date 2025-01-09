@@ -1,0 +1,65 @@
+{
+  "version": "1.0.0",
+  "name": "scenario3",
+  "cluster": [
+    {
+      "id": "node_1",
+      "ip": "10.20.0.1"
+    },
+    {
+      "id": "node_2",
+      "ip": "10.20.0.5",
+      "singleton": true
+    }
+  ],
+  "mocks": [
+    {
+      "id": "1.0",
+      "on": "TOPOLOGY_REQUEST",
+      "send": "TOPOLOGY_UPDATE"
+    },
+    {
+      "id": "2.0",
+      "on": "CONNECTION_REQUEST.REGISTRATION_REQUEST",
+      "send": "REGISTRATION_ERROR_RESPONSE.CORRELATION_CONFLICT",
+      "when": 1
+    },
+    {
+      "id": "2.1",
+      "on": "CONNECTION_REQUEST.REGISTRATION_REQUEST",
+      "send": "CONNECTION_RESPONSE.REGISTRATION_RESPONSE"
+    },
+    {
+      "id": "3.0",
+      "on": "CONNECTION_REQUEST.DISCONNECTING_REQUEST",
+      "send": "CONNECTION_RESPONSE.DISCONNECTION_CONFIRMATION_RESPONSE"
+    },
+    {
+      "id": "3.1",
+      "on": "CONNECTION_REQUEST.DISCONNECTING_REQUEST",
+      "send": "NONE",
+      "who": "node_2"
+    },
+    {
+      "id": "4.0",
+      "on": "CONNECTION_REQUEST.SERVER_OPEN_REQUEST",
+      "send": "NONE",
+      "when": 2
+    },
+    {
+      "id": "4.1",
+      "on": "CONNECTION_REQUEST.SERVER_OPEN_REQUEST",
+      "send": "CONNECTION_RESPONSE.SERVER_OPENED_RESPONSE"
+    },
+    {
+      "id": "5.0",
+      "on": "CONNECTION_REQUEST.SERVER_READY_REQUEST",
+      "send": "CONNECTION_RESPONSE.SERVER_READY_RESPONSE"
+    },
+    {
+      "id": "6.0",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "NONE"
+    }
+  ]
+}
