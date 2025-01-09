@@ -683,30 +683,31 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
             }
         };
 
+    bool messageProcessed = false;
     bool messageReceived = false;
     if (nullptr != this->controlSub && 0 < this->controlSub->poll(messageReceiver, 1)) {
-        messageReceived = this->clientId == message->common.clientId
+      messageReceived = true;
+        messageProcessed = this->clientId == message->common.clientId
             || isGlobalMessage
             || (this->clientId == CLIENT_ID_UNSET && CLIENT_ID_BROADCAST == message->common.clientId
                     && isMyCorrelationId(message, this->correlationIdHigh, this->correlationIdLow));
     }
 
-    const uint8_t inputType = messageReceived ? message->common.type : MessageType::NONE;
+    const uint8_t inputType = messageProcessed ? message->common.type : MessageType::NONE;
+    if (messageReceived && !messageProcessed) {
+      DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Not processing received message");
+    }
 
     State::Value nextState = State::ANY;
     if (ctTransitionsPerInput[this->state][inputType].function(*this, *message, messageLength)) {
         nextState = ctTransitionsPerInput[this->state][inputType].nextState;
     }
 
-    if (inputType != MessageType::NONE) {
-     DBG("DEBUG : from state "<< (int) this->state << " next state : " << (int)nextState);
-    }
-
     if (State::ANY != nextState) {
         this->switchStateAfterCheck(nextState);
         return true;
     }
-    return messageReceived;
+    return messageProcessed;
 }
 
 void NodeClient::switchStateIfPeriodPassed() noexcept {
@@ -732,6 +733,19 @@ void NodeClient::sendOutputBasedOnState() noexcept {
                 message->common.type = MessageType::TOPOLOGY_REQUEST;
                 message->common.clientId = clientId;
                 this->controlPub->offer({message->buffer, sizeof(ControlMessageBase)});
+                break;
+            case Output::DISCONNECTION_REQUEST:
+                if (this->clientId == CLIENT_ID_UNSET) {
+                  DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Not sending message as client ID is not set");
+                  break;
+                }
+                message->common.type = MessageType::REGISTRATION_REQUEST;
+                message->common.version = 0x01; // new version for v0.7
+                message->common.clientId = clientId;
+                message->registration.correlationIdHigh = this->correlationIdHigh;
+                message->registration.correlationIdLow = this->correlationIdLow;
+                message->registration.output = output;
+                this->controlPub->offer({message->buffer, sizeof(RegistrationMessage)});
                 break;
             default:
                 message->common.type = MessageType::REGISTRATION_REQUEST;
