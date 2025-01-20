@@ -75,6 +75,7 @@ namespace Ubiquity {
                 void startLineItem(const char *modelId, const int64_t queryId, const float maxCPM) noexcept;
                 void startProbability(const char *modelId, const int64_t queryId) noexcept;
                 int32_t train(const char *modelId, int64_t queryId, int32_t level) noexcept;
+                int32_t cancel(const char *modelId, int64_t queryId) noexcept;
 
                 class Impl;
             private:

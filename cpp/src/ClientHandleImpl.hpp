@@ -65,6 +65,11 @@ class Ubiquity::ClientHandle::Impl {
                 int level
                 ) noexcept;
 
+        Ubiquity::StatusCode cancel(
+                const char *const encodedModelId,
+                int64_t queryId
+                ) noexcept;
+
         ClusterClient::Schema schema;
         std::shared_ptr<ClusterClient> clusterClient;
         Ubiquity::StatusCode statusCode = Ubiquity::SUCCESS;
@@ -194,6 +199,10 @@ class Ubiquity::ClientHandle::Impl {
             uint32_t eventOccurred;
         } __attribute__((packed));
 
+        struct CancelMessage {
+          ApplicationMessage _;
+        };
+
         union {
             uint8_t buffer[ClusterClient::MAXIMUM_TRANSMISSION_UNIT];
             ApplicationMessage common;
@@ -208,6 +217,7 @@ class Ubiquity::ClientHandle::Impl {
             ProbabilityFeedbackMessage probabilityFeedback;
             LineItemFeedbackMessage lineItemFeedback;
             FeedbackNextLevelsMessage feedbackNextLevels;
+            CancelMessage cancelMessage;
         } message;
 
 };
