@@ -441,6 +441,7 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::cancel(
         DBG("Warning : train aborted because there was an error while getting the schema.")
         return this->statusCode;
     }
+    this->message.feedback.feedbackDelay = this->schema.feedbackDelays[0];
     
     prepareCommonHeader(modelId, queryId, this->schema.applicationId, MessageType::CANCEL);
     if (Ubiquity::SUCCESS == this->statusCode) {
