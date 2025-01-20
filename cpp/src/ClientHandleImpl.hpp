@@ -201,6 +201,7 @@ class Ubiquity::ClientHandle::Impl {
 
         struct CancelMessage {
           ApplicationMessage _;
+          uint32_t feedbackDelay;
         };
 
         union {
