@@ -232,6 +232,7 @@ void Ubiquity::ClientHandle::Impl::putNumeric(
 enum class Ubiquity::ClientHandle::Impl::MessageType : uint8_t {
     QUERY = 0x05,
     FEEDBACK = 0x07,
+    CANCEL = 0x08,
 };
 
 inline Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::getSchema(
@@ -412,6 +413,45 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
                 this->message.common.queryId,
                 this->atomicBuffer,
                 feedbackMessageSize[static_cast<size_t>(feedbackType)],
+                true
+                );
+    }
+    return this->statusCode;
+}
+
+Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::cancel(
+        const char *encodedModelId,
+        int64_t queryId
+        ) noexcept
+{
+
+    if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
+        DBG("Error : train aborted due to previous blocking error.")
+        return this->statusCode;
+    }
+
+    uint64_t modelId;
+    if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
+        DBG("Error : train aborted due to invalid model ID provided.")
+        this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
+        return this->statusCode;
+    }
+    this->statusCode = this->getSchema(modelId);
+    if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
+        DBG("Warning : train aborted because there was an error while getting the schema.")
+        return this->statusCode;
+    }
+    
+    prepareCommonHeader(modelId, queryId, this->schema.applicationId, MessageType::CANCEL);
+    if (Ubiquity::SUCCESS == this->statusCode) {
+      IGNORE("ClientHandle(" << this->clusterClient->clusterId
+                << ") : Sending cancel feedback(" << this->message.common.queryId
+                << ") for model(" << this->message.common.modelId << ")");
+        this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
+                this->message.common.modelId,
+                this->message.common.queryId,
+                this->atomicBuffer,
+                sizeof(CancelMessage),
                 true
                 );
     }

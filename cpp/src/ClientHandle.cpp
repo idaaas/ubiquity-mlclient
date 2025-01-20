@@ -91,3 +91,7 @@ void Ubiquity::ClientHandle::startProbability(const char *modelId, const int64_t
 Ubiquity::StatusCode Ubiquity::ClientHandle::train(const char *modelId, int64_t queryId, int32_t level) noexcept {
     return this->pimpl->train(modelId, queryId, level);
 }
+
+Ubiquity::StatusCode Ubiquity::ClientHandle::cancel(const char *modelId, int64_t queryId) noexcept {
+    return this->pimpl->cancel(modelId, queryId);
+}
