@@ -145,6 +145,7 @@ inline bool ClusterClient::loadIpListFromDescription(
     }
     this->addNodesToTopology(&ipList[0], ipList.size());
     this->topologyAlreadyReceived = false;
+    this->statusCode = Ubiquity::SUCCESS;
     return true;
 }
 
@@ -160,6 +161,7 @@ inline bool ClusterClient::configureFromString(
         this->statusCode = Ubiquity::INVALID_CLUSTER_DESCRIPTION;
         return false;
     }
+    this->statusCode = Ubiquity::SUCCESS;
     return this->loadIpListFromDescription(clusterDescription["contact_points"]);
 }
 
@@ -279,21 +281,25 @@ void ClusterClient::ensureSchemaForOneModelIsInCache(
     }
 }
 
-inline const std::string ClusterClient::getResourceStringFromCache(
+inline const std::string ClusterClient::consumeResourceStringFromCache(
         const std::string &resourceId
         ) noexcept {
     DBG("Looking for string resource with ID " << resourceId << " in resource cache");
     auto it = s_resourceCache.find(resourceId);
     if (s_resourceCache.end() != it) {
         DBG("Using resource string from cache");
-        return it->second;
+        auto resource = it->second;
+
+        // The resource is consumed and must be downloaded again or set again.
+        s_resourceCache.erase(it);
+        return resource;
     }
     return std::string();
 }
 
 inline bool ClusterClient::loadConfiguration(void) noexcept {
     DBG("ClusterClient(" << this->clusterId << ") : Loading cluster configuration");
-    std::string configString = getResourceStringFromCache(this->clusterId);
+    std::string configString = consumeResourceStringFromCache(this->clusterId);
     if (configString.empty()) {
         Ubiquity::StatusCode statusCode = fetchResourceFromRestApi(&configString, s_apiUrlRoot + "/clusters/" + this->clusterId);
         if (Ubiquity::SUCCESS != statusCode) {
@@ -310,7 +316,7 @@ inline bool ClusterClient::loadConfiguration(void) noexcept {
 }
 
 /*
- * CLUSTER CREATION AND MAIN LOOP
+ * CLUSTER CLIENT CREATION AND MAIN LOOP
  */
 
 ClusterClient::ClusterClient(void) noexcept
@@ -333,14 +339,24 @@ inline void ClusterClient::terminate(void) noexcept {
 }
 
 static constexpr auto TIME_BEFORE_RECONFIGURATION = std::chrono::seconds(60);
+static std::chrono::time_point<std::chrono::high_resolution_clock> s_configExpirationTime;
+
+static inline void resetConfigExpirationTime() {
+    s_configExpirationTime = std::chrono::high_resolution_clock::now() + TIME_BEFORE_RECONFIGURATION;
+}
+
+static inline bool configurationIsNotExpired() {
+    return std::chrono::high_resolution_clock::now() < s_configExpirationTime;
+}
+
 void ClusterClient::clusterThreadFunction(
         std::shared_ptr<ClusterClient> cc
         ) noexcept
 {
     DBG("ClusterClient(" << cc->clusterId << ") : Starting dedicated thread");
     while (cc->loadConfiguration() && !cc->isTerminating) {
-        cc->topologyAlreadyReceived = false;
-        while(cc.use_count() > 1 || cc->boundNcCount > 0) {
+        resetConfigExpirationTime();
+        while (configurationIsNotExpired()) {
             if (cc.use_count() == 1 && !cc->isTerminating && std::atomic_load(&cc->canTerminate)) {
                 cc->terminate();
             }
@@ -348,7 +364,9 @@ void ClusterClient::clusterThreadFunction(
                 cc->ncArray[i].invoke();
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            if (cc->boundNcCount == 0) break;
+            if (cc->nonDisconnectedNcCount > 0) {
+                resetConfigExpirationTime();
+            };
         }
     }
     DBG("ClusterClient(" << cc->clusterId << ") : Terminated");

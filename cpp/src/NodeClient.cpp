@@ -34,7 +34,6 @@ namespace State {
     enum Value : uint8_t {
         UNBOUND = 0,
         DISCONNECTED,
-        CONNECTING_CONTROL,
         REQUESTING_TOPOLOGY,
         CONNECTING_PREDICTION,
         WAITING_BEFORE_RETRY,
@@ -50,7 +49,6 @@ namespace State {
     static const char *const strings[COUNT] = {
         "UNBOUND",
         "DISCONNECTED",
-        "CONNECTING_CONTROL",
         "REQUESTING_TOPOLOGY",
         "CONNECTING_PREDICTION",
         "WAITING_BEFORE_RETRY",
@@ -255,7 +253,6 @@ struct {
  */
 
 static bool beforeUnbound(NodeClient &nc) noexcept {
-    --nc.clusterClient->boundNcCount;
     return true;
 }
 
@@ -274,6 +271,9 @@ static inline std::shared_ptr<ClusterClient::PredSubList> getPredSubListCopy(Nod
 
 static bool beforeDisconnected(NodeClient &nc) noexcept {
     nc.clusterClient->loadBalancer->removeNodeForAllModels(nc.ip);
+    if (State::DISCONNECTED != nc.state && State::UNBOUND != nc.state) {
+        --nc.clusterClient->nonDisconnectedNcCount;
+    }
 
     // New list of predSubs without current NodeClient.
     const auto &newPredSubList = getPredSubListCopy(nc, true);
@@ -301,31 +301,32 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
     }
 
     nc.clientId = CLIENT_ID_UNSET;
-    return 0 != nc.ip;
+
+    // If there's an IP address, prepare to connect.
+    if (0 != nc.ip) {
+        nc.controlPubId = ClusterClient::s_aeronClient->addExclusivePublication(
+                aeron::ChannelUriStringBuilder()
+                    .media("udp")
+                    .endpoint(nc.ipString + ":" + std::to_string(Port::ENDPOINT))
+                    .build(),
+                StreamId::PROTOCOL);
+        nc.controlSubId = ClusterClient::s_aeronClient->addSubscription(
+                aeron::ChannelUriStringBuilder()
+                    .media("udp")
+                    .endpoint("0.0.0.0:0")
+                    .controlEndpoint(nc.ipString + ":" + std::to_string(Port::CONTROL))
+                    .controlMode("dynamic")
+                    .build(),
+                StreamId::PROTOCOL_MDC);
+        nc.correlationIdHigh = Rng::generateUint64();
+        nc.correlationIdLow = Rng::generateUint64();
+        return true;
+    }
+    return false;
 }
 
 static bool whileDisconnected(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept
 {
-    nc.controlPubId = ClusterClient::s_aeronClient->addExclusivePublication(
-            aeron::ChannelUriStringBuilder()
-                .media("udp")
-                .endpoint(nc.ipString + ":" + std::to_string(Port::ENDPOINT))
-                .build(),
-            StreamId::PROTOCOL);
-    nc.controlSubId = ClusterClient::s_aeronClient->addSubscription(
-            aeron::ChannelUriStringBuilder()
-                .media("udp")
-                .endpoint("0.0.0.0:0")
-                .controlEndpoint(nc.ipString + ":" + std::to_string(Port::CONTROL))
-                .controlMode("dynamic")
-                .build(),
-            StreamId::PROTOCOL_MDC);
-    nc.correlationIdHigh = Rng::generateUint64();
-    nc.correlationIdLow = Rng::generateUint64();
-    return true;
-}
-
-static bool waitingForControlConnection(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     if (nullptr == nc.controlPub) {
         nc.controlPub = ClusterClient::s_aeronClient->findExclusivePublication(nc.controlPubId);
     }
@@ -341,6 +342,7 @@ static bool waitingForControlConnection(NodeClient &nc, const ControlMessage &me
 }
 
 static bool beforeRequestingTopology(NodeClient &nc) noexcept {
+    ++nc.clusterClient->nonDisconnectedNcCount;
     return !nc.clusterClient->topologyAlreadyReceived;
 }
 
@@ -502,8 +504,7 @@ struct TransitionPerInput {
 // This table is checked first. If the state and input (or absence of) match, the function is called and if it returns true, the state changes as indicated.
 static const TransitionPerInput transitionsPerInput[] = {
     // State                            Input Message Type                          Function to call                Next state when resolved as true
-    State::DISCONNECTED,                MessageType::NONE,                          whileDisconnected,              State::CONNECTING_CONTROL,
-    State::CONNECTING_CONTROL,          MessageType::NONE,                          waitingForControlConnection,    State::REQUESTING_TOPOLOGY,
+    State::DISCONNECTED,                MessageType::NONE,                          whileDisconnected,              State::REQUESTING_TOPOLOGY,
     State::ANY,                         MessageType::TOPOLOGY_UPDATE,               onTopologyUpdate,               State::ANY, // ANY rule must be declared before more restrictive rules, otherwise it overrides it.
     State::REQUESTING_TOPOLOGY,         MessageType::TOPOLOGY_UPDATE,               onTopologyUpdate,               State::CONNECTING_PREDICTION,
     State::DISCONNECTING,               MessageType::TOPOLOGY_UPDATE,               ignore,                         State::ANY,
@@ -531,7 +532,7 @@ struct TransitionPerPeriod {
 // Then this table is checked and if the period matching the (possibly new) current state is exceeded, the state changes as indicated. 
 static const TransitionPerPeriod transitionsPerPeriod[] = {
     //State                                 Period                          Next state
-    State::CONNECTING_CONTROL,              Period::CON_TIMEOUT,            State::DISCONNECTED,
+    State::DISCONNECTED,                    Period::CON_TIMEOUT,            State::DISCONNECTED,
     State::REQUESTING_TOPOLOGY,             Period::CON_TIMEOUT,            State::DISCONNECTED,
     State::CONNECTING_PREDICTION,           Period::CON_TIMEOUT,            State::DISCONNECTED,
     State::WAITING_BEFORE_RETRY,            Period::RETRY_COOLDOWN,         State::CONNECTING_PREDICTION,
@@ -778,23 +779,23 @@ void NodeClient::bind(uint32_t ip, size_t slotId) noexcept {
     char ipCString[INET_ADDRSTRLEN];
     this->ipString = std::string(inet_ntop(AF_INET, &ip, ipCString, INET_ADDRSTRLEN));
     DBG("ClusterClient(" << this->clusterClient->clusterId << ") : Binding new NodeClient " << slotId << " to ip " << this->ipString);
-    ++this->clusterClient->boundNcCount;
     this->switchStateAfterCheck(State::DISCONNECTED);
 }
 
 void NodeClient::unbind(void) noexcept {
     DBG("ClusterClient(" << this->clusterClient->clusterId << ") : Unbinding NodeClient " << this->slotId);
     this->ip = 0;
-    this->switchStateAfterCheck(State::DISCONNECTING);
+    this->switchStateAfterCheck(State::DISCONNECTED == this->state ? State::DISCONNECTED : State::DISCONNECTING);
 }
 
 bool NodeClient::isUnbound(void) noexcept {
-    return State::UNBOUND == this->state;
+    return this->ip == 0;
 }
 
 void NodeClient::initialize(ClusterClient *clusterClient) noexcept {
     this->clusterClient = clusterClient;
     this->state = State::UNBOUND;
+    this->ip = 0;
 }
 
 std::string NodeClient::getStateString(void) const noexcept {
