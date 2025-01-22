@@ -13,6 +13,8 @@ class NodeClient {
 
         ClusterClient *clusterClient;
 
+        uint8_t state;
+
         uint32_t ip = 0;
         std::string ipString;
 
@@ -52,7 +54,6 @@ class NodeClient {
         void switchStateIfPeriodPassed() noexcept;
         void sendOutputBasedOnState() noexcept;
 
-        uint8_t state;
         std::chrono::steady_clock::time_point lastStateChangeTime;
         std::chrono::steady_clock::time_point lastOutputTime;
 };

@@ -52,7 +52,7 @@ public:
     ClusterClient(void) noexcept;
 
 //shared with NodeClient.cpp:
-    size_t boundNcCount = 0;
+    int nonDisconnectedNcCount = 0;
     size_t nextUnboundNcIndex = 0;
     uint8_t inputBuffer[MAXIMUM_TRANSMISSION_UNIT];
     bool topologyAlreadyReceived = false;
@@ -133,7 +133,7 @@ private:
             const char *configurationString
             ) noexcept;
 
-    static inline const std::string getResourceStringFromCache(
+    static inline const std::string consumeResourceStringFromCache(
             const std::string &resourceId
             ) noexcept;
 
