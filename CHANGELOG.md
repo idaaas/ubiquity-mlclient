@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.8.0] - 2025-01-30
+
+### Added
+
+- Query cancel function
+
+### Fixed
+
+- Reconnexion when full cluster is shutdown gracefully or not
+- Feedback delays in samples to match new API requirements
+
 ## [v0.7.5] - 2025-01-09
 
 ### Added
@@ -41,7 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - Refactor load balancer to avoid race condition.
 
-[Unreleased]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.8.0...HEAD
+[v0.8.0]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.5...v0.8.0
 [v0.7.5]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.4...v0.7.5
 [v0.7.4]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.3...v0.7.4
 [v0.7.3]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.2...v0.7.3

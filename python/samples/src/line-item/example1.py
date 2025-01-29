@@ -21,9 +21,9 @@ model_schema = """
     "cluster_id": "{id}",
     "name": "lineitem/Example1",
     "feedback_delays": [
-    20,
-    30,
-    40
+    10,
+    76,
+    220
     ],
     "features": [
     {{

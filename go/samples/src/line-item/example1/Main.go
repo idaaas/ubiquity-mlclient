@@ -181,9 +181,9 @@ func getLineItemBody(clusterId string) string {
               "cluster_id": "` + clusterId + `",
               "name": "code-example line-item",
               "feedback_delays": [
-                20,
-                30,
-                40
+                10,
+            		76,
+            		220
               ],
               "features": [
                 {
