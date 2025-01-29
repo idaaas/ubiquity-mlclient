@@ -71,9 +71,9 @@ static const std::string getLineItemJson(const std::string &clusterId)
     std::string body = R"({"cluster_id":")" + clusterId + R"(",
           "name": "code-example line-item",
           "feedback_delays": [
-            20,
-            30,
-            40
+            10,
+            76,
+            220
           ],
     )";
     body += R"("features": [)";
