@@ -12,6 +12,9 @@ const NO_DATA int = 2
 const BACK_PRESSURED int = 3
 const NO_COMPATIBLE_NODE int = 4
 
+const NO_BID short = 0
+const BID short = 1
+
 const ARCHITECTURE_NOT_SUPPORTED int = 0x20001
 const AERON_INITIALIZATION_FAILED int = 0x20002
 const INVALID_RESOURCE_ID int = 0x20003

@@ -42,10 +42,15 @@ namespace Ubiquity {
         static constexpr ApplicationType APP_BID_SHADING = 0;
         static constexpr ApplicationType APP_PROBABILITY = 1;
         static constexpr ApplicationType APP_LINE_ITEM = 2;
-        static constexpr ApplicationType APP_UNDEFINED = 3;
+        static constexpr ApplicationType APP_ACTION_RATE = 3;
+        static constexpr ApplicationType APP_UNDEFINED = -1;
 
         static constexpr int8_t MISSING_BOOLEAN = -1;
         static constexpr int8_t MISSING_CATEGORICAL = -1;
+
+        static constexpr int8_t BID = 1;
+        static constexpr int8_t NO_BID = 0;
+
         static constexpr const char *MISSING_NOMINAL = "_MISSING_";
         static constexpr float MISSING_NUMERIC = std::numeric_limits<float>::quiet_NaN();
 #endif
@@ -64,6 +69,7 @@ namespace Ubiquity {
                 float getPrice(void) noexcept;
                 int32_t getPredictionType(void) noexcept;
                 float getProbability(void) noexcept;
+                int8_t getBidStatus(void) noexcept;
                 int32_t poll(void) noexcept;
                 int32_t predict(void) noexcept;
                 void putBoolean(const int8_t value) noexcept;
@@ -73,6 +79,7 @@ namespace Ubiquity {
                 void putNumeric(const float value) noexcept;
                 void startBidShading(const char *modelId, const int64_t queryId, const float bidPrice, const float bidFloor) noexcept;
                 void startLineItem(const char *modelId, const int64_t queryId, const float maxCPM) noexcept;
+                void startActionRate(const char *const encodedModelId, const int64_t queryId, const float bidPrice) noexcept;
                 void startProbability(const char *modelId, const int64_t queryId) noexcept;
                 int32_t train(const char *modelId, int64_t queryId, int32_t level) noexcept;
                 int32_t cancel(const char *modelId, int64_t queryId) noexcept;

@@ -44,6 +44,10 @@ float Ubiquity::ClientHandle::getProbability(void) noexcept {
     return this->pimpl->getProbability();
 }
 
+int8_t Ubiquity::ClientHandle::getBidStatus(void) noexcept {
+  return this->pimpl->getBidStatus();
+}
+
 int32_t Ubiquity::ClientHandle::getPredictionType(void) noexcept {
     return this->pimpl->getPredictionType();
 }
@@ -82,6 +86,10 @@ void Ubiquity::ClientHandle::startBidShading(const char *modelId, const int64_t 
 
 void Ubiquity::ClientHandle::startLineItem(const char *modelId, const int64_t queryId, const float maxCPM) noexcept {
     this->pimpl->startLineItem(modelId, queryId, maxCPM);
+}
+
+void Ubiquity::ClientHandle::startActionRate(const char *modelId, const int64_t queryId, const float bidPrice) noexcept {
+    this->pimpl->startActionRate(modelId, queryId, bidPrice);
 }
 
 void Ubiquity::ClientHandle::startProbability(const char *modelId, const int64_t queryId) noexcept {

@@ -5,6 +5,9 @@ MISSING_NUMERIC = float('nan')
 
 UNDEFINED  = 0
 
+NO_BID = 0
+BID = 1
+
 SUCCESS  = 1
 NO_DATA  = 2
 BACK_PRESSURED  = 3
