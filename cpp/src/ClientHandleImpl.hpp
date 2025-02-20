@@ -18,6 +18,7 @@ class Ubiquity::ClientHandle::Impl {
         float getPrice(void) noexcept;
         float getProbability(void) noexcept;
         int32_t getPredictionType(void) noexcept;
+        int8_t getBidStatus(void) noexcept;
         Ubiquity::StatusCode poll(void) noexcept;
         Ubiquity::StatusCode predict(void) noexcept;
 
@@ -58,6 +59,13 @@ class Ubiquity::ClientHandle::Impl {
                 const int64_t queryId,
                 const float maxCPM
                 ) noexcept;
+
+        void startActionRate(
+                const char *const encodedModelId,
+                const int64_t queryId,
+                const float bidPrice
+                ) noexcept;
+
 
         Ubiquity::StatusCode train(
                 const char *const encodedModelId,
@@ -149,6 +157,12 @@ class Ubiquity::ClientHandle::Impl {
             float probability;
         } __attribute__((packed));
 
+        struct ActionRatePrediction {
+            ApplicationMessage _;
+            int64_t creativeId;
+            float price;
+        } __attribute__((packed));
+
         struct QueryMessage {
             ApplicationMessage _;
             uint32_t feedbackDelay;
@@ -163,6 +177,12 @@ class Ubiquity::ClientHandle::Impl {
         struct LineItemQueryMessage {
             QueryMessage _;
             float maxCPM;
+            int32_t numCreative;
+        } __attribute__((packed));
+
+        struct ActionRateQueryMessage {
+            QueryMessage _;
+            float bidPrice;
             int32_t numCreative;
         } __attribute__((packed));
 
@@ -194,6 +214,13 @@ class Ubiquity::ClientHandle::Impl {
             uint32_t executed;
         } __attribute__((packed));
 
+        struct ActionRateFeedbackMessage {
+            FeedbackMessage _;
+            double weight;
+            int64_t creativeId; // deprecated
+            uint32_t executed;
+        } __attribute__((packed));
+
         struct FeedbackNextLevelsMessage {
             FeedbackMessage _;
             uint32_t eventOccurred;
@@ -210,15 +237,27 @@ class Ubiquity::ClientHandle::Impl {
             BidShadingPrediction bidShadingPrediction;
             ProbabilityPrediction probabilityPrediction;
             LineItemPrediction lineItemPrediction;
+            ActionRatePrediction actionRatePrediction;
             QueryMessage query;
             BidShadingQueryMessage bidShadingQuery;
             LineItemQueryMessage lineItemQuery;
+            ActionRateQueryMessage actionRateQuery;
             FeedbackMessage feedback;
             BidShadingFeedbackMessage bidShadingFeedback;
             ProbabilityFeedbackMessage probabilityFeedback;
             LineItemFeedbackMessage lineItemFeedback;
+            ActionRateFeedbackMessage actionRateFeedback;
             FeedbackNextLevelsMessage feedbackNextLevels;
             CancelMessage cancelMessage;
         } message;
+    private:
+      void putCreativeLineItem(
+        const int64_t creativeId
+        ) noexcept;
+      void putCreativeActionRate(
+        const int64_t creativeId
+        ) noexcept;
+  
+
 
 };

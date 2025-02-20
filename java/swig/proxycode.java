@@ -18,6 +18,9 @@
 
   public final static int UNDEFINED = 0;
 
+  public final static short NO_BID = 0;
+  public final static short BID = 1;
+
   public final static int SUCCESS = 1;
   public final static int NO_DATA = 2;
   public final static int BACK_PRESSURED = 3;

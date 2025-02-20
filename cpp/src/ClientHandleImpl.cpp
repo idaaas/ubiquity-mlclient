@@ -46,6 +46,8 @@ float Ubiquity::ClientHandle::Impl::getPrice(void) noexcept {
             return this->message.lineItemPrediction.price;
         case Ubiquity::APP_PROBABILITY:
             break;
+        case Ubiquity::APP_ACTION_RATE:
+            return this->message.actionRatePrediction.price;
         case Ubiquity::APP_UNDEFINED:
             break;
     }
@@ -60,6 +62,8 @@ float Ubiquity::ClientHandle::Impl::getProbability(void) noexcept {
             return this->message.lineItemPrediction.probability;
         case Ubiquity::APP_PROBABILITY:
             return this->message.probabilityPrediction.probability;
+        case Ubiquity::APP_ACTION_RATE:
+            break;
         case Ubiquity::APP_UNDEFINED:
             break;
     }
@@ -70,12 +74,17 @@ int32_t Ubiquity::ClientHandle::Impl::getPredictionType(void) noexcept {
     return static_cast<int32_t>(this->message.common.applicationId);
 }
 
+int8_t Ubiquity::ClientHandle::Impl::getBidStatus(void) noexcept {
+  return this->message.actionRatePrediction.price == 0 ? Ubiquity::NO_BID : Ubiquity::BID;
+}
+
 static constexpr uint8_t MESSAGE_TYPE_PREDICTION = 0x06;
 
 static size_t expectedInputMessageSize[] {
     sizeof(Ubiquity::ClientHandle::Impl::BidShadingPrediction),
     sizeof(Ubiquity::ClientHandle::Impl::ProbabilityPrediction),
     sizeof(Ubiquity::ClientHandle::Impl::LineItemPrediction),
+    sizeof(Ubiquity::ClientHandle::Impl::ActionRatePrediction),
 };
 
 Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
@@ -115,6 +124,11 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
 Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::predict(void) noexcept {
     if (__glibc_unlikely(Ubiquity::APP_LINE_ITEM == this->message.common.applicationId
                 && 0 == this->message.lineItemQuery.numCreative)) {
+        DBG("Error : Missing creative during call to predict for line-item.")
+        this->statusCode = Ubiquity::MISSING_CREATIVES;
+    }
+    if (__glibc_unlikely(Ubiquity::APP_ACTION_RATE == this->message.common.applicationId
+      && 0 == this->message.actionRateQuery.numCreative)) {
         DBG("Error : Missing creative during call to predict for line-item.")
         this->statusCode = Ubiquity::MISSING_CREATIVES;
     }
@@ -189,7 +203,7 @@ void Ubiquity::ClientHandle::Impl::putCategorical(
     return this->putFeature8(value, ClusterClient::Schema::FeatureType::CATEGORICAL);
 }
 
-void Ubiquity::ClientHandle::Impl::putCreative(
+void Ubiquity::ClientHandle::Impl::putCreativeLineItem(
         const int64_t creativeId
         ) noexcept
 {
@@ -208,6 +222,45 @@ void Ubiquity::ClientHandle::Impl::putCreative(
     this->atomicBuffer.getAndAddInt32(offsetof(LineItemQueryMessage, numCreative), 1);
     this->atomicBuffer.putInt64(this->offset, creativeId);
     this->offset += sizeof(uint64_t);
+}
+
+void Ubiquity::ClientHandle::Impl::putCreativeActionRate(
+  const int64_t creativeId
+  ) noexcept
+{
+static constexpr int32_t MAX_CREATIVE_COUNT = 20;
+
+if (__glibc_unlikely(this->featureOrdinal > 0)) {
+  DBG("Error : Creative ID was put using putCreative *after* calling a feature putting function like putNumeric.")
+  this->statusCode = Ubiquity::MISPLACED_CREATIVE_ID;
+  return;
+}
+if (__glibc_unlikely(MAX_CREATIVE_COUNT <= this->message.actionRateQuery.numCreative)) {
+  DBG("Error : Too many creative IDs were put using putCreative (numCreative = " << this->message.actionRateQuery.numCreative << ").")
+  this->statusCode = Ubiquity::TOO_MANY_CREATIVES;
+  return;
+}
+this->atomicBuffer.getAndAddInt32(offsetof(ActionRateQueryMessage, numCreative), 1);
+this->atomicBuffer.putInt64(this->offset, creativeId);
+this->offset += sizeof(uint64_t);
+}
+
+void Ubiquity::ClientHandle::Impl::putCreative(
+  const int64_t creativeId
+  ) noexcept
+{
+  switch (this->message.common.applicationId)
+  {
+  case Ubiquity::APP_LINE_ITEM:
+    this->putCreativeLineItem(creativeId);
+    break;
+  case Ubiquity::APP_ACTION_RATE:
+    this->putCreativeActionRate(creativeId);
+    break;
+  default:
+    DBG("can't use put creative for application Id" << this->message.common.applicationId)
+    break;
+  }
 }
 
 void Ubiquity::ClientHandle::Impl::putNominal(
@@ -290,6 +343,7 @@ inline void Ubiquity::ClientHandle::Impl::prepareQueryHeader(
         sizeof(BidShadingQueryMessage),
         sizeof(QueryMessage),
         sizeof(LineItemQueryMessage),
+        sizeof(ActionRateQueryMessage),
     };
 
     uint64_t modelId;
@@ -336,6 +390,17 @@ void Ubiquity::ClientHandle::Impl::startLineItem(
     this->message.lineItemQuery.numCreative = 0;
 }
 
+void Ubiquity::ClientHandle::Impl::startActionRate(
+        const char *encodedModelId,
+        const int64_t queryId,
+        const float bidPrice
+        ) noexcept
+{
+    prepareQueryHeader(encodedModelId, queryId, Ubiquity::APP_ACTION_RATE);
+    this->message.actionRateQuery.bidPrice = bidPrice;
+    this->message.actionRateQuery.numCreative = 0;
+}
+
 void Ubiquity::ClientHandle::Impl::prepareFeedbackHeader(
         const uint64_t modelId,
         const int64_t queryId,
@@ -364,6 +429,7 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
         sizeof(BidShadingFeedbackMessage),
         sizeof(ProbabilityFeedbackMessage),
         sizeof(LineItemFeedbackMessage),
+        sizeof(ActionRateQueryMessage),
     };
 
     if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
@@ -396,6 +462,10 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
             case Ubiquity::APP_LINE_ITEM:
                 this->message.lineItemFeedback.weight = 1.0;
                 this->message.lineItemFeedback.executed = 1;
+                break;
+            case Ubiquity::APP_ACTION_RATE:
+                this->message.actionRateFeedback.weight = 1.0;
+                this->message.actionRateFeedback.executed = 1;
                 break;
             case Ubiquity::APP_UNDEFINED:
                 break;
