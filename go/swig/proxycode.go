@@ -37,4 +37,5 @@ const INTERNAL_API_ERROR int = 0x20012
 const APP_BID_SHADING int = 0
 const APP_PROBABILITY int = 1
 const APP_LINE_ITEM int = 2
-const APP_UNDEFINED int = 3
+const APP_ACTION_RATE int = 3
+const APP_UNDEFINED int = -1
