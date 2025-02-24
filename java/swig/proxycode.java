@@ -48,5 +48,6 @@
   public final static int APP_BID_SHADING = 0;
   public final static int APP_PROBABILITY = 1;
   public final static int APP_LINE_ITEM = 2;
-  public final static int APP_UNDEFINED = 3;
+  public final static int APP_ACTION_RATE = 3;
+  public final static int APP_UNDEFINED = -1;
 
