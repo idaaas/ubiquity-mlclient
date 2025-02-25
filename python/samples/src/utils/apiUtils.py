@@ -7,6 +7,11 @@ class ApiUtil:
         self.api_token = api_token
         self.base_url = "https://api.ubiquity.ai/v1"
 
+    def create_probability_estimator(self, probability_estimator_body):
+        print("Creating a probability-estimator model...")
+        endpoint = f"{self.base_url}/models/probability-estimator"
+        return self._create_model(endpoint, probability_estimator_body)
+
     def create_line_item_model(self, line_item_body):
         print("Creating a line-item model...")
         endpoint = f"{self.base_url}/models/line-item"

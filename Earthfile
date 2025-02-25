@@ -46,8 +46,8 @@ cpp-examples:
   COPY --keep-ts cpp .git .
   COPY datasets datasets
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBUILD_AERON_ARCHIVE_API=OFF -DBUILD_SAMPLES=ON -DCMAKE_BUILD_TYPE=$type -DDISABLE_ID_CHECKS=$disableIdChecks -S . -B build
-  RUN cmake --build build --parallel $(nproc) --target line-item
-  RUN cp ./build/samples/line-item .
+  RUN cmake --build build --parallel $(nproc) --target line-item probability-estimator
+  RUN cp -r ./build/samples/* .
   SAVE IMAGE --push ${imagePrefix}cpp-examples:${imageVersion}
   IF [ "$latest" = "true" ]
     SAVE IMAGE --push ${imagePrefix}cpp-examples:latest
