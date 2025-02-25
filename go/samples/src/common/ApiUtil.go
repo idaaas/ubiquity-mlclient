@@ -10,6 +10,12 @@ import (
 	"time"
 )
 
+func CreateProbabilityEstimatorModel(apiToken string, probaEstimatorBody string) string {
+	fmt.Println("Creating a probability-estimator model...")
+	probaEstimatorEndpoint := "https://api.ubiquity.ai/v1/models/probability-estimator"
+	return createModel(apiToken, probaEstimatorEndpoint, probaEstimatorBody)
+}
+
 func CreateLineItemModel(apiToken string, lineItemBody string) string {
 	fmt.Println("Creating a line-item model...")
 	lineItemEndpoint := "https://api.ubiquity.ai/v1/models/line-item"

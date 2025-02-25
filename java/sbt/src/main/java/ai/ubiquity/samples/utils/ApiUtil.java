@@ -14,6 +14,12 @@ public class ApiUtil {
         this.client = new OkHttpClient();
     }
 
+    public String createProbabilityEstimator(String probabilityEstimatorBody) throws IOException {
+        System.out.println("Creating a probability-estimator model...");
+        String probabilityEstimatorEndpoint = "https://api.ubiquity.ai/v1/models/probability-estimator";
+        return createModel(probabilityEstimatorEndpoint, probabilityEstimatorBody);
+    }
+
     public String createLineItemModel(String lineItemBody) throws IOException {
         System.out.println("Creating a line-item model...");
         String lineItemEndpoint = "https://api.ubiquity.ai/v1/models/line-item";
