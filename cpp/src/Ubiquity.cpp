@@ -37,8 +37,10 @@ const char *Ubiquity::getStatusString(
             "INVALID_CLUSTER_DESCRIPTION",
             "SCHEMA_UNAVAILABLE",
             "INVALID_HANDLE",
+            "UNAUTHORIZED",
+            "INTERNAL_API_ERROR",
         };
-        return statusCode <= Ubiquity::INVALID_HANDLE
+        return statusCode <= Ubiquity::INTERNAL_API_ERROR
             ? statusStrings[statusCode - Ubiquity::ARCHITECTURE_NOT_SUPPORTED]
             : "UNDEFINED";
     } else {
