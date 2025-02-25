@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - examples feedback delays to match new cluster spec
 
+### Added
+
+- Probability estimator samples.
+- Integration tests.
+- Action rate model.
+
+### Fixed
+
+- GetStatusString parse status code properly.
+
 ## [v0.8.0] - 2025-01-30
 
 ### Added
