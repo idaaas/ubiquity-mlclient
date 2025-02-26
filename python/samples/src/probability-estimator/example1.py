@@ -21,8 +21,8 @@ model_schema = """
     "cluster_id": "{id}",
     "name": "probabilityEstimator/Example1",
     "feedback_delays": [
-    10,
-    76
+    65,
+    90
     ],
     "features": [
     {{

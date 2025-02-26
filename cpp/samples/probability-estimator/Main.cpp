@@ -71,8 +71,8 @@ static const std::string getProbabilityEstimator(const std::string &clusterId)
     std::string body = R"({"cluster_id":")" + clusterId + R"(",
           "name": "code-example probability-estimator",
           "feedback_delays": [
-            10,
-            76
+            65,
+            130
           ],
     )";
     body += R"("features": [)";
