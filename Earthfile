@@ -94,6 +94,35 @@ java-publish:
       -Durl=https://maven.pkg.github.com/idaaas/${repo} \
       -Dsettings.token=${token}
 
+java-m1-publish:
+  FROM +sbt-image
+  ARG token
+  ARG release
+  ARG version
+  ARG repo
+  ARG snap
+  ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
+  COPY +java-bindings/ubiquity-mlclient.jar .
+  COPY java/publish/settings.xml .
+  RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz \
+      && tar -xzvf apache-maven-3.9.9-bin.tar.gz \
+      && mv apache-maven-3.9.9 /opt/
+  ENV PATH=/opt/apache-maven-3.9.9/bin:$PATH
+  RUN mkdir ~/.m2 && mv settings.xml ~/.m2/
+  #TODO : refacto this to make it clearer
+  RUN SNAP=$(if [ "$snap" = "true" ]; then echo "-SNAPSHOT"; else echo ""; fi) \
+      PRIVATE_GROUP=$(if [ "$private" = "true" ]; then echo "private."; else echo ""; fi) \
+      && echo $PRIVATE_GROUP \
+      && mvn deploy:deploy-file \
+      -DgroupId=com.idaaas.${PRIVATE_GROUP}${OS_NAME}-m1-java-${release} \
+      -DartifactId=ubiquity-mlclient \
+      -Dversion=${version}${SNAP} \
+      -Dpackaging=jar \
+      -Dfile=./ubiquity-mlclient.jar \
+      -DrepositoryId=github \
+      -Durl=https://maven.pkg.github.com/idaaas/${repo} \
+      -Dsettings.token=${token}
+
 java-examples-build:
   FROM +sbt-image
   COPY +java-bindings/ubiquity-mlclient.jar .

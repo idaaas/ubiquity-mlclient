@@ -82,10 +82,17 @@ Use `--disableIdChecks=ON` to enable faster cluster and model IDs serialization 
 ### Supported Operating Systems and Architectures
 
 - Ubuntu: ubuntu:16.04, ubuntu:20.04, ubuntu:22.04, ubuntu:24.04
-- Architectures: 64-bit (x64)
+- Architectures: 64-bit (x64), M1 processor (arm)
 - Processor architecture: Little Endian
 
 If your OS or architecture is not in the list, please fill in a [request](https://github.com/idaaas/ubiquity-mlclient/issues/new).
+
+### Compilation for M1
+
+To compile on M1 architecture, you need to add **--platform=linux/amd64** to you earthly commands as shown below:
+```bash
+earthly --platform=linux/amd64 +all --os=ubuntu:22.04
+```
 
 ### Dependencies
 

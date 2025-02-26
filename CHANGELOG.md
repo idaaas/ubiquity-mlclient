@@ -16,10 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Probability estimator samples.
 - Integration tests.
 - Action rate model.
+- Build instructions for M1 architecture.
 
 ### Fixed
 
 - GetStatusString parse status code properly.
+- Feedback delays in samples.
 
 ## [v0.8.0] - 2025-01-30
 
