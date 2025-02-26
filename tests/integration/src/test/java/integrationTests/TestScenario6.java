@@ -25,7 +25,7 @@ public class TestScenario6 {
   @ValueSource(strings = {"node_1", "node_2", "node_3"})
   void Cluster(String id) {
     // should respond properly to handshake protocol
-    AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.node(id).shouldLog("Starts polling"));
+    CommonAssertions.assertServerRegularHandshake(server.node(id).shouldLog("Starts polling"));
   }
 
   @Test

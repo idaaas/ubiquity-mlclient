@@ -102,6 +102,10 @@ public class AeronConnectionManager {
     isServerOpened = true;
   }
 
+  Subscription getFeedbackSub() {
+    return this.feedbackSub;
+  }
+
   Subscription getPredSub() {
     return this.predSub;
   }

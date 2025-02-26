@@ -32,24 +32,6 @@ public class Client {
                     {"type": "boolean", "name": "a3"},
                     {"type": "boolean", "name": "a4"}
                   ]
-                },
-                {
-                  "model_id": 2000,
-                  "cluster_id": "2c099MyN3lsVu",
-                  "tenant_id": "2c0A9GOwyZxlP",
-                  "name": "Campaign Title",
-                  "min_bid_price": 0.01,
-                  "max_bid_price": 30,
-                  "feedback_delays": [
-                    90,
-                    360
-                  ],
-                  "features": [
-                    {"type": "nominal", "name": "a1"},
-                    {"type": "numeric", "name": "a2"},
-                    {"type": "boolean", "name": "a3"},
-                    {"type": "categorical", "name": "a4"}
-                  ]
                 }
               ]
             }""";

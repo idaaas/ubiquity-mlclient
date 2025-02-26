@@ -1,0 +1,161 @@
+{
+  "version": "1.0.0",
+  "name": "scenario7",
+  "cluster": [
+    {
+      "id": "node_1",
+      "ip": "10.20.0.5",
+      "singleton": true,
+      "models": [
+        1000,
+        2000
+      ]
+    },
+    {
+      "id": "node_2",
+      "ip": "10.20.0.9",
+      "models": [
+        1000,
+        2000
+      ]
+    },
+    {
+      "id": "node_3",
+      "ip": "10.20.0.13",
+      "models": [
+        1000
+      ]
+    }
+  ],
+  "mocks": [
+    {
+      "id": "1.0",
+      "on": "TOPOLOGY_REQUEST",
+      "send": "TOPOLOGY_UPDATE"
+    },
+    {
+      "id": "1.1",
+      "on": "TOPOLOGY_REQUEST",
+      "send": "TOPOLOGY_UPDATE",
+      "who": "node_1",
+      "waitMs": "100"
+    },
+    {
+      "id": "2.0",
+      "on": "CONNECTION_REQUEST.REGISTRATION_REQUEST",
+      "send": "CONNECTION_RESPONSE.REGISTRATION_RESPONSE"
+    },
+    {
+      "id": "3.0",
+      "on": "CONNECTION_REQUEST.DISCONNECTING_REQUEST",
+      "send": "CONNECTION_RESPONSE.DISCONNECTION_CONFIRMATION_RESPONSE"
+    },
+    {
+      "id": "4.0",
+      "on": "CONNECTION_REQUEST.SERVER_OPEN_REQUEST",
+      "send": "CONNECTION_RESPONSE.SERVER_OPENED_RESPONSE"
+    },
+    {
+      "id": "5.0",
+      "on": "CONNECTION_REQUEST.SERVER_READY_REQUEST",
+      "send": "CONNECTION_RESPONSE.SERVER_READY_RESPONSE"
+    },
+    {
+      "id": "6.0",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "NONE"
+    },
+    {
+      "id": "8.0",
+      "on": "TIME_MS",
+      "send": "MODEL_SCHEMA_UPDATE",
+      "waitMs": "1000"
+    }
+  ],
+  "models": [
+    {
+      "model_id": 1000,
+      "application_id": "line-item",
+      "feedback_delays": [
+        90,
+        360
+      ],
+      "features": [
+        {
+          "type": "numeric",
+          "name": "a1"
+        },
+        {
+          "type": "numeric",
+          "name": "a2"
+        },
+        {
+          "type": "boolean",
+          "name": "a3"
+        },
+        {
+          "type": "boolean",
+          "name": "a4"
+        }
+      ],
+      "creatives": {
+          "features": [
+            {
+              "name": "a1",
+              "type": "categorical"
+            }
+          ],
+          "values": [
+            {
+              "id": 1,
+              "features": [
+                "0"
+              ]
+            }
+          ]
+        }
+    },
+    {
+      "model_id": 2000,
+      "application_id": "line-item",
+      "feedback_delays": [
+        90,
+        360
+      ],
+      "features": [
+        {
+          "type": "nominal",
+          "name": "a1"
+        },
+        {
+          "type": "numeric",
+          "name": "a2"
+        },
+        {
+          "type": "boolean",
+          "name": "a3"
+        },
+        {
+          "type": "categorical",
+          "name": "a4"
+        }
+      ],
+      "creatives": {
+        "features": [
+          {
+            "name": "a1",
+            "type": "categorical"
+          }
+        ],
+        "values": [
+          {
+            "id": 1,
+            "features": [
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

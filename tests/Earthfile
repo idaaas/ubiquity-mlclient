@@ -50,7 +50,7 @@ test-all:
   COPY integration/*.sbt integration/
   COPY integration/src integration/src/
   WORKDIR integration
-  FOR i IN $(seq 1 6)
+  FOR i IN $(seq 1 8)
     RUN echo "running test scenario$i..."
     COPY (+run-scenario/it-scenario$i.log --scenario=scenario$i) (+run-scenario/client-scenario$i.log --scenario=scenario$i) src/test/resources/testOutput/
     RUN echo "test finished"
