@@ -78,6 +78,3 @@ jobs:
           run: earthly --version
         - name: Ubuntu 24.04 java 17
           run: earthly --ci --no-cache +java-m1-publish --os=ubuntu:24.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
-
-
-            
