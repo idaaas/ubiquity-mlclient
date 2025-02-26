@@ -66,7 +66,7 @@ std::vector<std::string> feedbackStructure = {
 };
 
 // Returns the JSON body to use during the API call to create the line-item model.
-static const std::string getProbabilityEstimator(const std::string &clusterId)
+static const std::string getLineItem(const std::string &clusterId)
 {
     std::string body = R"({"cluster_id":")" + clusterId + R"(",
           "name": "code-example line-item",
@@ -123,7 +123,7 @@ int main(const int argc, const char **argv) {
     const size_t numQueries = argc >= 4 ? std::stoi(argv[3]) : 500000;
 
     // 1. Create your models via API
-    const auto modelIdString = Common::createModel("line-item", getProbabilityEstimator(clusterId), apiToken);
+    const auto modelIdString = Common::createModel("line-item", getLineItem(clusterId), apiToken);
     if (modelIdString == "") {
         return 1;
     }
