@@ -60,6 +60,7 @@ public class MockServer extends Thread {
     while (clock.time() < deadline) {
       this.aeronMngr.getHandshakeSub().poll(this::handleMessage, 1);
       if (this.aeronMngr.isPredOpened()) this.aeronMngr.getPredSub().poll(this::handlePredictionQuery, 1);
+      if (this.aeronMngr.isPredOpened()) this.aeronMngr.getFeedbackSub().poll(this::handleFeedbackQuery, 1);
       try {
         this.handleTimeouts(clock.time() - startTime);
       } catch (NameNotFoundException e) {
@@ -75,6 +76,12 @@ public class MockServer extends Thread {
     System.out.println("end polling");
 
     this.interrupt();
+  }
+
+  private void handleFeedbackQuery(DirectBuffer buffer, int offset, int length, Header header) {
+    QueryHeaderMessage h = new QueryHeaderMessage();
+    h.wrap(buffer, offset);
+    System.out.printf("[Server %s] feedbacks query with id %d received with type %02X and application %02X%n", serverId,h.getQueryId(), h.getType(), h.getApplicationId());
   }
 
   public void close() {
