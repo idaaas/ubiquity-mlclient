@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.8.1] - 2025-03-03
+
+### Changed
+
+- examples feedback delays to match new cluster spec
 
 ## [v0.8.0] - 2025-01-30
 
@@ -52,7 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - Refactor load balancer to avoid race condition.
 
-[Unreleased]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.8.1...HEAD
+[v0.8.1]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.8.0...v0.8.1
 [v0.8.0]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.5...v0.8.0
 [v0.7.5]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.4...v0.7.5
 [v0.7.4]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.7.3...v0.7.4

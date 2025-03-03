@@ -152,9 +152,9 @@ public class Example1 {
         "cluster_id": "%s",
         "name": "lineitem/Example1",
         "feedback_delays": [
-          10,
-          76,
-          220
+          65,
+          130,
+          196
         ],
         "features": [
           {
