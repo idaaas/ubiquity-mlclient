@@ -17,25 +17,7 @@ public class Client {
                 "termBufferSize": 65536,
                 "aeronDir": "/dev/shm/ubiquity-driver"
               },
-              "contactPoints": ["10.20.0.5"],
-              "models": [
-                {
-                  "model_id": 1000,
-                  "cluster_id": "2c099MyN3lsVu",
-                  "tenant_id": "2c0A9GOwyZxlP",
-                  "name": "Campaign Title",
-                  "feedback_delays": [
-                    90,
-                    360
-                  ],
-                  "features": [
-                    {"type": "numeric", "name": "a1"},
-                    {"type": "numeric", "name": "a2"},
-                    {"type": "boolean", "name": "a3"},
-                    {"type": "boolean", "name": "a4"}
-                  ]
-                }
-              ]
+              "contactPoints": ["10.20.0.5"]
             }""";
   }
 
@@ -43,16 +25,12 @@ public class Client {
 
 
     /*
-     * Scenario 8: Poll predictions
+     * Scenario 9: Models integration
      * Setup:
-     *    modelId X is served by node#1 (only node in the cluster)
-     *    the driver establishes the connection with the cluster and receives a node update message from node#1
-     *    the driver sends 200 queries for model x
-     *    the driver cancel the last query
-
+     *    Each type of model sends a query to node_1 and expect to poll a response
+     *
      Expected behavior:
-     *     the server should receive all 200 queries and reply with their predictions
-     *     the server should receive one cancel
+     *     all model predict query and response are successful
      */
 
     String apiToken = "totoken";
@@ -86,12 +64,14 @@ public class Client {
     Ubiquity.setResourceStringInCache(clusterId, clusterData);
 
     String modelLineItem = "0000000000Z81"; // 1000
-    String modelActionRate = "0000000000Z81"; // 2000
-    String modelProbabilityEstimator = "0000000000Z81"; // 3000
-    String modelBidShading = "0000000000Z81"; // 4000
+    String modelActionRate = "0000000001YG2"; // 2000
+    String modelProbabilityEstimator = "0000000002XR3"; // 3000
+    String modelBidShading = "0000000003X04"; // 4000
 
     long queryId1 = 1L;
     long queryId2 = 2L;
+    long queryId3 = 3L;
+    long queryId4 = 4L;
     // ----------------- QUERY#1 ---------------------------
     clientHandle.startLineItem(modelLineItem, queryId1, 2);
     clientHandle.putCreative(1);
@@ -99,20 +79,20 @@ public class Client {
     clientHandle.putNumeric(130.f);
     clientHandle.putBoolean((byte)0x01);
     clientHandle.putBoolean((byte)0x00);
-    if (clientHandle.predict() == Ubiquity.SUCCESS) System.out.printf("[General] query %d sent%n", queryId2);
-    else System.out.printf("[General] query %d failed to be sent%n", queryId2);
+    if (clientHandle.predict() == Ubiquity.SUCCESS) System.out.printf("[General] query %d sent%n", queryId1);
+    else System.out.printf("[General] query %d failed to be sent%n", queryId1);
 
     long deadline = System.nanoTime() + POLL_TIMEOUT;
     do {
       statusCode = clientHandle.poll();
       if (statusCode == Ubiquity.SUCCESS) {
-        System.out.println("[General] prediction line-item received");
+        System.out.printf("[General] prediction line-item received with price %f and probability %f%n", clientHandle.getPrice(), clientHandle.getProbability());
         break;
       }
       Thread.yield();
     } while (System.nanoTime() < deadline);
 
-    clientHandle.startActionRate(modelActionRate, queryId1, 0.12f);
+    clientHandle.startActionRate(modelActionRate, queryId2, 0.12f);
     clientHandle.putCreative(1);
     clientHandle.putNumeric(0.45f);
     clientHandle.putNumeric(130.f);
@@ -124,7 +104,41 @@ public class Client {
     do {
       statusCode = clientHandle.poll();
       if (statusCode == Ubiquity.SUCCESS) {
-        System.out.println("[General] prediction action-rate received");
+        System.out.printf("[General] prediction action-rate received with price %f%n", clientHandle.getPrice());
+        break;
+      }
+      Thread.yield();
+    } while (System.nanoTime() < deadline);
+
+    clientHandle.startProbability(modelProbabilityEstimator, queryId3);
+    clientHandle.putNumeric(0.45f);
+    clientHandle.putNumeric(130.f);
+    clientHandle.putBoolean((byte)0x01);
+    clientHandle.putBoolean((byte)0x00);
+    if (clientHandle.predict() == Ubiquity.SUCCESS) System.out.printf("[General] query %d sent%n", queryId3);
+    else System.out.printf("[General] query %d failed to be sent%n", queryId3);
+
+    do {
+      statusCode = clientHandle.poll();
+      if (statusCode == Ubiquity.SUCCESS) {
+        System.out.printf("[General] prediction probability-estimator received with probability %f%n", clientHandle.getProbability());
+        break;
+      }
+      Thread.yield();
+    } while (System.nanoTime() < deadline);
+
+    clientHandle.startBidShading(modelBidShading, queryId4, 0.2f, 0.5f);
+    clientHandle.putNumeric(0.45f);
+    clientHandle.putNumeric(130.f);
+    clientHandle.putBoolean((byte)0x01);
+    clientHandle.putBoolean((byte)0x00);
+    if (clientHandle.predict() == Ubiquity.SUCCESS) System.out.printf("[General] query %d sent%n", queryId4);
+    else System.out.printf("[General] query %d failed to be sent%n", queryId4);
+
+    do {
+      statusCode = clientHandle.poll();
+      if (statusCode == Ubiquity.SUCCESS) {
+        System.out.printf("[General] prediction bid-shading received with price %f and probability %f%n", clientHandle.getPrice(), clientHandle.getProbability());
         break;
       }
       Thread.yield();

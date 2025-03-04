@@ -21,13 +21,6 @@
       "send": "TOPOLOGY_UPDATE"
     },
     {
-      "id": "1.1",
-      "on": "TOPOLOGY_REQUEST",
-      "send": "TOPOLOGY_UPDATE",
-      "who": "node_1",
-      "waitMs": "100"
-    },
-    {
       "id": "2.0",
       "on": "CONNECTION_REQUEST.REGISTRATION_REQUEST",
       "send": "CONNECTION_RESPONSE.REGISTRATION_RESPONSE"
@@ -109,6 +102,7 @@
         90,
         360
       ],
+      "bid_ratio": 0.5,
       "features": [
         {
           "type": "numeric",
@@ -168,23 +162,7 @@
           "type": "boolean",
           "name": "a4"
         }
-      ],
-      "creatives": {
-        "features": [
-          {
-            "name": "a1",
-            "type": "categorical"
-          }
-        ],
-        "values": [
-          {
-            "id": 1,
-            "features": [
-              "0"
-            ]
-          }
-        ]
-      }
+      ]
     },
     {
       "model_id": 4000,
@@ -193,6 +171,8 @@
         90,
         360
       ],
+      "min_bid_price": 0.3,
+      "max_bid_price": 0.8,
       "features": [
         {
           "type": "numeric",
@@ -210,23 +190,7 @@
           "type": "boolean",
           "name": "a4"
         }
-      ],
-      "creatives": {
-        "features": [
-          {
-            "name": "a1",
-            "type": "categorical"
-          }
-        ],
-        "values": [
-          {
-            "id": 1,
-            "features": [
-              "0"
-            ]
-          }
-        ]
-      }
+      ]
     }
   ]
 }
