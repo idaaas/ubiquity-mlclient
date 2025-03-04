@@ -18,8 +18,6 @@ import javax.naming.NameNotFoundException;
 import com.typesafe.config.Config;
 
 public class MockServer extends Thread {
-  protected final static int PREDICTION_PORT = 2004;
-  protected final static int PREDICTION_STREAM_ID = 1;
   protected final IdleStrategy POLLING_IDLE_STRATEGY = new BusySpinIdleStrategy();
   protected final long POLLING_TIMEOUT = Duration.ofSeconds(20).toMillis();
 
@@ -27,7 +25,6 @@ public class MockServer extends Thread {
   protected final String serverId;
 
   protected EpochClock clock = SystemEpochClock.INSTANCE;
-  protected final HeaderDecoder headerReader = new HeaderDecoder();
   protected MutableDirectBuffer protocolWriteBuffer = new UnsafeBuffer(
       ByteBuffer.allocateDirect(64).order(ByteOrder.LITTLE_ENDIAN));
   protected MutableDirectBuffer responseWriteBuffer = new UnsafeBuffer(
@@ -91,39 +88,20 @@ public class MockServer extends Thread {
 
   private void handleMessage(DirectBuffer buffer, int offset, int length, Header header) {
     AbstractMessage message = this.protocol.handleMessage(protocolWriteBuffer, buffer, offset);
-    //System.out.printf("send message with size %d%n", message.messageSize());
     if (message == null) return;
 
     boolean result = this.aeronMngr.sendMessageMulticast(protocolWriteBuffer, message.messageSize());
-    if (!result) {
-      System.out.printf("[Server %s] couldn't send message response to client while in %n", serverId);
-      // currentState = State.ERROR;
-    }
+    if (!result) System.out.printf("[Server %s] couldn't send message response to client while in %n", serverId);
+
   }
 
   private void handlePredictionQuery(DirectBuffer buffer, int offset, int length, Header header) {
-    QueryHeaderMessage h = new QueryHeaderMessage();
-    h.wrap(buffer, offset);
-    System.out.printf("[Server %s] prediction query with id %d received with type %02X and application %02X%n", serverId,h.getQueryId(), h.getType(), h.getApplicationId());
-    if (h.getType() != 0x05) {
-      System.out.printf("[Server %s] wrong type received : %02X%n", serverId, h.getType());
-    }
+    AbstractMessage message = this.protocol.handlePredictionQuery(responseWriteBuffer, buffer, offset, length, header);
+    if (message == null) return;
 
-    responseWriteBuffer.putByte(0, (byte)0x00);
-    responseWriteBuffer.putByte(1, (byte)0x06);
-    responseWriteBuffer.putShort(2, h.getClientId());
-    responseWriteBuffer.putShort(4, h.getApplicationId());
-    responseWriteBuffer.putLong(8, h.getModelId());
-    responseWriteBuffer.putLong(16, h.getQueryId());
-    responseWriteBuffer.putLong(24, buffer.getLong(offset+36));
-    responseWriteBuffer.putInt(32, 125); //price
-    responseWriteBuffer.putInt(36, 100); //conversion proba
+    boolean result = this.aeronMngr.sendQueryResponse(responseWriteBuffer, message.messageSize());
+    if (!result) System.out.printf("[Server %s] couldn't send query response to client %n", serverId);
 
-    boolean result = this.aeronMngr.sendQueryResponse(responseWriteBuffer, 40);
-    if (!result) {
-      System.out.printf("[Server %s] couldn't send query response to client %n", serverId);
-      // currentState = State.ERROR;
-    }
   }
 
   private void handleTimeouts(long elapsedTime) throws NameNotFoundException{
@@ -131,9 +109,7 @@ public class MockServer extends Thread {
     if (message == null) return;
 
     boolean result = this.aeronMngr.sendMessageMulticast(protocolWriteBuffer, message.messageSize());
-    if (!result) {
-      System.out.printf("[Server %s] couldn't send message response to client while in %n", serverId);
-    }
+    if (!result) System.out.printf("[Server %s] couldn't send message response to client while in %n", serverId);
   }
 
   private void handleDequeue() {
@@ -141,9 +117,6 @@ public class MockServer extends Thread {
     if (message == null) return;
 
     boolean result = this.aeronMngr.sendMessageMulticast(protocolWriteBuffer, message.messageSize());
-    if (!result) {
-      System.out.printf("[Server %s] couldn't send message response to client while in %n", serverId);
-    }
+    if (!result) System.out.printf("[Server %s] couldn't send message response to client while in %n", serverId);
   }
-
-};
+}

@@ -12,6 +12,8 @@ import ai.ubiquity.integration.tests.common.types.InputConnectionMessageType;
 import ai.ubiquity.integration.tests.common.types.InputMessageType;
 import ai.ubiquity.integration.tests.common.types.MockRule;
 import ai.ubiquity.integration.tests.common.types.ModelSchema;
+import io.aeron.AvailableCounterHandler;
+import io.aeron.logbuffer.Header;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.EpochClock;
@@ -340,5 +342,85 @@ public class MockProtocol {
   private AbstractMessage handleUngratefulShutdown() {
     this.aeronMngr.restartPred();
     return null;
+  }
+
+  // *************************************** predict response **********************************************
+  public AbstractMessage handlePredictionQuery(MutableDirectBuffer responseWriteBuffer, DirectBuffer buffer, int offset, int length, Header header) {
+    QueryHeaderMessage h = new QueryHeaderMessage();
+    h.wrap(buffer, offset);
+    if (h.getType() != 0x05) {
+      System.out.printf("[Server %s] wrong type received : %02X%n", this.id, h.getType());
+      return null;
+    }
+
+    System.out.printf("[Server %s] prediction query with id %d received with type %02X and application %02X%n", this.id,h.getQueryId(), h.getType(), h.getApplicationId());
+
+    switch (h.getApplicationId()) {
+      case 0x0002:
+        return handleLineItemPrediction(responseWriteBuffer, buffer, offset);
+      case 0x0003:
+        return handleActionRatePrediction(responseWriteBuffer, buffer, offset);
+      case 0x0001:
+        return handleProbabilityEstimatorPrediction(responseWriteBuffer, buffer, offset);
+      case 0x0000:
+        return handleBidShadingPrediction(responseWriteBuffer, buffer, offset);
+      default:
+        System.out.printf("[Server %s] wrong application Id received : %04X%n", this.id, h.getApplicationId());
+    }
+    return null;
+
+
+  }
+
+  private AbstractMessage handleLineItemPrediction(MutableDirectBuffer responseWriteBuffer, DirectBuffer buffer, int offset) {
+    QueryHeaderMessage h = new QueryHeaderMessage();
+    h.wrap(buffer, offset);
+
+    LineItemResponseMessage message = new LineItemResponseMessage();
+    message.wrap(responseWriteBuffer, 0);
+    message.setHeader(h.getClientId(), h.getApplicationId(), h.getModelId(), h.getQueryId());
+    message.setCreativeId(buffer.getLong(offset+36));
+    message.setPrice(0.125f);
+    message.setConversionProba(0.2f);
+
+    return message;
+  }
+
+  private AbstractMessage handleActionRatePrediction(MutableDirectBuffer responseWriteBuffer, DirectBuffer buffer, int offset) {
+    QueryHeaderMessage h = new QueryHeaderMessage();
+    h.wrap(buffer, offset);
+
+    ActionRateResponseMessage message = new ActionRateResponseMessage();
+    message.wrap(responseWriteBuffer, 0);
+    message.setHeader(h.getClientId(), h.getApplicationId(), h.getModelId(), h.getQueryId());
+    message.setCreativeId(buffer.getLong(offset+36));
+    message.setPrice(0.398f);
+
+    return message;
+  }
+
+  private AbstractMessage handleProbabilityEstimatorPrediction(MutableDirectBuffer responseWriteBuffer, DirectBuffer buffer, int offset) {
+    QueryHeaderMessage h = new QueryHeaderMessage();
+    h.wrap(buffer, offset);
+
+    ProbabilityEstimatorResponseMessage message = new ProbabilityEstimatorResponseMessage();
+    message.wrap(responseWriteBuffer, 0);
+    message.setHeader(h.getClientId(), h.getApplicationId(), h.getModelId(), h.getQueryId());
+    message.setProbability(0.3f);
+
+    return message;
+  }
+
+  private AbstractMessage handleBidShadingPrediction(MutableDirectBuffer responseWriteBuffer, DirectBuffer buffer, int offset) {
+    QueryHeaderMessage h = new QueryHeaderMessage();
+    h.wrap(buffer, offset);
+
+    BidShadingResponseMessage message = new BidShadingResponseMessage();
+    message.wrap(responseWriteBuffer, 0);
+    message.setHeader(h.getClientId(), h.getApplicationId(), h.getModelId(), h.getQueryId());
+    message.setPrice(0.125f);
+    message.setWinningProbability(0.85f);
+
+    return message;
   }
 }

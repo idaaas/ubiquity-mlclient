@@ -44,7 +44,7 @@ public class TestScenario7 {
             .then.shouldLogAtLeast("[Server node_2] prediction query with id 2001 received with type 05 and application 02", 10)
             .and.shouldLogAtLeast("[Server node_1] prediction query with id 2001 received with type 05 and application 02", 10)
             // node_3 should receive query with id 1003 because of backpressure
-            .then.shouldLog("[Server node_3] prediction query with id 1003 received with type 05 and application 02");
+            .and.shouldLog("[Server node_3] prediction query with id 1003 received with type 05 and application 02");
   }
 
   @ParameterizedTest
