@@ -12,7 +12,6 @@ import ai.ubiquity.integration.tests.common.types.InputConnectionMessageType;
 import ai.ubiquity.integration.tests.common.types.InputMessageType;
 import ai.ubiquity.integration.tests.common.types.MockRule;
 import ai.ubiquity.integration.tests.common.types.ModelSchema;
-import io.aeron.AvailableCounterHandler;
 import io.aeron.logbuffer.Header;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -61,7 +60,10 @@ public class MockProtocol {
                 buildCorrelationConflict(workingBuffer, buffer, offset);
         case REGISTRATION_ERROR_RESPONSE__NO_NEW_CONNECTION -> buildNoNewConnection(workingBuffer, buffer, offset);
         case MODEL_SCHEMA_UPDATE -> buildModelSchemaUpdate(workingBuffer);
-        case NONE, START, SHUTDOWN__UNGRACEFUL, TOPOLOGY_UPDATE__REMOVE, ADD_MODEL, DISCONNECT, REMOVE_MODEL -> null;
+        case TOPOLOGY_UPDATE__REMOVE -> handleRemoveNode(workingBuffer);
+        case ADD_MODEL -> handeAddModel(workingBuffer, mock.what());
+        case REMOVE_MODEL -> handleRemoveModel(workingBuffer, mock.what());
+        case NONE, SHUTDOWN__UNGRACEFUL, DISCONNECT -> null;
       };
 
       if (mock.waitMs() != 0) sleep(clock.time() - startTime + mock.waitMs());
@@ -283,7 +285,6 @@ public class MockProtocol {
            REGISTRATION_ERROR_RESPONSE__NO_NEW_CONNECTION -> null;
       case TOPOLOGY_UPDATE__REMOVE -> handleRemoveNode(workingBuffer);
       case SHUTDOWN__UNGRACEFUL -> handleUngratefulShutdown();
-      case START -> handleStart();
       case DISCONNECT -> handleDisconnect();
       case ADD_MODEL -> handeAddModel(workingBuffer, rule.what());
       case REMOVE_MODEL -> handleRemoveModel(workingBuffer, rule.what());
@@ -312,8 +313,7 @@ public class MockProtocol {
 
   private AbstractMessage handleRemoveNode(MutableDirectBuffer workingBuffer) throws NameNotFoundException {
     TopologyUpdateResponse message = new TopologyUpdateResponse();
-
-    this.aeronMngr.areProtocolStreamsOpened();
+    
     message.wrap(workingBuffer, 0);
     message.setHeader();
     message.setBroadcast();
@@ -329,13 +329,6 @@ public class MockProtocol {
   private AbstractMessage handleDisconnect() {
     this.aeronMngr.closePred();
     //this.aeronMngr.closeMulticast();
-    return null;
-  }
-
-  private AbstractMessage handleStart() {
-    this.aeronMngr.areProtocolStreamsOpened();
-    //this.aeronMngr.connectMulticast();
-    this.aeronMngr.areProtocolStreamsOpened();
     return null;
   }
 

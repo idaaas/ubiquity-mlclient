@@ -23,7 +23,7 @@ public class TestScenario9 {
   void Cluster() {
     // should respond properly to handshake protocol
     AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.anyNode().shouldLog("Starts polling"));
-    rule.then.shouldLog("apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE")
+    rule.then.shouldLog("apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
             .then.shouldLog("Sending model Id 1000")
             .then.shouldLog("Sending model Id 2000")
             .then.shouldLog("Sending model Id 3000")

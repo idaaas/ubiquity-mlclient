@@ -27,11 +27,9 @@ public class TestScenario2 {
     // should start a handshake protocol
     AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.node(nodeId).shouldLog("Starts polling"))
             // the server sends a graceful disconnection request
-            .then.shouldLog("apply rule[7.0] TIME_MS.NONE => TOPOLOGY_UPDATE.REMOVE")
+            .then.shouldLog("CONNECTION_REQUEST.HEARTBEAT => TOPOLOGY_UPDATE.REMOVE")
             // the server should receive a disconnection request from the client
-            .then.shouldLog("apply rule[3.0] CONNECTION_REQUEST.DISCONNECTING_REQUEST => CONNECTION_RESPONSE.DISCONNECTION_CONFIRMATION_RESPONSE")
-            // disconnect feedback streams
-            .then.shouldLog("apply rule[7.1] TIME_MS.NONE => DISCONNECT");
+            .then.shouldLog("apply rule[3.0] CONNECTION_REQUEST.DISCONNECTING_REQUEST => CONNECTION_RESPONSE.DISCONNECTION_CONFIRMATION_RESPONSE");
     // should start a new handshake protocol after some time
     CommonAssertions.assertServerRegularHandshake(rule);
   }

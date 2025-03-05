@@ -32,15 +32,15 @@ public class TestScenario6 {
   void Node1And2() {
     // should respond properly to handshake protocol
     server.anyNode()
-            .shouldLog("[Server node_2] apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE  0 1000")
-            .and.shouldLog("[Server node_1] apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE  0 1000")
+            .shouldLog("[Server node_2] apply rule[7.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE node_2 1 0")
+            .and.shouldLog("[Server node_1] apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
             // node_1 and node_2 should send their models
             .then.shouldLog("[Server node_2] Sending model Id 1000")
             .and.shouldLog("[Server node_1] Sending model Id 1000")
             // node_2 should receive query with id 994 first
             .then.shouldLog("[Server node_2] prediction query with id 994 received with type 05 and application 02")
             // node_2 should send a node remove request
-            .then.shouldLog("[Server node_2] apply rule[9.0] TIME_MS.NONE => TOPOLOGY_UPDATE.REMOVE node_2")
+            .then.shouldLog("[Server node_2] apply rule[7.1] CONNECTION_REQUEST.HEARTBEAT => TOPOLOGY_UPDATE.REMOVE node_2 1 0")
             // node_1 should receive the second request
             .then.shouldLog("[Server node_1] prediction query with id 994 received with type 05 and application 02");
   }
@@ -61,7 +61,7 @@ public class TestScenario6 {
     // should respond properly to handshake protocol
     AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.node("node_3").shouldLog("Starts polling"));
     // should send it's model (this node has none)
-    rule.then.shouldLog("apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE  0 1000")
+    rule.then.shouldLog("apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
             // should not send any model
             .then.shouldNotLog("Sending model Id 1000")
             .then.shouldNotLog("prediction query");

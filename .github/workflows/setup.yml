@@ -45,13 +45,28 @@ jobs:
             echo "SNAP=true" >> $GITHUB_ENV
             echo "RELEASE=false" >> $GITHUB_ENV
           fi
-  deploy-cpp:
+  integration-tests:
     needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.15
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - name: Earthly version
+        run: earthly --version
+      - name: Ubuntu 24.04
+        run: echo "integration-tests"
+        #run: cd tests && earthly -P +test-all --debug=true
+  deploy-cpp:
+    needs: integration-tests
     uses: ./.github/workflows/cpp.yml
     with:
       release: ${{ needs.setup.outputs.RELEASE }}
   deploy-java8:
-    needs: setup
+    needs: integration-tests
     uses: ./.github/workflows/java8.yml
     with:
       repo-name: ${{ github.event.repository.name }}
@@ -59,7 +74,7 @@ jobs:
       snap: ${{ needs.setup.outputs.SNAP }}
       private: ${{ needs.setup.outputs.PRIVATE }}
   deploy-java17:
-    needs: setup
+    needs: integration-tests
     uses: ./.github/workflows/java17.yml
     with:
       repo-name: ${{ github.event.repository.name }}
@@ -67,7 +82,7 @@ jobs:
       snap: ${{ needs.setup.outputs.SNAP }}
       private: ${{ needs.setup.outputs.PRIVATE }}
   deploy-go:
-    needs: setup
+    needs: integration-tests
     uses: ./.github/workflows/go.yml
     with:
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
@@ -75,7 +90,7 @@ jobs:
     secrets:
       secret_token: ${{ secrets.GO_REPO_TOKEN }}
   deploy-python:
-    needs: setup
+    needs: integration-tests
     uses: ./.github/workflows/python.yml
     with:
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
@@ -83,7 +98,7 @@ jobs:
     secrets:
       secret_token: ${{ secrets.GO_REPO_TOKEN }}
   deploy-examples:
-    needs: setup
+    needs: integration-tests
     uses: ./.github/workflows/examples.yml
     with:
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}

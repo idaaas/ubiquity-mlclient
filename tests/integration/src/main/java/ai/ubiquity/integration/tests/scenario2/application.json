@@ -52,19 +52,19 @@
     {
       "id": "6.0",
       "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "TOPOLOGY_UPDATE.REMOVE",
+      "when": 1
+    },
+    {
+      "id": "6.1",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
       "send": "NONE"
     },
     {
-      "id": "7.0",
-      "on": "TIME_MS",
-      "send": "TOPOLOGY_UPDATE.REMOVE",
-      "waitMs": "1500"
-    },
-    {
-      "id": "7.1",
+      "id": "6.2",
       "on": "TIME_MS",
       "send": "DISCONNECT",
-      "waitMs": "1700"
+      "waitMs": "4000"
     }
   ]
 }

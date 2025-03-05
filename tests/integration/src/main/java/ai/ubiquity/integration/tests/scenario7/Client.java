@@ -108,6 +108,9 @@ public class Client {
     long queryId1 = 1L; //Sends to node_2
     long queryId2 = 13L; //Sends to node_2
     long queryId3 = 3L; //Sends to node_1
+
+    Thread.sleep(1000);
+
     // ----------------- QUERY#1 ---------------------------
     do {
       clientHandle.startLineItem(modelId2, queryId1, 2);

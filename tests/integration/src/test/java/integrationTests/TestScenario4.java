@@ -25,9 +25,8 @@ public class TestScenario4 {
   void ClusterNode4() {
     // should respond properly to handshake protocol
     AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.node("node_4").shouldLog("Starts polling"));
-    rule.then.shouldLogAtLeast("apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => NONE", 1)
-            // should send model 1000 and NOT 2000
-            .and.shouldLog("apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE")
+    // should send model 1000 and NOT 2000
+    rule.then.shouldLog("CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE")
             .then.shouldLog("Sending model Id 1000")
             .and.shouldNotLog("Sending model Id 2000")
             // should receive query function of load balancing
@@ -39,9 +38,8 @@ public class TestScenario4 {
   void ClusterNode3() {
     // should respond properly to handshake protocol
     AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.node("node_3").shouldLog("Starts polling"));
-    rule.then.shouldLogAtLeast("apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => NONE", 1)
-            // should send model 1000 and NOT 2000
-            .and.shouldLog("apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE")
+    // should send model 1000 and NOT 2000
+    rule.then.shouldLog("CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE")
             .then.shouldLog("Sending model Id 1000")
             .and.shouldNotLog("Sending model Id 2000")
             // should receive query function of load balancing
@@ -53,9 +51,8 @@ public class TestScenario4 {
   void ClusterNode2() {
     // should respond properly to handshake protocol
     AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.node("node_2").shouldLog("Starts polling"));
-    rule.then.shouldLogAtLeast("apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => NONE", 1)
-            // should send model 1000 and 2000
-            .and.shouldLog("apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE")
+    // should send model 1000 and 2000
+    rule.then.shouldLog("CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE")
             .then.shouldLog("Sending model Id 1000")
             .and.shouldLog("Sending model Id 2000")
             // should receive query with load balancing

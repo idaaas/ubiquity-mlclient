@@ -52,10 +52,6 @@ public class AeronConnectionManager {
     this.controlPub = null;
   }
 
-  boolean areProtocolStreamsOpened() {
-    return this.connectionSub.isConnected() && this.controlPub.isConnected();
-  }
-
   void startProtocolStreams() {
     String connectionChannel = new ChannelUriStringBuilder()
         .media("udp")
@@ -72,10 +68,6 @@ public class AeronConnectionManager {
     this.controlPub = aeron.addPublication(controlChannel, CONTROL_STREAM_ID);
 
     System.out.printf("connection id %d%n", this.connectionSub.registrationId());
-  }
-
-  Subscription getHandshakeSub() {
-    return this.connectionSub;
   }
 
   void openPred(int controlPort) {
@@ -102,10 +94,12 @@ public class AeronConnectionManager {
     isServerOpened = true;
   }
 
+  Subscription getHandshakeSub() {
+    return this.connectionSub;
+  }
   Subscription getFeedbackSub() {
     return this.feedbackSub;
   }
-
   Subscription getPredSub() {
     return this.predSub;
   }
@@ -145,8 +139,6 @@ public class AeronConnectionManager {
     return false;
   }
 
-
-
   protected boolean sendQueryResponse(DirectBuffer buffer, int length) {
     if (!this.predPub.isConnected()) {
       System.out.println("[WARN] query response polling is not connected");
@@ -177,9 +169,5 @@ public class AeronConnectionManager {
       return true;
     }
     return false;
-  }
-
-  public Publication getPredPub() {
-    return this.predPub;
   }
 }

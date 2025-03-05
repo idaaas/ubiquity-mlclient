@@ -58,20 +58,22 @@
     {
       "id": "6.0",
       "on": "CONNECTION_REQUEST.HEARTBEAT",
-      "send": "NONE"
-    },
-    {
-      "id": "8.0",
-      "on": "TIME_MS",
       "send": "MODEL_SCHEMA_UPDATE",
-      "waitMs": "1000"
+      "when": "1"
     },
     {
-      "id": "9.0",
-      "on": "TIME_MS",
+      "id": "7.0",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "MODEL_SCHEMA_UPDATE",
+      "who": "node_2",
+      "when": "1"
+    },
+    {
+      "id": "7.1",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
       "send": "TOPOLOGY_UPDATE.REMOVE",
-      "waitMs": "2000",
-      "who": "node_2"
+      "who": "node_2",
+      "when": "1"
     }
   ],
   "models": [
