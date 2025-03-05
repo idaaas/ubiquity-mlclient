@@ -5,6 +5,7 @@ import java.util.*;
 import ai.ubiquity.integration.tests.common.types.InputConnectionMessageType;
 import ai.ubiquity.integration.tests.common.types.InputMessageType;
 import ai.ubiquity.integration.tests.common.types.MockRule;
+import ai.ubiquity.integration.tests.common.types.SendProtocolMessageType;
 
 public class RuleSelector {
     private final Map<String, List<MockRule>> mockMap;
@@ -48,7 +49,8 @@ public class RuleSelector {
           sum += rule.when(); // else pass rule
       }
 
-      return mockRules.get(0);
+      MockRule rule = mockRules.get(0);
+      return new MockRule("generated", rule.on(), rule.subType(), SendProtocolMessageType.NONE, "", "", 0, 0);
     }
 
 

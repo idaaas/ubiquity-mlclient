@@ -102,7 +102,7 @@ public class Client {
       throw new RuntimeException("[General] Error during connection : " + statusCode);
     ClientHandle clientHandle = Ubiquity.getClientHandle();
 
-    Thread.sleep(2000);
+    Thread.sleep(3000);
 
     Ubiquity.setResourceStringInCache(clusterId, clusterData);
 

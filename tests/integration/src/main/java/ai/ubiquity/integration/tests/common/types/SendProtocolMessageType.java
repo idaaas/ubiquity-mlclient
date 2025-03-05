@@ -12,7 +12,6 @@ public enum SendProtocolMessageType {
     MODEL_SCHEMA_UPDATE("MODEL_SCHEMA_UPDATE", 0x14),
     NONE("NONE", 0xffff),
     SHUTDOWN__UNGRACEFUL("SHUTDOWN.UNGRACEFUL", 0xfffe),
-    START("START", 0xfffd),
     DISCONNECT("DISCONNECT", 0xfffc),
     ADD_MODEL("ADD_MODEL", 0xfffb),
     REMOVE_MODEL("REMOVE_MODEL", 0xfffa);

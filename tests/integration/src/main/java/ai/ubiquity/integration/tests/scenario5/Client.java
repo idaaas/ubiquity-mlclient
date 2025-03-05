@@ -95,6 +95,8 @@ public class Client {
     String modelId1 = "0000000000Z81"; //1000
 
     long queryId1 = 1L;
+
+    Thread.sleep(1000);
     // ----------------- QUERY#1 ---------------------------
     clientHandle.startLineItem(modelId1, queryId1, 2);
     clientHandle.putCreative(1);
@@ -116,7 +118,7 @@ public class Client {
     if (clientHandle.predict() == Ubiquity.SUCCESS) System.out.printf("[General] query with id %d sent%n", queryId1);
     else System.out.printf("[General] query with id %d failed to be sent%n", queryId1);
 
-    Thread.sleep(3000);
+    Thread.sleep(2000);
     // ----------------- QUERY#2 ---------------------------
     clientHandle.startLineItem(modelId1, queryId1, 2);
     clientHandle.putCreative(1);

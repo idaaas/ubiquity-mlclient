@@ -87,6 +87,7 @@ public class Client {
 
     String modelId1 = "0000000000Z81"; // 1000
 
+    Thread.sleep(1000);
     long queryId1 = 1L; // Sends to node_1
     // ----------------- QUERY#1 ---------------------------
     for (int i=0 ; i<200 ; i++) {

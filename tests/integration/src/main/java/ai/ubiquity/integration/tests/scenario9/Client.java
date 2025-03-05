@@ -68,6 +68,8 @@ public class Client {
     String modelProbabilityEstimator = "0000000002XR3"; // 3000
     String modelBidShading = "0000000003X04"; // 4000
 
+    Thread.sleep(1000);
+
     long queryId1 = 1L;
     long queryId2 = 2L;
     long queryId3 = 3L;

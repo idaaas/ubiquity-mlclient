@@ -62,13 +62,8 @@
     {
       "id": "6.0",
       "on": "CONNECTION_REQUEST.HEARTBEAT",
-      "send": "NONE"
-    },
-    {
-      "id": "8.0",
-      "on": "TIME_MS",
       "send": "MODEL_SCHEMA_UPDATE",
-      "waitMs": "1500"
+      "when": "1"
     }
   ],
   "models": [

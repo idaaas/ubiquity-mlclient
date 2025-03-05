@@ -55,28 +55,48 @@
     {
       "id": "6.0",
       "on": "CONNECTION_REQUEST.HEARTBEAT",
-      "send": "NONE"
-    },
-    {
-      "id": "8.0",
-      "on": "TIME_MS",
       "send": "MODEL_SCHEMA_UPDATE",
-      "waitMs": "1000"
+      "when": "1"
     },
     {
-      "id": "9.0",
-      "on": "TIME_MS",
+      "id": "6.1",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "NONE",
+      "when": "1",
+      "who": "node_1"
+    },
+    {
+      "id": "7.0",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
       "send": "ADD_MODEL",
-      "waitMs": "2000",
+      "when": "1",
       "what": "1000",
       "who": "node_1"
     },
     {
-      "id": "9.1",
-      "on": "TIME_MS",
+      "id": "7.1",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "NONE",
+      "when": "1",
+      "who": "node_1"
+    },
+    {
+      "id": "7.2",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
       "send": "REMOVE_MODEL",
-      "waitMs": "4000",
+      "when": "1",
       "what": "1000",
+      "who": "node_1"
+    },
+    {
+      "id": "8.0",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "NONE"
+    },
+    {
+      "id": "8.1",
+      "on": "CONNECTION_REQUEST.HEARTBEAT",
+      "send": "NONE",
       "who": "node_1"
     }
   ],

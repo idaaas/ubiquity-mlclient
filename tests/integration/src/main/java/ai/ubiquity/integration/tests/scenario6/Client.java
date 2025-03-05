@@ -92,6 +92,7 @@ public class Client {
     String modelId1 = "0000000000Z81"; //1000
 
     long queryId1 = 10L;
+    Thread.sleep(1000);
     // ----------------- QUERY#1 ---------------------------
     clientHandle.startLineItem(modelId1, queryId1, 2);
     clientHandle.putCreative(1);

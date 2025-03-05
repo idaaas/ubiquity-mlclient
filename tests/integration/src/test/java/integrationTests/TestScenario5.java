@@ -32,19 +32,19 @@ public class TestScenario5 {
   void Node1And2() {
     // should respond properly to handshake protocol
     server.anyNode()
-            .shouldLog("[Server node_2] apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE  0 1000")
-            .and.shouldLog("[Server node_1] apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE  0 1000")
+            .shouldLog("[Server node_2] apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
+            .and.shouldLog("[Server node_3] apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
             // node_2 send it's model, node_1 does not have a model yet
-            .then.shouldLog("[Server node_2] Sending model Id 1000")
+            .and.shouldLog("[Server node_2] Sending model Id 1000")
             // node_2 should receive query with id 1001 first
             .then.shouldLog("[Server node_2] prediction query with id 1001 received with type 05 and application 02")
             // node_1 should send it's model
-            .then.shouldLog("[Server node_1] apply rule[9.0] TIME_MS.NONE => ADD_MODEL node_1 0 2000")
+            .then.shouldLog("[Server node_1] apply rule[7.0] CONNECTION_REQUEST.HEARTBEAT => ADD_MODEL node_1 1 0")
             .then.shouldLog("[Server node_1] Sending model Id 1000")
             // should receive query with id 1001 first
             .then.shouldLog("[Server node_1] prediction query with id 1001 received with type 05 and application 02")
             // should remove model for node_1
-            .then.shouldLog("[Server node_1] apply rule[9.1] TIME_MS.NONE => REMOVE_MODEL node_1 0 4000")
+            .then.shouldLog("[Server node_1] apply rule[7.2] CONNECTION_REQUEST.HEARTBEAT => REMOVE_MODEL node_1 1 0")
             .then.shouldLog("[Server node_1] Removing model Id 1000")
             // node_2 should receive the second request
             .then.shouldLog("[Server node_2] prediction query with id 1001 received with type 05 and application 02");
@@ -55,7 +55,7 @@ public class TestScenario5 {
     // should respond properly to handshake protocol
     AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.node("node_2").shouldLog("Starts polling"));
     // should send it's model
-    rule.then.shouldLog("apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE  0 1000")
+    rule.then.shouldLog("apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
             // should send a model before node_1
             .then.shouldLog("Sending model Id 1000")
             // should receive query with id 1001 first
@@ -66,7 +66,7 @@ public class TestScenario5 {
     // should respond properly to handshake protocol
     AssertionRule rule = CommonAssertions.assertServerRegularHandshake(server.node("node_3").shouldLog("Starts polling"));
     // should send it's model (this node has none)
-    rule.then.shouldLog("apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE  0 1000")
+    rule.then.shouldLog("apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
             // should not send any model
             .then.shouldNotLog("Sending model Id 1000")
             .then.shouldNotLog("prediction query with id 1001 received with type 05 and application 02");

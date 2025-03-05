@@ -31,14 +31,14 @@ public class TestScenario7 {
   void ClusterConsistentHashing() {
     // should respond properly to handshake protocol
     server.anyNode()
-            .shouldLog("[Server node_2] apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE")
-            .and.shouldLog("[Server node_1] apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE")
-            .and.shouldLog("[Server node_3] apply rule[8.0] TIME_MS.NONE => MODEL_SCHEMA_UPDATE")
+            .shouldLog("[Server node_2] apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
+            .and.shouldLog("[Server node_1] apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
+            .and.shouldLog("[Server node_3] apply rule[6.0] CONNECTION_REQUEST.HEARTBEAT => MODEL_SCHEMA_UPDATE  1 0")
             // all node should send their models
             .and.shouldLog("[Server node_2] Sending model Id 1000")
             .and.shouldLog("[Server node_1] Sending model Id 1000")
             .and.shouldLog("[Server node_3] Sending model Id 1000")
-            .then.shouldLog("[Server node_1] Sending model Id 2000")
+            .and.shouldLog("[Server node_1] Sending model Id 2000")
             .and.shouldLog("[Server node_2] Sending model Id 2000")
             // node_2 & node_1 should receive query with id 2001 multiple times until backpressure
             .then.shouldLogAtLeast("[Server node_2] prediction query with id 2001 received with type 05 and application 02", 10)
