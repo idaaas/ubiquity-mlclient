@@ -7,11 +7,20 @@ on:
           description: "is a release built ? (true/false)"
           required: true
           type: string
+      secrets:
+        earthly_token:
+          required: true
+        earthly_satellite:
+          required: true
+        earthly_org:
+          required: true
   
 
 jobs:
     build-ubuntu-xenial:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         permissions:
             contents: read
             packages: write
@@ -23,15 +32,17 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Ubuntu 16.04
-          run: earthly --push --no-cache +cpp-bindings --os=ubuntu:16.04
+          run: earthly --push --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build --lang=cpp --os=ubuntu:16.04
         - name: Upload artifact
           uses: actions/upload-artifact@v4
           with:
             name: ubiquity-mlclient-ubuntu-16.04
-            path: local-output/cpp
+            path: local-output/cpp/ubuntu:16.04
     
     build-ubuntu-focal:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -42,15 +53,17 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 20.04
-          run: earthly --push --no-cache +cpp-bindings --os=ubuntu:20.04
+          run: earthly --push --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build --lang=cpp --os=ubuntu:20.04
         - name: Upload artifact
           uses: actions/upload-artifact@v4
           with:
             name: ubiquity-mlclient-ubuntu-20.04
-            path: local-output/cpp
+            path: local-output/cpp/ubuntu:20.04
 
     build-ubuntu-jammy:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -61,15 +74,17 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 22.04
-          run: earthly --push --no-cache +cpp-bindings --os=ubuntu:22.04
+          run: earthly --push --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build --lang=cpp --os=ubuntu:22.04
         - name: Upload artifact
           uses: actions/upload-artifact@v4
           with:
             name: ubiquity-mlclient-ubuntu-22.04
-            path: local-output/cpp
+            path: local-output/cpp/ubuntu:22.04
 
     build-ubuntu-noble:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -80,12 +95,12 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 24.04
-          run: earthly --push --no-cache +cpp-bindings --os=ubuntu:24.04
+          run: earthly --push --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build --lang=cpp --os=ubuntu:24.04
         - name: Upload artifact
           uses: actions/upload-artifact@v4
           with:
             name: ubiquity-mlclient-ubuntu-24.04
-            path: local-output/cpp
+            path: local-output/cpp/ubuntu:24.04
 
 
             

@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - GetStatusString parse status code properly.
 
+### Changed
+
+- earthly build pipeline and documentation
+
 ## [v0.8.1] - 2025-03-03
 
 ### Changed

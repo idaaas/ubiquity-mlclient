@@ -16,10 +16,19 @@ on:
           required: false
           default: "false"
           type: string
+      secrets:
+        earthly_token:
+          required: true
+        earthly_satellite:
+          required: true
+        earthly_org:
+          required: true
 
 jobs:
     build-docker-examples:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -36,8 +45,8 @@ jobs:
         - name: Login to github registry
           run: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
         - name: Build & Push Examples
-          run: earthly --push --ci +build-examples --os=ubuntu:24.04 --release=17 --imagePrefix=ghcr.io/idaaas/${{ env.PRIVATE_PREFIX }} --imageVersion=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }}
+          run: earthly --push --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +all-examples --imagePrefix=ghcr.io/idaaas/${{ env.PRIVATE_PREFIX }} --imageSuffix=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }}
           if: inputs.release == 'false'
         - name: Build & Push Examples
-          run: earthly --push --ci +build-examples --os=ubuntu:24.04 --release=17 --imagePrefix=ghcr.io/idaaas/ --imageVersion=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }} --latest=true
+          run: earthly --push --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build-examples --imagePrefix=ghcr.io/idaaas/ --imageSuffix=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }} --latest=true
           if: inputs.release == 'true'

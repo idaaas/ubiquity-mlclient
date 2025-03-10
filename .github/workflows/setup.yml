@@ -61,46 +61,68 @@ jobs:
         run: echo "integration-tests"
         #run: cd tests && earthly -P +test-all --debug=true
   deploy-cpp:
-    needs: integration-tests
+    needs: setup
     uses: ./.github/workflows/cpp.yml
     with:
       release: ${{ needs.setup.outputs.RELEASE }}
+    secrets:
+      earthly_token: ${{ secrets.EARTHLY_TOKEN }}
+      earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
+      earthly_org: ${{ secrets.EARTHLY_ORG }}
   deploy-java8:
-    needs: integration-tests
+    needs: setup
     uses: ./.github/workflows/java8.yml
     with:
       repo-name: ${{ github.event.repository.name }}
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
       snap: ${{ needs.setup.outputs.SNAP }}
       private: ${{ needs.setup.outputs.PRIVATE }}
+    secrets:
+      earthly_token: ${{ secrets.EARTHLY_TOKEN }}
+      earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
+      earthly_org: ${{ secrets.EARTHLY_ORG }}
   deploy-java17:
-    needs: integration-tests
+    needs: setup
     uses: ./.github/workflows/java17.yml
     with:
       repo-name: ${{ github.event.repository.name }}
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
       snap: ${{ needs.setup.outputs.SNAP }}
       private: ${{ needs.setup.outputs.PRIVATE }}
+    secrets:
+      earthly_token: ${{ secrets.EARTHLY_TOKEN }}
+      earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
+      earthly_org: ${{ secrets.EARTHLY_ORG }}
   deploy-go:
-    needs: integration-tests
+    needs: setup
     uses: ./.github/workflows/go.yml
     with:
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
       release: ${{ needs.setup.outputs.RELEASE }}
     secrets:
       secret_token: ${{ secrets.GO_REPO_TOKEN }}
+      earthly_token: ${{ secrets.EARTHLY_TOKEN }}
+      earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
+      earthly_org: ${{ secrets.EARTHLY_ORG }}
   deploy-python:
-    needs: integration-tests
+    needs: setup
     uses: ./.github/workflows/python.yml
     with:
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
       release: ${{ needs.setup.outputs.RELEASE }}
     secrets:
       secret_token: ${{ secrets.GO_REPO_TOKEN }}
+      earthly_token: ${{ secrets.EARTHLY_TOKEN }}
+      earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
+      earthly_org: ${{ secrets.EARTHLY_ORG }}
   deploy-examples:
-    needs: integration-tests
+    needs: setup
     uses: ./.github/workflows/examples.yml
     with:
       new-tag: ${{ needs.setup.outputs.NEW_TAG }}
       release: ${{ needs.setup.outputs.RELEASE }}
       private: ${{ needs.setup.outputs.PRIVATE }}
+    secrets:
+      earthly_token: ${{ secrets.EARTHLY_TOKEN }}
+      earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
+      earthly_org: ${{ secrets.EARTHLY_ORG }}

@@ -1,0 +1,73 @@
+VERSION 0.8
+FROM busybox
+
+ARG --global --required os
+ARG --global type=Release
+ARG --global disableIdChecks=OFF
+
+IMPORT ../.earthly/common AS common
+IMPORT ../cpp AS cpp
+
+PYTHON_INSTALL:
+  FUNCTION
+  IF echo $os | grep -q ubuntu
+      RUN apt-get install --no-install-recommends -qq python3-dev python3 > /dev/null && apt-get clean > /dev/null
+  END
+
+PIP_INSTALL:
+  FUNCTION
+  IF [ "$os" = "ubuntu:24.04" ]
+    RUN apt-get -qq update > /dev/null && apt-get install -qq --no-install-recommends pipx > /dev/null \
+      && pipx install --include-deps requests > /dev/null
+  ELSE
+    RUN apt-get update > /dev/null && apt-get install -qq --no-install-recommends python3-pip > /dev/null \
+      && pip3 install requests > /dev/null
+  END
+
+python-image:
+  FROM cpp+base-image  --os=$os
+  DO +PYTHON_INSTALL
+
+python-swig-image:
+  FROM cpp+cmake-image --os=$os
+  DO +PYTHON_INSTALL
+  DO --pass-args common+SWIG_INSTALL
+
+bindings:
+  FROM +python-swig-image
+  COPY (cpp+build/* --os=$os --type=$type --disableIdChecks=$disableIdChecks) .
+  COPY swig .
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build \
+      && cmake --build build --parallel $(nproc) --target libUbiquityClientWrapper
+  SAVE ARTIFACT build/output/Ubiquity.py Ubiquity/Ubiquity.py
+  SAVE ARTIFACT build/_libUbiquityClientWrapper.so Ubiquity/_libUbiquityClientWrapper.so
+
+examples:
+  ARG latest=false
+  ARG imagePrefix
+  ARG imageSuffix=latest
+  FROM +python-image
+  DO +PIP_INSTALL
+  COPY +bindings/ .
+  COPY samples .
+  WAIT
+    COPY ../datasets/+files/ datasets
+    ENTRYPOINT ["python3","-m"]
+    SAVE IMAGE --push ${imagePrefix}python-examples:${imageSuffix}
+    IF [ "$latest" = "true" ]
+      SAVE IMAGE --push ${imagePrefix}python-examples:latest
+    END
+  END
+
+deploy:
+  FROM +bindings
+  ARG version
+  ARG token
+  RUN apt-get -y update && apt-get -y install git
+  ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
+  COPY +bindings/ package/Ubiquity/
+  COPY publish/__init__.py package/Ubiquity/
+  COPY publish/setup.cfg publish/pyproject.toml publish/README.md package/
+  COPY publish/pushToPackagePublicRepo.sh .
+  RUN sed -i "s/%%VERSION%%/${version}/g" package/setup.cfg
+  RUN chmod a+x pushToPackagePublicRepo.sh && ./pushToPackagePublicRepo.sh ${token} package/ ${OS_NAME}-${version} ${OS_NAME}

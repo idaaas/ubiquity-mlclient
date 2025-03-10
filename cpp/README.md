@@ -1,8 +1,8 @@
 # C++ ML Client
 
 ```bash
-earthly +cpp-bindings --os=ubuntu:22.04
-ls local-ouput/cpp
+earthly +build --lang=cpp --os=ubuntu:22.04
+ls local-ouput/cpp/ubuntu:22.04
 # Ubiquity.hpp: the header file to include
 # libubiquity_client_static.a: the static library
 # html: the Doxygen documentation
@@ -35,6 +35,6 @@ target_link_libraries(main PRIVATE ubiquity_client_static)
 
 Cpp examples are provided in a docker to quickly run scenarios:
 ```bash
-earthly +cpp-examples --os=ubuntu:22.04
+earthly +examples --lang=cpp --os=ubuntu:22.04
 docker run cpp-examples ./line-item API_TOKEN CLUSTER_ID
 ```

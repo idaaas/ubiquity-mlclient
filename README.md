@@ -37,13 +37,13 @@ Once the `earthly` command installed, build clients for all supported languages 
 ```bash
 git clone git@github.com:idaaas/ubiquity-mlclient.git
 cd ubiquity-mlclient
-earthly +all --os=ubuntu:22.04
-ls local-output # all binaries for all languages for ubuntu:22.04
+earthly +all
+ls local-output # all binaries for all languages and os x64
 ```
 
 Alternatively, you can limit the build to your language:
 ```bash
-earthly +cpp-bindings --os=ubuntu:22.04
+earthly +build --os=ubuntu:22.04 --lang=cpp
 ls local-output # all binaries for cpp and ubuntu:22.04
 ```
 
@@ -59,23 +59,16 @@ If your programming language is not in the list, please fill in a [request](http
 
 ### Earthfile Options
 
-The `--os` option let you specify the target OS, however changing the OS after having built the client for another OS is not detected by Earthly' cache and leads to incompatibilty issues. To overcome this, when selecting a new OS, you need to empty Earthly's cache with `--no-cache`.
+The `--os` option let you specify the target OS and `--lang` option let you specify the target langage.
+Default options will be `--os=ubuntu:22.04` and `--lang=cpp`
 
-These commands will lead to issues:
+These commands will lead to same results:
 ```bash
-earthly +cpp-bindings --os=ubuntu:16.04
-earthly +cpp-bindings --os=ubuntu:22.04 # Earthly has 16.04 artifacts in its cache
-```
-
-These commands will get you the correct result:
-```bash
-earthly +cpp-bindings --os=ubuntu:16.04
-earthly --no-cache +cpp-bindings --os=ubuntu:22.04 # OK
-earthly +java-bindings --os=ubuntu:22.04 # no need for `--no-cache` as OS did not change
+earthly +build
+earthly +build --lang=cpp --os=ubuntu:22.04
 ```
 
 You can use `--type=(Debug|Release)` with `Release` for production usage (the default), and `Debug` to log debug messages on stdout, add debugging symbols and disable most compiler optimizations.
-As for the `--os` option, you have to reset Earthly's cache (`--no-cache`) when switching between `Debug` and `Release`.
 
 Use `--disableIdChecks=ON` to enable faster cluster and model IDs serialization if IDs are well-formed and are provided by the API. However, with this option, inputing a ill-formed ID will probably lead to a crash. The default is `--disableIdChecks=OFF`.
 
@@ -91,7 +84,7 @@ If your OS or architecture is not in the list, please fill in a [request](https:
 
 To compile on M1 architecture, you need to add **--platform=linux/amd64** to you earthly commands as shown below:
 ```bash
-earthly --platform=linux/amd64 +all --os=ubuntu:22.04
+earthly --platform=linux/amd64 +all
 ```
 
 ### Dependencies

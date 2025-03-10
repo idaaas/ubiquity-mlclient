@@ -20,10 +20,19 @@ on:
           required: false
           default: "false"
           type: string
+      secrets:
+        earthly_token:
+          required: true
+        earthly_satellite:
+          required: true
+        earthly_org:
+          required: true
 
 jobs:
     build-ubuntu-xenial:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         permissions:
             contents: read
             packages: write
@@ -35,10 +44,12 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Ubuntu 16.04 java 17
-          run: earthly --ci --no-cache +java-publish --os=ubuntu:16.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
+          run: earthly --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +deploy --lang=java --os=ubuntu:16.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
     
     build-ubuntu-focal:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -49,10 +60,12 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 20.04 java 17
-          run: earthly --ci --no-cache +java-publish --os=ubuntu:20.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
+          run: earthly --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +deploy --lang=java --os=ubuntu:20.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
 
     build-ubuntu-jammy:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -63,10 +76,12 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 22.04 java 17
-          run: earthly --ci --no-cache +java-publish --os=ubuntu:22.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
+          run: earthly --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +deploy --lang=java --os=ubuntu:22.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
 
     build-ubuntu-noble:
         runs-on: ubuntu-latest
+        env:
+          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -77,7 +92,7 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 24.04 java 17
-          run: earthly --ci --no-cache +java-publish --os=ubuntu:24.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
+          run: earthly --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +deploy --lang=java --os=ubuntu:24.04 --release=17 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
 
 
             

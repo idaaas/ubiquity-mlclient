@@ -1,0 +1,76 @@
+VERSION 0.8
+FROM busybox
+
+ARG --global --required os
+ARG --global type=Release
+ARG --global disableIdChecks=OFF
+
+IMPORT ../.earthly/common AS common
+IMPORT ../cpp AS cpp
+
+GO_INSTALL:
+  FUNCTION
+  IF echo $os | grep -q ubuntu
+    RUN apt-get install --no-install-recommends -qq gcc > /dev/null && apt-get clean > /dev/null
+    RUN wget -q https://go.dev/dl/go1.16.linux-amd64.tar.gz > /dev/null \
+        && tar -C /usr/local -xzf go1.16.linux-amd64.tar.gz > /dev/null && rm go1.16.linux-amd64.tar.gz
+    ENV PATH=$PATH:/usr/local/go/bin
+  END
+
+go-image:
+  FROM cpp+base-image --os=$os
+  DO +GO_INSTALL
+
+go-swig-image:
+  FROM cpp+cmake-image --os=$os
+  DO +GO_INSTALL
+  DO --pass-args common+SWIG_INSTALL
+
+bindings:
+  FROM +go-swig-image
+  COPY (cpp+build/* --os=$os --type=$type --disableIdChecks=$disableIdChecks) .
+  COPY swig .
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build \
+      && cmake --build build --parallel $(nproc) --target libubiquityclientwrapper
+  SAVE ARTIFACT build/output/Ubiquity.go Ubiquity/Ubiquity.go
+  SAVE ARTIFACT build/libubiquityclientwrapper.a Ubiquity/libubiquityclientwrapper.a
+  SAVE ARTIFACT libubiquity_client_static.a Ubiquity/libubiquity_client_static.a
+
+examples-build:
+  FROM +go-image
+  RUN apt-get install --no-install-recommends -qq g++ > /dev/null
+  COPY +bindings/* Ubiquity/
+  COPY samples .
+  RUN SUBDIRS=$(find ./src -maxdepth 2 -mindepth 2 -type d -printf '%P\n') && \
+      for dir in $SUBDIRS; \
+      do \
+        echo 'building '$dir' ...'; \
+        go build -o bin/$dir src/$dir/Main.go; \
+      done
+  SAVE ARTIFACT bin
+
+examples:
+  ARG latest=false
+  ARG imagePrefix
+  ARG imageSuffix=latest
+  FROM cpp+base-image --os=$os
+  COPY +examples-build/bin/ .
+  WAIT
+    COPY ../datasets/+files/ datasets
+    SAVE IMAGE --push ${imagePrefix}go-examples:${imageSuffix}
+    IF [ "$latest" = "true" ]
+      SAVE IMAGE --push ${imagePrefix}go-examples:latest
+    END
+  END
+
+deploy:
+  FROM +bindings
+  ARG version
+  ARG token
+  RUN apt-get -y update && apt-get -y install git
+  ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
+  COPY +bindings/ package/Ubiquity/
+  COPY publish/pushToPackagePublicRepo.sh .
+  COPY publish/README.md ./package
+  RUN cd package/Ubiquity && go mod init github.com/idaaas/ubiquity-go-mlclient/Ubiquity && go mod tidy && cd ../.. \
+      && chmod a+x pushToPackagePublicRepo.sh && ./pushToPackagePublicRepo.sh ${token} package/ ${OS_NAME}-${version} ${OS_NAME}
