@@ -9,9 +9,9 @@ Select the appropriate **tag** corresponding to your **os version** and read the
 
 In the client's root directory :
 ```bash
-earthly +python-bindings --os=ubuntu:22.04
-tree local-ouput/python
-#local-output/python
+earthly +build --lang=python --os=ubuntu:22.04
+tree local-ouput/python/ubuntu:22.04
+#local-output/python/ubuntu:22.04
 #└── Ubiquity  // this is the package to import
 #    ├── Ubiquity.py
 #    └── _libubiquityclientwrapper.so
@@ -40,7 +40,7 @@ See the general documentation for more information about using the client.
 
 Python examples are provided in a docker to quickly run scenarios:
 ```bash
-earthly +python-examples --os=ubuntu:22.04
+earthly +examples --lang=python --os=ubuntu:22.04
 docker run python-examples src.line-item.example1 API_TOKEN CLUSTER_ID NUM_QUERIES
 ```
 NUM_QUERIES is optional and 500000 by default.

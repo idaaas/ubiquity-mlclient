@@ -3,3 +3,4 @@ local-output
 .bsp
 target
 .vscode/
+.tmp-earthly-out

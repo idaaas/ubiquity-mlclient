@@ -83,7 +83,7 @@ TOKEN=<yourPAT> mvn install -s=my/path/to/settings.xml
 
 Java examples are provided in a docker to quickly run scenarios:
 ```bash
-earthly +java-examples --os=ubuntu:22.04
+earthly +examples --lang=java --os=ubuntu:22.04
 docker run java-examples ai.ubiquity.samples.lineitem.Example1 API_TOKEN CLUSTER_ID NUM_QUERIES
 ```
 NUM_QUERIES is optional and 500000 by default.
@@ -101,15 +101,15 @@ mvn exec:java
 ## Build from sources
 
 ```bash
-earthly +java-bindings --os=ubuntu:22.04
-ls local-ouput/java
+earthly +build --lang=java --os=ubuntu:22.04
+ls local-ouput/java/ubuntu:22.04/java-17
 # ubiquity-mlclient.jar: the jar to add to the classpath
 ```
 
 You can select your Java release with the `--release` option, that will be passed to javac as is:
 ```bash
-earthly +java-bindings --os=ubuntu:22.04 --release=8
-ls local-ouput/java
+earthly +build --lang=java --os=ubuntu:22.04 --release=8
+ls local-ouput/java/ubuntu:22.04/java-8
 # ubiquity-mlclient.jar: the jar for Java 8 to add to the classpath
 ```
 

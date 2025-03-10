@@ -1,0 +1,140 @@
+VERSION 0.8
+FROM busybox
+
+ARG --global --required os
+ARG --global --required release
+ARG --global type=Release
+ARG --global disableIdChecks=OFF
+
+IMPORT ../.earthly/common AS common
+IMPORT ../cpp AS cpp
+
+JAVA_INSTALL:
+  FUNCTION
+  IF echo $os | grep -q ubuntu
+    IF [ "$os" = "ubuntu:16.04" ]
+      RUN apt-get install --no-install-recommends -qq software-properties-common > /dev/null && add-apt-repository -y ppa:openjdk-r/ppa > /dev/null && apt-get update -qq > /dev/null
+      RUN apt-get install --no-install-recommends -qq openjdk-17-jdk > /dev/null
+      RUN dpkg --purge --force-depends ca-certificates-java > /dev/null && apt-get install -qq ca-certificates-java > /dev/null
+      RUN keytool -importkeystore -srcstorepass changeit -deststorepass changeit -srckeystore /etc/ssl/certs/java/cacerts -srcstoretype pkcs12 -destkeystore key.jks -deststoretype jks > /dev/null
+      RUN mv -f key.jks /etc/ssl/certs/java/cacerts
+    ELSE
+      RUN apt-get install --no-install-recommends -qq openjdk-17-jdk > /dev/null
+    END
+    ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+  END
+
+java-swig-image:
+  FROM cpp+cmake-image --os=$os
+  DO +JAVA_INSTALL
+  DO --pass-args common+SWIG_INSTALL
+
+java-image:
+  FROM cpp+base-image --os=$os
+  DO +JAVA_INSTALL
+
+sbt-image:
+  FROM +java-image
+  IF echo $os | grep -q ubuntu
+    RUN apt-get install --no-install-recommends -qq apt-transport-https gnupg curl > /dev/null
+    RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" >/etc/apt/sources.list.d/sbt.list
+    RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian /" >/etc/apt/sources.list.d/sbt_old.list
+    RUN curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | gpg --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --import > /dev/null
+    RUN chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg > /dev/null
+    RUN apt-get update -qq > /dev/null && apt-get install --no-install-recommends -qq sbt > /dev/null
+    RUN sbt update --allow-empty > /dev/null
+  END
+
+bindings:
+  FROM +java-swig-image
+  COPY (cpp+build/* --os=$os --type=$type --disableIdChecks=$disableIdChecks) .
+  COPY swig .
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
+  RUN cmake --build build --parallel $(nproc) --target jniUbiquityClient
+  RUN mkdir -p jar-root/NATIVE && cp build/libjniUbiquityClient.so jar-root/NATIVE
+  RUN javac -Werror -Xlint -d jar-root build/output/*.java $([ -z "$release" ] || echo --release $release)
+  RUN jar cf ubiquity-mlclient.jar -C jar-root .
+  SAVE ARTIFACT ubiquity-mlclient.jar java-$release/ubiquity-mlclient.jar
+
+#Separated to reduce example image size
+examples-build:
+  FROM +sbt-image
+  COPY +bindings/java-$release/ubiquity-mlclient.jar .
+  COPY ./sbt .
+  RUN sbt assembly
+  SAVE ARTIFACT target/main.jar
+
+examples:
+  ARG latest=false
+  ARG imagePrefix
+  ARG imageSuffix=latest
+  FROM +java-image
+  COPY +examples-build/main.jar .
+  WAIT
+    COPY ../datasets/+files/ datasets
+    ENTRYPOINT ["java","-cp","main.jar"]
+    SAVE IMAGE --push ${imagePrefix}java-examples:${imageSuffix}
+    IF [ "$latest" = "true" ]
+      SAVE IMAGE --push ${imagePrefix}java-examples:latest
+    END
+  END
+
+deploy:
+  FROM +java-swig-image
+  ARG token
+  ARG version
+  ARG repo
+  ARG snap
+  ARG private
+  ARG TARGETPLATFORM #built in arg
+  RUN wget -q https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz > /dev/null \
+      && tar -xzvf apache-maven-3.9.9-bin.tar.gz > /dev/null \
+      && mv apache-maven-3.9.9 /opt/
+  ENV PATH=/opt/apache-maven-3.9.9/bin:$PATH
+  ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
+  COPY +bindings/java-$release/ubiquity-mlclient.jar .
+  COPY publish/settings.xml .
+  RUN mkdir ~/.m2 && mv settings.xml ~/.m2/
+  DO +DEPLOY_X86 --token=$token --private=$private --snap=$snap --repo=$repo --version=$version
+  
+DEPLOY_X86:
+  FUNCTION
+  ARG token
+  ARG version
+  ARG repo
+  ARG snap
+  ARG private
+  WAIT
+    RUN SNAP=$(if [ "$snap" = "true" ]; then echo "-SNAPSHOT"; else echo ""; fi) \
+        PRIVATE_GROUP=$(if [ "$private" = "true" ]; then echo "private."; else echo ""; fi) \
+        && mvn deploy:deploy-file \
+        -DgroupId=com.idaaas.${PRIVATE_GROUP}${OS_NAME}-java-${release} \
+        -DartifactId=ubiquity-mlclient \
+        -Dversion=${version}${SNAP} \
+        -Dpackaging=jar \
+        -Dfile=./ubiquity-mlclient.jar \
+        -DrepositoryId=github \
+        -Durl=https://maven.pkg.github.com/idaaas/${repo} \
+        -Dsettings.token=${token} > /dev/null
+  END
+
+DEPLOY_M1:
+  FUNCTION
+  ARG token
+  ARG version
+  ARG repo
+  ARG snap
+  ARG private
+  WAIT
+    RUN SNAP=$(if [ "$snap" = "true" ]; then echo "-SNAPSHOT"; else echo ""; fi) \
+        PRIVATE_GROUP=$(if [ "$private" = "true" ]; then echo "private."; else echo ""; fi) \
+        && mvn deploy:deploy-file \
+        -DgroupId=com.idaaas.${PRIVATE_GROUP}${OS_NAME}-m1-java-${release} \
+        -DartifactId=ubiquity-mlclient \
+        -Dversion=${version}${SNAP} \
+        -Dpackaging=jar \
+        -Dfile=./ubiquity-mlclient.jar \
+        -DrepositoryId=github \
+        -Durl=https://maven.pkg.github.com/idaaas/${repo} \
+        -Dsettings.token=${token} > /dev/null
+  END

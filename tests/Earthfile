@@ -5,13 +5,13 @@ ARG --global debug=false
 
 publish-ubiquity-mlclient:
     FROM hseeberger/scala-sbt:17.0.2_1.6.2_2.13.8
-    COPY (../+java-bindings/ubiquity-mlclient.jar --type=DEBUG --os=ubuntu:22.04)  build/bin/ubiquity-mlclient.jar
+    COPY (../+build/java-17/ubiquity-mlclient.jar --type=DEBUG --os=ubuntu:22.04 --lang=java --release=17)  build/bin/ubiquity-mlclient.jar
     SAVE ARTIFACT build/bin/ubiquity-mlclient.jar AS LOCAL integration/lib/ubiquity-mlclient.jar
 
 build-integration-tests:
     FROM hseeberger/scala-sbt:17.0.2_1.6.2_2.13.8
     WORKDIR /tests
-    COPY (../+java-bindings/ubiquity-mlclient.jar --type=DEBUG --os=ubuntu:22.04)  build/bin/ubiquity-mlclient.jar
+    COPY (../+build/java-17/ubiquity-mlclient.jar --type=DEBUG --os=ubuntu:22.04 --lang=java --release=17)  build/bin/ubiquity-mlclient.jar
     COPY integration/project/plugins.sbt integration/project/
     COPY integration/*.sbt integration/
     COPY integration/src integration/src/
@@ -25,7 +25,7 @@ build-integration-tests:
 
 run-scenario:
     ARG scenario
-    FROM ../+java-swig-image --os=ubuntu:22.04
+    FROM ../java/+java-swig-image --os=ubuntu:22.04 --release=17
     ENV DOCKER_BUILDKIT 0
     ENV COMPOSE_DOCKER_CLI_BUILD 0
     DO github.com/earthly/lib+INSTALL_DIND
@@ -45,7 +45,7 @@ run-scenario:
 
 test-all:
   FROM hseeberger/scala-sbt:17.0.2_1.6.2_2.13.8
-  COPY (../+java-bindings/ubiquity-mlclient.jar --type=DEBUG --os=ubuntu:22.04)  build/bin/ubiquity-mlclient.jar
+  COPY (../java/+bindings/java-17/ubiquity-mlclient.jar --type=DEBUG --release=17 --os=ubuntu:22.04)  build/bin/ubiquity-mlclient.jar
   COPY integration/project/plugins.sbt integration/project/
   COPY integration/*.sbt integration/
   COPY integration/src integration/src/

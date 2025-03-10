@@ -9,9 +9,9 @@ Select the appropriate **tag** corresponding to your **os version** and read the
 
 In the client's root directory :
 ```bash
-earthly +go-bindings --os=ubuntu:22.04
-tree local-ouput/go
-#local-output/go
+earthly +build --lang=go --os=ubuntu:22.04
+tree local-ouput/go/ubuntu:22.04
+#local-output/go/ubuntu:22.04
 #└── Ubiquity  // this is the package to import
 #    ├── Ubiquity.go
 #    └── libubiquityclientwrapper.a
@@ -31,7 +31,7 @@ See the general documentation for more information about using the client.
 
 Go examples are provided in a docker to quickly run scenarios:
 ```bash
-earthly +go-examples --os=ubuntu:22.04
+earthly +examples --lang=go --os=ubuntu:22.04
 docker run go-examples ./line-item/example1 API_TOKEN CLUSTER_ID NUM_QUERIES
 ```
 NUM_QUERIES is optional and 500000 by default.

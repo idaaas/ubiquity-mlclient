@@ -1,0 +1,6 @@
+VERSION 0.8
+FROM busybox
+
+files:
+  COPY ./* datasets/
+  SAVE ARTIFACT datasets/*
