@@ -172,8 +172,8 @@ def main(api_token, cluster_id, num_queries):
 
             # 4.1 Prepare a line item query
             query_id = random.randint(1, 1e9)
-            request = bid_requests[count]
-            feedback = feedbacks[count]
+            request = bid_requests[count%len(bid_requests)]
+            feedback = feedbacks[count%len(feedbacks)]
 
             feedback_hash_map[query_id] = feedback
             client_handle.startProbability(model_id, query_id)
