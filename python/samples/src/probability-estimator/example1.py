@@ -22,7 +22,7 @@ model_schema = """
     "name": "probabilityEstimator/Example1",
     "feedback_delays": [
     65,
-    90
+    130
     ],
     "features": [
     {{
