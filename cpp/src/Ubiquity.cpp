@@ -17,43 +17,37 @@ const char *Ubiquity::getStatusString(
         Ubiquity::StatusCode statusCode
         ) noexcept
 {
-    if (statusCode & Ubiquity::SETUP_ERROR) {
-        static const char *const statusStrings[] = {
-            "ARCHITECTURE_NOT_SUPPORTED",
-            "AERON_INITIALIZATION_FAILED",
+    static const char *const statusStrings[] = {
+        "UNDEFINED",
+        "SUCCESS",
+        "NO_DATA",
+        "BACK_PRESSURED",
+        "NO_COMPATIBLE_NODE",
 
-            "INVALID_RESOURCE_ID",
-            "INVALID_APP_FOR_MODEL",
-            "MISMATCHED_FEATURE_TYPE",
-            "INVALID_FEEDBACK_LEVEL",
-            "MISSING_CREATIVES",
-            "TOO_MANY_CREATIVES",
-            "MISPLACED_CREATIVE_ID",
+        "ARCHITECTURE_NOT_SUPPORTED",
+        "AERON_INITIALIZATION_FAILED",
 
-            "NO_API_RESPONSE",
-            "FORBIDDEN",
-            "UNKNOWN_RESOURCE",
-            "OTHER_FETCH_ERROR",
-            "INVALID_CLUSTER_DESCRIPTION",
-            "SCHEMA_UNAVAILABLE",
-            "INVALID_HANDLE",
-            "UNAUTHORIZED",
-            "INTERNAL_API_ERROR",
-        };
-        return statusCode <= Ubiquity::INTERNAL_API_ERROR
-            ? statusStrings[statusCode - Ubiquity::ARCHITECTURE_NOT_SUPPORTED]
-            : "UNDEFINED";
-    } else {
-        static const char *const statusStrings[] = {
-            "SUCCESS",
-            "NO_DATA",
-            "BACK_PRESSURED",
-            "NO_COMPATIBLE_NODE",
-        };
-        return statusCode <= Ubiquity::NO_COMPATIBLE_NODE
-            ? statusStrings[statusCode - Ubiquity::SUCCESS]
-            : "UNDEFINED";
-    }
+        "INVALID_RESOURCE_ID",
+        "INVALID_APP_FOR_MODEL",
+        "MISMATCHED_FEATURE_TYPE",
+        "INVALID_FEEDBACK_LEVEL",
+        "MISSING_CREATIVES",
+        "TOO_MANY_CREATIVES",
+        "MISPLACED_CREATIVE_ID",
+
+        "NO_API_RESPONSE",
+        "FORBIDDEN",
+        "UNKNOWN_RESOURCE",
+        "OTHER_FETCH_ERROR",
+        "INVALID_CLUSTER_DESCRIPTION",
+        "SCHEMA_UNAVAILABLE",
+        "INVALID_HANDLE",
+        "UNAUTHORIZED",
+        "INTERNAL_API_ERROR",
+    };
+    return statusCode <= Ubiquity::INTERNAL_API_ERROR
+        ? statusStrings[statusCode]
+        : "UNDEFINED";
 }
 
 /*

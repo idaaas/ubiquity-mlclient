@@ -5,6 +5,40 @@
 
 #include <cstddef>
 
+namespace HandleState {
+    enum Value : uint8_t {
+        READY = 0,
+        PREDICTING,
+        PREDICT_SUCCEEDED,
+        POLLED,
+        TRAINED,
+        CANCELED,
+    };
+    static constexpr const char *originFunctionName[]{
+        nullptr,
+        nullptr,
+        nullptr,
+        "poll",
+        "train",
+        "cancel",
+    };
+}
+
+namespace ErrorOrigin {
+    enum Value : uint8_t {
+        PREDICT = 0,
+        POLL,
+        TRAIN,
+        CANCEL,
+    };
+    static constexpr const char *functionName[]{
+        "predict",
+        "poll",
+        "train",
+        "cancel",
+    };
+}
+
 class Ubiquity::ClientHandle::Impl {
     public:
         Impl(void);
@@ -66,7 +100,6 @@ class Ubiquity::ClientHandle::Impl {
                 const float bidPrice
                 ) noexcept;
 
-
         Ubiquity::StatusCode train(
                 const char *const encodedModelId,
                 int64_t queryId,
@@ -78,17 +111,29 @@ class Ubiquity::ClientHandle::Impl {
                 int64_t queryId
                 ) noexcept;
 
-        ClusterClient::Schema schema;
-        std::shared_ptr<ClusterClient> clusterClient;
+        const char *getDiagnosticString() noexcept;
+
         Ubiquity::StatusCode statusCode = Ubiquity::SUCCESS;
-        aeron::concurrent::AtomicBuffer atomicBuffer;
+        HandleState::Value state = HandleState::READY;
+        ErrorOrigin::Value errorOrigin;
+        std::string diagnosticString;
+
+        uint64_t featureTypeList[8];
+        char encodedModelId[14];
+        int64_t queryId;
+        Ubiquity::ApplicationType applicationId = Ubiquity::APP_UNDEFINED;
+        int32_t numCreative = 0;
         size_t featureOrdinal = 0;
         size_t offset = 0;
-        char encodedModelId[14];
 
-        inline bool nextFeatureTypeMatches(
-                const ClusterClient::Schema::FeatureType featureType
-                ) noexcept;
+        bool misplacedCreativeId = 0;
+        bool tooManyCreatives = 0;
+
+        ClusterClient::Schema schema;
+
+        std::shared_ptr<ClusterClient> clusterClient;
+
+        aeron::concurrent::AtomicBuffer atomicBuffer;
 
         inline void putFeature8(
                 const uint8_t value,
@@ -102,22 +147,10 @@ class Ubiquity::ClientHandle::Impl {
 
         enum class MessageType : uint8_t;
 
-        inline Ubiquity::StatusCode getSchema(
-                const int64_t modelId
-                ) noexcept;
-
         inline void prepareCommonHeader(
-                const int64_t modelId,
+                const char *const encodedModelId,
                 const int64_t queryId,
-                const Ubiquity::ApplicationType applicationId,
                 const MessageType messageType
-                ) noexcept;
-
-        inline void prepareFeedbackHeader(
-                const uint64_t modelId,
-                const int64_t queryId,
-                const Ubiquity::ApplicationType applicationId,
-                const uint16_t feedbackLevel
                 ) noexcept;
 
         inline void prepareQueryHeader(
@@ -125,6 +158,9 @@ class Ubiquity::ClientHandle::Impl {
                 const int64_t queryId,
                 const Ubiquity::ApplicationType applicationId
                 ) noexcept;
+
+        inline Ubiquity::StatusCode checkPredictSetupErrors();
+        inline Ubiquity::StatusCode checkFeedbackSetupErrors();
 
         struct ApplicationMessage {
             uint8_t version;

@@ -20,24 +20,32 @@ public:
 
     using ModelId = int64_t;
     struct Schema {
-        ModelId modelId = 0;
-        Ubiquity::ApplicationType applicationId = Ubiquity::APP_UNDEFINED;
-        std::vector<int32_t> feedbackDelays = {-1};
-        enum class FeatureType : int8_t {
+        enum class FeatureType : int64_t {
             NUMERIC = 0,
-            UNDEFINED = 1,
-            NOMINAL = 2,
-            BOOLEAN = 3,
-            CATEGORICAL = 4,
+            NOMINAL = 1,
+            BOOLEAN = 2,
+            CATEGORICAL = 3,
+            RESERVED = 4,
         };
-        static constexpr const char *featureTypeStrings[5]{
+        static constexpr const char *featureTypeStrings[]{
             "NUMERIC",
-            "UNDEFINED",
             "NOMINAL",
             "BOOLEAN",
             "CATEGORICAL",
         };
-        std::vector<FeatureType> features;
+        static constexpr FeatureType featureTypeTranslation[8] {
+            FeatureType::NUMERIC,
+            FeatureType::RESERVED,
+            FeatureType::NOMINAL,
+            FeatureType::BOOLEAN,
+            FeatureType::CATEGORICAL,
+        };
+        ModelId modelId = 0;
+        uint64_t featureTypeList[8];
+        uint16_t featureCount;
+        uint16_t feedbackDelayCount;
+        int32_t feedbackDelayList[16] = {-1};
+        Ubiquity::ApplicationType applicationId = Ubiquity::APP_UNDEFINED;
     };
     using SchemaCache = std::unordered_map<ModelId, Schema>;
     static std::shared_ptr<SchemaCache> s_schemaCache;
@@ -78,7 +86,7 @@ public:
             const int64_t modelId,
             const int16_t applicationId,
             const int32_t *const feedbackDelays,
-            const int16_t feedbackDelaysCount,
+            const uint16_t feedbackDelaysCount,
             const int8_t *const features
             ) noexcept;
 

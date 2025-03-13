@@ -103,3 +103,7 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::train(const char *modelId, int64_t 
 Ubiquity::StatusCode Ubiquity::ClientHandle::cancel(const char *modelId, int64_t queryId) noexcept {
     return this->pimpl->cancel(modelId, queryId);
 }
+
+const char *Ubiquity::ClientHandle::getDiagnosticString() noexcept {
+    return this->pimpl->getDiagnosticString();
+}

@@ -49,12 +49,12 @@ static inline bool decode(
         const char *const source
         ) noexcept
 {
+    *destination = 0;
 #ifndef DISABLE_ID_CHECKS
     if (__glibc_unlikely(strlen(source) != 13)) {
         return 0;
     }
 #endif
-    *destination = 0;
     *destination |= static_cast<uint64_t>(decodingTable[static_cast<uint8_t>(source[0])]) << 55;
     *destination |= static_cast<uint64_t>(decodingTable[static_cast<uint8_t>(source[1])]) << 50;
     *destination |= static_cast<uint64_t>(decodingTable[static_cast<uint8_t>(source[2])]) << 45;
