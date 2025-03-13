@@ -242,8 +242,8 @@ inline Ubiquity::StatusCode ClusterClient::fetchResourceFromRestApi(
 void ClusterClient::ensureSchemaForOneModelIsInCache(
         const int64_t modelId,
         const int16_t applicationId,
-        const int32_t *const feedbackDelays,
-        const int16_t feedbackDelaysCount,
+        const int32_t *const feedbackDelayList,
+        const uint16_t feedbackDelayCount,
         const int8_t *const features
         ) noexcept
 {
@@ -256,23 +256,19 @@ void ClusterClient::ensureSchemaForOneModelIsInCache(
         newSchema.applicationId = applicationId;
 
         // Insert feedback delays.
-        newSchema.feedbackDelays.clear();
-        for (int16_t i = 0; i < feedbackDelaysCount; ++i) {
-            const auto feedbackDelay = feedbackDelays[i];
-            newSchema.feedbackDelays.push_back(feedbackDelay);
+        newSchema.feedbackDelayCount = feedbackDelayCount;
+        int16_t delayOrdinal = 0;
+        while (delayOrdinal < feedbackDelayCount) {
+            newSchema.feedbackDelayList[delayOrdinal] = feedbackDelayList[delayOrdinal];
+            ++delayOrdinal;
         }
+        newSchema.feedbackDelayList[delayOrdinal] = -1;
 
-        // Mark the end of the feedback delays list.
-        newSchema.feedbackDelays.push_back(-1);
-
-        // Insert feature types.
-        const auto featuresCount = reinterpret_cast<const int16_t *>(features)[0];
-        for (int8_t i = 0; i < featuresCount; ++i) {
-            newSchema.features.push_back(static_cast<Schema::FeatureType>(features[2 + i]));
+        // Copy feature types in a condensed form.
+        newSchema.featureCount = reinterpret_cast<const int16_t *>(features)[0];
+        for (int8_t featureOrdinal = 0; featureOrdinal < newSchema.featureCount; ++featureOrdinal) {
+            newSchema.featureTypeList[(featureOrdinal & 0xE0) >> 5] |= static_cast<int64_t>(Schema::featureTypeTranslation[features[2 + featureOrdinal] & 7]) << ((featureOrdinal & 0x1F) * 2);
         }
-
-        // Mark the end of the feature types list.
-        newSchema.features.push_back(Schema::FeatureType::UNDEFINED);
 
         // Create the new schema cache containing the new schema + older schemas (copy on write).
         const auto &newSchemaCache = std::make_shared<SchemaCache>(*s_schemaCache);

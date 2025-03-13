@@ -204,7 +204,7 @@ struct ModelAddMessage {
     uint32_t nodeIp;
     int64_t modelId;
     int16_t applicationId;
-    int16_t feedbackDelaysCount;
+    uint16_t feedbackDelaysCount;
     int32_t feedbackDelays[1];
 } __attribute__((packed));
 

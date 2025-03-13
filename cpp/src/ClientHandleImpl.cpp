@@ -6,6 +6,19 @@
 
 #include <atomic>
 
+enum class Ubiquity::ClientHandle::Impl::MessageType : uint8_t {
+    QUERY = 0x05,
+    FEEDBACK = 0x07,
+    CANCEL = 0x08,
+};
+
+static constexpr bool appUsesCreatives[Ubiquity::NUMBER_OF_APP_TYPES] = {
+    false, // Bid shading
+    false, // Probability
+    true, // Line item
+    true, // Action rate
+};
+
 Ubiquity::ClientHandle::Impl::Impl(void) {
     this->atomicBuffer.wrap(this->message.buffer, ClusterClient::MAXIMUM_TRANSMISSION_UNIT);
 }
@@ -78,20 +91,23 @@ int8_t Ubiquity::ClientHandle::Impl::getBidStatus(void) noexcept {
   return this->message.actionRatePrediction.price == 0 ? Ubiquity::NO_BID : Ubiquity::BID;
 }
 
-static constexpr uint8_t MESSAGE_TYPE_PREDICTION = 0x06;
-
-static size_t expectedInputMessageSize[] {
-    sizeof(Ubiquity::ClientHandle::Impl::BidShadingPrediction),
-    sizeof(Ubiquity::ClientHandle::Impl::ProbabilityPrediction),
-    sizeof(Ubiquity::ClientHandle::Impl::LineItemPrediction),
-    sizeof(Ubiquity::ClientHandle::Impl::ActionRatePrediction),
-};
-
 Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
+    static constexpr uint8_t MESSAGE_TYPE_PREDICTION = 0x06;
+    static constexpr size_t expectedInputMessageSize[] {
+        sizeof(Ubiquity::ClientHandle::Impl::BidShadingPrediction),
+        sizeof(Ubiquity::ClientHandle::Impl::ProbabilityPrediction),
+        sizeof(Ubiquity::ClientHandle::Impl::LineItemPrediction),
+        sizeof(Ubiquity::ClientHandle::Impl::ActionRatePrediction),
+    };
+
+    this->errorOrigin = ErrorOrigin::POLL;
     if (__glibc_unlikely(this->clusterClient->statusCode != Ubiquity::SUCCESS)) {
         this->statusCode = this->clusterClient->statusCode;
         return this->statusCode;
     }
+
+    this->state = HandleState::POLLED;
+
     auto receiver = [this](
             aeron::concurrent::AtomicBuffer &receptionBuffer,
             aeron::util::index_t offset,
@@ -107,13 +123,12 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
         if (predSub->poll(receiver, 1) > 0) {
             const uint16_t applicationId = static_cast<uint16_t>(this->message.common.applicationId);
             if (__glibc_unlikely(MESSAGE_TYPE_PREDICTION != this->message.common.type
-                        || applicationId >= static_cast<uint16_t>(Ubiquity::APP_UNDEFINED)
+                        || applicationId >= static_cast<uint16_t>(Ubiquity::NUMBER_OF_APP_TYPES)
                         || expectedInputMessageSize[applicationId] != this->offset)) {
                 DBG("Warning : invalid message received in poll.")
                 break;
-            } else {
-                this->statusCode = Ubiquity::SUCCESS;
             }
+            this->statusCode = Ubiquity::SUCCESS;
             return this->statusCode;
         }
     }
@@ -121,20 +136,52 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
     return this->statusCode;
 }
 
+inline Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::checkPredictSetupErrors() {
+    static constexpr const uint8_t statusCodePerErrorLevel[64] = {
+        (uint8_t)Ubiquity::SUCCESS, // 0
+        (uint8_t)Ubiquity::MISMATCHED_FEATURE_TYPE, 0, // 1
+        (uint8_t)Ubiquity::MISSING_CREATIVES, 0, 0, 0, // 3
+        (uint8_t)Ubiquity::MISPLACED_CREATIVE_ID, 0, 0, 0, 0, 0, 0, 0, // 7
+        (uint8_t)Ubiquity::SCHEMA_UNAVAILABLE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 15
+        (uint8_t)Ubiquity::INVALID_RESOURCE_ID, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 31
+        (uint8_t)Ubiquity::INVALID_APP_FOR_MODEL, // 63
+    };
+    if (__glibc_unlikely(this->misplacedCreativeId)) {
+        this->statusCode = Ubiquity::MISPLACED_CREATIVE_ID;
+    } else if (__glibc_unlikely(this->tooManyCreatives)) {
+        this->statusCode = Ubiquity::TOO_MANY_CREATIVES;
+    } else {
+        const uint8_t errorLevel =
+            (HandleState::PREDICTING != this->state) * 63
+            | (0 == this->message.common.modelId) * 31
+            | (0 == this->schema.modelId) * 15
+            | (((0 != this->schema.modelId) & (this->applicationId != this->schema.applicationId)) | (this->applicationId >= Ubiquity::NUMBER_OF_APP_TYPES)) * 63
+            | ((0 < this->numCreative) & !appUsesCreatives[this->message.common.applicationId]) * 7
+            | ((0 == this->numCreative) & appUsesCreatives[this->message.common.applicationId]) * 3
+            | !!( (this->schema.featureTypeList[0] ^ this->featureTypeList[0])
+                | (this->schema.featureTypeList[1] ^ this->featureTypeList[1])
+                | (this->schema.featureTypeList[2] ^ this->featureTypeList[2])
+                | (this->schema.featureTypeList[3] ^ this->featureTypeList[3])
+                | (this->schema.featureTypeList[4] ^ this->featureTypeList[4])
+                | (this->schema.featureTypeList[5] ^ this->featureTypeList[5])
+                | (this->schema.featureTypeList[6] ^ this->featureTypeList[6])
+                | (this->schema.featureTypeList[7] ^ this->featureTypeList[7]))
+                | (this->featureOrdinal != this->schema.featureCount);
+        this->statusCode = static_cast<Ubiquity::StatusCode>(statusCodePerErrorLevel[errorLevel]);
+    }
+    return this->statusCode;
+}
+
 Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::predict(void) noexcept {
-    if (__glibc_unlikely(Ubiquity::APP_LINE_ITEM == this->message.common.applicationId
-                && 0 == this->message.lineItemQuery.numCreative)) {
-        DBG("Error : Missing creative during call to predict for line-item.")
-        this->statusCode = Ubiquity::MISSING_CREATIVES;
-    }
-    if (__glibc_unlikely(Ubiquity::APP_ACTION_RATE == this->message.common.applicationId
-      && 0 == this->message.actionRateQuery.numCreative)) {
-        DBG("Error : Missing creative during call to predict for line-item.")
-        this->statusCode = Ubiquity::MISSING_CREATIVES;
-    }
-    if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
-        DBG("Warning : predict skipped due to previous blocking error.")
+    prepareCommonHeader(this->encodedModelId, this->queryId, MessageType::QUERY);
+    this->message.common.reserved.schemaVersion = 0;
+    this->message.query.feedbackDelay = this->schema.feedbackDelayList[0];
+    this->errorOrigin = ErrorOrigin::PREDICT;
+    if (Ubiquity::SUCCESS != this->checkPredictSetupErrors()) {
         return this->statusCode;
+    }
+    if (Ubiquity::APP_LINE_ITEM == this->applicationId || Ubiquity::APP_ACTION_RATE == this->applicationId) {
+        this->message.lineItemQuery.numCreative = this->numCreative;
     }
     this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
             this->message.common.modelId,
@@ -143,24 +190,11 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::predict(void) noexcept {
             this->offset,
             false
             );
-    return this->statusCode;
-}
-
-inline bool Ubiquity::ClientHandle::Impl::nextFeatureTypeMatches(
-        const ClusterClient::Schema::FeatureType featureType
-        ) noexcept
-{
-    const auto &features = this->schema.features;
-    if (__glibc_unlikely(features.size() <= this->featureOrdinal || features[this->featureOrdinal] != featureType)) {
-        if (Ubiquity::SUCCESS == this->statusCode) {
-            DBG("Error : expected feature " << this->featureOrdinal << "/" << features.size()
-                    << " to be of type " << ClusterClient::Schema::featureTypeStrings[static_cast<int>(features[this->featureOrdinal])]
-                    << " but received type " << ClusterClient::Schema::featureTypeStrings[static_cast<int>(featureType)] << " instead.");
-            this->statusCode = Ubiquity::MISMATCHED_FEATURE_TYPE;
-        }
-        return false;
+    if (Ubiquity::SUCCESS == this->statusCode) {
+        this->state = HandleState::PREDICT_SUCCEEDED;
+        this->applicationId = Ubiquity::APP_UNDEFINED;
     }
-    return true;
+    return this->statusCode;
 }
 
 inline void Ubiquity::ClientHandle::Impl::putFeature8(
@@ -168,9 +202,10 @@ inline void Ubiquity::ClientHandle::Impl::putFeature8(
         const ClusterClient::Schema::FeatureType featureType
         ) noexcept
 {
-    if (__glibc_likely(this->nextFeatureTypeMatches(featureType))) {
+    if (__glibc_likely(this->featureOrdinal < 256)) {
         this->atomicBuffer.putUInt8(this->offset, value);
         this->offset += sizeof(uint8_t);
+        this->featureTypeList[(this->featureOrdinal & 0xE0) >> 5] |= static_cast<int64_t>(featureType) << ((this->featureOrdinal & 0x1F) * 2);
         this->featureOrdinal++;
     }
 }
@@ -180,11 +215,12 @@ inline void Ubiquity::ClientHandle::Impl::putFeature32(
         const ClusterClient::Schema::FeatureType featureType
         ) noexcept
 {
-    if (__glibc_likely(this->nextFeatureTypeMatches(featureType))) {
+    if (__glibc_likely(this->featureOrdinal < 256)) {
         this->atomicBuffer.putInt32(this->offset, 0);
         this->offset += (-this->offset) & 3;
         this->atomicBuffer.putInt32(this->offset, value);
         this->offset += sizeof(uint32_t);
+        this->featureTypeList[(this->featureOrdinal & 0xE0) >> 5] |= static_cast<int64_t>(featureType) << ((this->featureOrdinal & 0x1F) * 2);
         this->featureOrdinal++;
     }
 }
@@ -203,64 +239,23 @@ void Ubiquity::ClientHandle::Impl::putCategorical(
     return this->putFeature8(value, ClusterClient::Schema::FeatureType::CATEGORICAL);
 }
 
-void Ubiquity::ClientHandle::Impl::putCreativeLineItem(
+void Ubiquity::ClientHandle::Impl::putCreative(
         const int64_t creativeId
         ) noexcept
 {
     static constexpr int32_t MAX_CREATIVE_COUNT = 20;
 
     if (__glibc_unlikely(this->featureOrdinal > 0)) {
-        DBG("Error : Creative ID was put using putCreative *after* calling a feature putting function like putNumeric.")
-        this->statusCode = Ubiquity::MISPLACED_CREATIVE_ID;
+        this->misplacedCreativeId = 1;
         return;
     }
-    if (__glibc_unlikely(MAX_CREATIVE_COUNT <= this->message.lineItemQuery.numCreative)) {
-        DBG("Error : Too many creative IDs were put using putCreative (numCreative = " << this->message.lineItemQuery.numCreative << ").")
-        this->statusCode = Ubiquity::TOO_MANY_CREATIVES;
+    if (__glibc_unlikely(MAX_CREATIVE_COUNT <= this->numCreative)) {
+        this->tooManyCreatives = 1;
         return;
     }
-    this->atomicBuffer.getAndAddInt32(offsetof(LineItemQueryMessage, numCreative), 1);
+    ++this->numCreative;
     this->atomicBuffer.putInt64(this->offset, creativeId);
     this->offset += sizeof(uint64_t);
-}
-
-void Ubiquity::ClientHandle::Impl::putCreativeActionRate(
-  const int64_t creativeId
-  ) noexcept
-{
-static constexpr int32_t MAX_CREATIVE_COUNT = 20;
-
-if (__glibc_unlikely(this->featureOrdinal > 0)) {
-  DBG("Error : Creative ID was put using putCreative *after* calling a feature putting function like putNumeric.")
-  this->statusCode = Ubiquity::MISPLACED_CREATIVE_ID;
-  return;
-}
-if (__glibc_unlikely(MAX_CREATIVE_COUNT <= this->message.actionRateQuery.numCreative)) {
-  DBG("Error : Too many creative IDs were put using putCreative (numCreative = " << this->message.actionRateQuery.numCreative << ").")
-  this->statusCode = Ubiquity::TOO_MANY_CREATIVES;
-  return;
-}
-this->atomicBuffer.getAndAddInt32(offsetof(ActionRateQueryMessage, numCreative), 1);
-this->atomicBuffer.putInt64(this->offset, creativeId);
-this->offset += sizeof(uint64_t);
-}
-
-void Ubiquity::ClientHandle::Impl::putCreative(
-  const int64_t creativeId
-  ) noexcept
-{
-  switch (this->message.common.applicationId)
-  {
-  case Ubiquity::APP_LINE_ITEM:
-    this->putCreativeLineItem(creativeId);
-    break;
-  case Ubiquity::APP_ACTION_RATE:
-    this->putCreativeActionRate(creativeId);
-    break;
-  default:
-    DBG("can't use put creative for application Id" << this->message.common.applicationId)
-    break;
-  }
 }
 
 void Ubiquity::ClientHandle::Impl::putNominal(
@@ -282,54 +277,28 @@ void Ubiquity::ClientHandle::Impl::putNumeric(
             ClusterClient::Schema::FeatureType::NUMERIC);
 }
 
-enum class Ubiquity::ClientHandle::Impl::MessageType : uint8_t {
-    QUERY = 0x05,
-    FEEDBACK = 0x07,
-    CANCEL = 0x08,
-};
-
-inline Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::getSchema(
-        const int64_t modelId
-        ) noexcept
-{
-    auto schemaCache = atomic_load(&ClusterClient::s_schemaCache);
-    auto it = schemaCache->find(modelId);
-    if (__glibc_unlikely(schemaCache->end() == it)) {
-        DBG("Warning : could not load schema for model " << modelId << " from cache.")
-        return Ubiquity::SCHEMA_UNAVAILABLE;
-    }
-    this->schema = it->second;
-    return Ubiquity::SUCCESS;
-}
-
-static constexpr uint8_t SERIALIZATION_VERSION = 0;
-
 inline void Ubiquity::ClientHandle::Impl::prepareCommonHeader(
-        const int64_t modelId,
+        const char *const encodedModelId,
         const int64_t queryId,
-        const Ubiquity::ApplicationType applicationId,
         const MessageType messageType
         ) noexcept
 {
-    this->statusCode = this->getSchema(modelId);
-    if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
-        DBG("Warning : prepareCommonHeader aborted because there was an error while getting the schema.")
-        return;
+    static constexpr uint8_t SERIALIZATION_VERSION = 0;
+
+    Base32C::decode(&this->message.common.modelId, encodedModelId);
+    if (this->message.common.modelId != static_cast<uint64_t>(this->schema.modelId)) {
+        auto schemaCache = atomic_load(&ClusterClient::s_schemaCache);
+        auto it = schemaCache->find(this->message.common.modelId);
+        if (schemaCache->end() != it) {
+            this->schema = it->second;
+        } else {
+            this->schema.modelId = 0;
+        }
     }
-    if (__glibc_unlikely(applicationId != this->schema.applicationId)) {
-        DBG("Error : model " << modelId
-                << " used for application of ID " << applicationId
-                << " while it is meant to be used for application of ID " << this->schema.applicationId);
-        this->statusCode = Ubiquity::INVALID_APP_FOR_MODEL;
-        return;
-    }
-    this->featureOrdinal = 0;
     this->message.common.version = SERIALIZATION_VERSION;
     this->message.common.type = static_cast<uint8_t>(messageType);
-    this->message.common.applicationId = applicationId;
-    this->message.common.modelId = modelId;
-    this->message.common.queryId = queryId ^ modelId;
-    this->statusCode = Ubiquity::SUCCESS;
+    this->message.common.applicationId = this->schema.applicationId;
+    this->message.common.queryId = queryId ^ this->message.common.modelId;
 }
 
 
@@ -346,17 +315,26 @@ inline void Ubiquity::ClientHandle::Impl::prepareQueryHeader(
         sizeof(ActionRateQueryMessage),
     };
 
-    uint64_t modelId;
-    if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
-        DBG("Error : prepareQueryHeader aborted due to invalid model ID provided to a start method like startProbability.")
-        this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
-        return;
-    }
-
-    prepareCommonHeader(modelId, queryId, applicationId, MessageType::QUERY);
-    this->message.common.reserved.schemaVersion = 0;
-    this->message.query.feedbackDelay = this->schema.feedbackDelays[0];
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wstringop-truncation"
+    strncpy(this->encodedModelId, encodedModelId, 14);
+    #pragma GCC diagnostic pop
+    this->queryId = queryId;
+    this->applicationId = applicationId;
+    this->misplacedCreativeId = 0;
+    this->tooManyCreatives = 0;
+    this->numCreative = 0;
+    this->featureTypeList[0] = 0;
+    this->featureTypeList[1] = 0;
+    this->featureTypeList[2] = 0;
+    this->featureTypeList[3] = 0;
+    this->featureTypeList[4] = 0;
+    this->featureTypeList[5] = 0;
+    this->featureTypeList[6] = 0;
+    this->featureTypeList[7] = 0;
     this->offset = queryMessageSize[static_cast<size_t>(applicationId)];
+    this->featureOrdinal = 0;
+    this->state = HandleState::PREDICTING;
 }
 
 void Ubiquity::ClientHandle::Impl::startBidShading(
@@ -387,7 +365,6 @@ void Ubiquity::ClientHandle::Impl::startLineItem(
 {
     prepareQueryHeader(encodedModelId, queryId, Ubiquity::APP_LINE_ITEM);
     this->message.lineItemQuery.maxCPM = maxCPM;
-    this->message.lineItemQuery.numCreative = 0;
 }
 
 void Ubiquity::ClientHandle::Impl::startActionRate(
@@ -398,57 +375,40 @@ void Ubiquity::ClientHandle::Impl::startActionRate(
 {
     prepareQueryHeader(encodedModelId, queryId, Ubiquity::APP_ACTION_RATE);
     this->message.actionRateQuery.bidPrice = bidPrice;
-    this->message.actionRateQuery.numCreative = 0;
 }
 
-void Ubiquity::ClientHandle::Impl::prepareFeedbackHeader(
-        const uint64_t modelId,
-        const int64_t queryId,
-        const Ubiquity::ApplicationType applicationId,
-        const uint16_t feedbackLevel
-        ) noexcept
-{
-    prepareCommonHeader(modelId, queryId, applicationId, MessageType::FEEDBACK);
-    this->message.common.reserved.feedbackLevel = feedbackLevel;
-    if (__glibc_unlikely(feedbackLevel + 1u >= this->schema.feedbackDelays.size())) {
-        DBG("Error : prepareFeedbackHeader aborted due to invalid feedback level providee to a method train.")
-        this->statusCode = Ubiquity::INVALID_FEEDBACK_LEVEL;
-        return;
-    }
-    this->message.feedback.feedbackDelay = this->schema.feedbackDelays[feedbackLevel];
-    this->message.feedback.nextFeedbackDelay = this->schema.feedbackDelays[feedbackLevel + 1];
+inline Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::checkFeedbackSetupErrors() {
+    static constexpr const uint8_t statusCodePerErrorLevel[8] = {
+        (uint8_t)Ubiquity::SUCCESS, // 0
+        (uint8_t)Ubiquity::INVALID_FEEDBACK_LEVEL, 0, // 1
+        (uint8_t)Ubiquity::SCHEMA_UNAVAILABLE, 0, 0, 0, // 3
+        (uint8_t)Ubiquity::INVALID_RESOURCE_ID, // 7
+    };
+    const uint8_t errorLevel =
+        (0 == this->message.common.modelId) * 7
+        | (0 == this->schema.modelId) * 3
+        | (this->message.common.reserved.feedbackLevel >= this->schema.feedbackDelayCount);
+    this->statusCode = static_cast<Ubiquity::StatusCode>(statusCodePerErrorLevel[errorLevel]);
+    return this->statusCode;
 }
 
 Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
         const char *encodedModelId,
         int64_t queryId,
-        int level
+        int feedbackLevel
         ) noexcept
 {
-    static const size_t feedbackMessageSize[] = {
-        sizeof(BidShadingFeedbackMessage),
-        sizeof(ProbabilityFeedbackMessage),
-        sizeof(LineItemFeedbackMessage),
-        sizeof(ActionRateQueryMessage),
-    };
-
-    if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
-        DBG("Error : train aborted due to previous blocking error.")
+    prepareCommonHeader(encodedModelId, queryId, MessageType::FEEDBACK);
+    this->message.common.reserved.feedbackLevel = feedbackLevel;
+    this->message.feedback.feedbackDelay = this->schema.feedbackDelayList[feedbackLevel];
+    this->message.feedback.nextFeedbackDelay = this->schema.feedbackDelayList[feedbackLevel + 1];
+    this->state = HandleState::TRAINED;
+    this->errorOrigin = ErrorOrigin::TRAIN;
+    if (Ubiquity::SUCCESS != this->checkFeedbackSetupErrors()) {
         return this->statusCode;
     }
-
-    uint64_t modelId;
-    if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
-        this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
-        return this->statusCode;
-    }
-    this->statusCode = this->getSchema(modelId);
-    if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
-        return this->statusCode;
-    }
-    const Ubiquity::ApplicationType feedbackType = this->schema.applicationId;
-    if (0 == level) {
-        switch (feedbackType) {
+    if (0 == feedbackLevel) {
+        switch (this->schema.applicationId) {
             case Ubiquity::APP_BID_SHADING:
                 this->message.bidShadingFeedback.weight = 1.0;
                 this->message.bidShadingFeedback.executed = 1;
@@ -471,7 +431,14 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
     } else {
         this->message.feedbackNextLevels.eventOccurred = 1;
     }
-    prepareFeedbackHeader(modelId, queryId, feedbackType, level);
+
+    static const size_t feedbackMessageSize[] = {
+        sizeof(BidShadingFeedbackMessage),
+        sizeof(ProbabilityFeedbackMessage),
+        sizeof(LineItemFeedbackMessage),
+        sizeof(ActionRateQueryMessage),
+    };
+
     if (Ubiquity::SUCCESS == this->statusCode) {
         IGNORE("ClientHandle(" << this->clusterClient->clusterId
                 << ") : Sending training feedback(" << this->message.common.queryId
@@ -480,7 +447,7 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::train(
                 this->message.common.modelId,
                 this->message.common.queryId,
                 this->atomicBuffer,
-                feedbackMessageSize[static_cast<size_t>(feedbackType)],
+                feedbackMessageSize[static_cast<size_t>(this->schema.applicationId)],
                 true
                 );
     }
@@ -492,28 +459,16 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::cancel(
         int64_t queryId
         ) noexcept
 {
-
-    if (__glibc_unlikely(this->statusCode & Ubiquity::SETUP_ERROR)) {
-        DBG("Error : train aborted due to previous blocking error.")
+    prepareCommonHeader(encodedModelId, queryId, MessageType::CANCEL);
+    this->message.common.reserved.feedbackLevel = 0;
+    this->message.feedback.feedbackDelay = this->schema.feedbackDelayList[0];
+    this->state = HandleState::CANCELED;
+    this->errorOrigin = ErrorOrigin::CANCEL;
+    if (Ubiquity::SUCCESS != this->checkFeedbackSetupErrors()) {
         return this->statusCode;
     }
-
-    uint64_t modelId;
-    if (__glibc_unlikely(!Base32C::decode(&modelId, encodedModelId))) {
-        DBG("Error : train aborted due to invalid model ID provided.")
-        this->statusCode = Ubiquity::INVALID_RESOURCE_ID;
-        return this->statusCode;
-    }
-    this->statusCode = this->getSchema(modelId);
-    if (__glibc_unlikely(Ubiquity::SUCCESS != this->statusCode)) {
-        DBG("Warning : train aborted because there was an error while getting the schema.")
-        return this->statusCode;
-    }
-    this->message.feedback.feedbackDelay = this->schema.feedbackDelays[0];
-    
-    prepareCommonHeader(modelId, queryId, this->schema.applicationId, MessageType::CANCEL);
     if (Ubiquity::SUCCESS == this->statusCode) {
-      IGNORE("ClientHandle(" << this->clusterClient->clusterId
+        IGNORE("ClientHandle(" << this->clusterClient->clusterId
                 << ") : Sending cancel feedback(" << this->message.common.queryId
                 << ") for model(" << this->message.common.modelId << ")");
         this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
@@ -525,4 +480,130 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::cancel(
                 );
     }
     return this->statusCode;
+}
+
+const char *Ubiquity::ClientHandle::Impl::getDiagnosticString() noexcept {
+    static constexpr const char *applicationTypeStrings[Ubiquity::NUMBER_OF_APP_TYPES]{
+        "BID_SHADING",
+        "PROBABILITY",
+        "LINE_ITEM",
+        "ACTION_RATE",
+    };
+    static constexpr const char *starterFunctionName[Ubiquity::NUMBER_OF_APP_TYPES]{
+        "startBidShading",
+        "startProbability",
+        "startLineItem",
+        "startActionRate",
+    };
+
+    uint8_t errorCount = 0;
+    std::stringstream diagnosticString{};
+
+    if (HandleState::READY == this->state && ErrorOrigin::PREDICT == this->errorOrigin) {
+        diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+            << "\nYou did not call any query starter function to prepare the last call to `predict`, for instance `startLineItem` or `startProbability`."
+            << "\nStarter functions initialize buffers and states for the query and allow you to provide additional parameters which are specific to their kind of prediction queries.";
+    } else if (0 == this->message.common.modelId) {
+        diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+            << "\nModel ID `" << this->encodedModelId << "` provided to `" << ErrorOrigin::functionName[this->errorOrigin] << "` is ill-formed so it could not be decoded.";
+    } else if (__glibc_unlikely(0 == this->schema.modelId)) {
+        diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+            << "\nThe schema corresponding to model " << this->encodedModelId << " has not been loaded yet.\nThis might be resolved after a few seconds (for the nodes to install the model if it's a new one and/or send the schema to your client),"
+            << " unless you provided a well-formed model ID but it corresponds to no existing model."
+            << "\nIn most cases, i.e. when you're certain the model IDs you provide correspond to existing models, you can simply ignore this error or loop until it disappears.";
+    } else if (ErrorOrigin::TRAIN == this->errorOrigin || ErrorOrigin::CANCEL == this->errorOrigin) {
+        if (__glibc_unlikely(this->message.common.reserved.feedbackLevel >= this->schema.feedbackDelayCount)) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "The feedback level [" << this->message.common.reserved.feedbackLevel << "] you provided to `" << ErrorOrigin::functionName[this->errorOrigin]
+                << "` exceeds model " << this->encodedModelId << " 's maximum feedback level [" << this->schema.feedbackDelayCount<< "].";
+        }
+    } else if (ErrorOrigin::PREDICT == this->errorOrigin) {
+        Base32C::encode(this->encodedModelId, &this->message.common.modelId);
+
+        if (HandleState::READY == this->state) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "\nYou did not call any query starter function to prepare the last call to `predict`."
+                << "\nModel " << this->encodedModelId << " is a " << applicationTypeStrings[this->schema.applicationId] << " model, so `" << starterFunctionName[this->schema.applicationId]
+                << "` must be called before any feature/creative putting methods and before `predict`"
+                << "\nIt initializes buffers and states for the query and allows you to provide some parameters which are specific to " << applicationTypeStrings[this->schema.applicationId] << " prediction queries.";
+        } else if (HandleState::PREDICT_SUCCEEDED == this->state || Ubiquity::APP_UNDEFINED == this->applicationId) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "\nYou called `predict` again after a successful previous call to `predict` without calling any query starter function first."
+                << "\nWhen a call to `predict` is successful, the whole query parameters are consumed to avoid query duplication, so you need to initialize a whole new query and put new features/creatives into it."
+                << "\nModel " << this->encodedModelId << " is a " << applicationTypeStrings[this->schema.applicationId] << " model, so you should call `" << starterFunctionName[this->schema.applicationId] << "` for that purpose.";
+        } else if (HandleState::originFunctionName[this->state]) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "\nThough you *did* call `" << starterFunctionName[this->applicationId] << "` first, you then called `" << HandleState::originFunctionName[this->state] << "`"
+                << " on the same client handle before you finally called `predict`; This call to `" << HandleState::originFunctionName[this->state] << "` invalidated everything `" << starterFunctionName[this->applicationId] << "` had initialized."
+                << "\nAs a general rule, you must never call `predict`, `poll`, `train` and/or `cancel`"
+                << " concurrently using the same client handle, though it's fine to call them sequentially."
+                << "\nIf you need to call them concurrently, consider getting new client handles by calling `getClientHandle` for each concurrent usage."
+                << "\n/!\\ Beware that passing a client handle to another function or thread does *not* create a new client handle, only a shallow copy of the passed one sharing the same state !";
+        } else if (this->schema.applicationId != this->applicationId) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "\nYou called `" << starterFunctionName[this->applicationId] << "` to start preparing a prediction query for model " << this->encodedModelId
+                << ", but this model is of type " << applicationTypeStrings[this->schema.applicationId] << "."
+                << "\nDid you mean to call `" << starterFunctionName[this->schema.applicationId] << "` instead ?";
+        }
+        if (0 < this->numCreative && !appUsesCreatives[this->schema.applicationId]) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "\nCreatives have been put into a prediction query for model " << this->encodedModelId << " of type " << applicationTypeStrings[this->schema.applicationId] << " which have no use for creatives.";
+        } else if (0 == this->numCreative && appUsesCreatives[this->schema.applicationId]) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "\nNo creatives have been put into a prediction query for model " << this->encodedModelId << " of type " << applicationTypeStrings[this->schema.applicationId] << " which needs at least one creative to function.";
+        }
+        if (this->misplacedCreativeId) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "\n`putCreative` was called after some feature putting function (for instance `putNumeric`)."
+                << "\nCreatives should be put *before* features because of the way queries are serialized to optimize performance.";
+        }
+        if (this->tooManyCreatives) {
+            diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": "
+                << "\nToo many creatives were put into the prediction query.";
+        }
+        if ((this->schema.featureTypeList[0] ^ this->featureTypeList[0])
+            | (this->schema.featureTypeList[1] ^ this->featureTypeList[1])
+            | (this->schema.featureTypeList[2] ^ this->featureTypeList[2])
+            | (this->schema.featureTypeList[3] ^ this->featureTypeList[3])
+            | (this->schema.featureTypeList[4] ^ this->featureTypeList[4])
+            | (this->schema.featureTypeList[5] ^ this->featureTypeList[5])
+            | (this->schema.featureTypeList[6] ^ this->featureTypeList[6])
+            | (this->schema.featureTypeList[7] ^ this->featureTypeList[7])) {
+            const uint8_t minFeatureOrdinal = this->featureOrdinal < this->schema.featureCount ? this->featureOrdinal : this->schema.featureCount;
+            const uint8_t maxFeatureOrdinal = this->featureOrdinal > this->schema.featureCount ? this->featureOrdinal : this->schema.featureCount;
+            const bool hasLessFeatures = this->featureOrdinal < this->schema.featureCount;
+            for (uint8_t featureOrdinal = 0; featureOrdinal < maxFeatureOrdinal; ++featureOrdinal) {
+                if (minFeatureOrdinal == featureOrdinal) {
+                    diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": " << (hasLessFeatures ? "Less" : "More") << " features were put than expected by model " << this->encodedModelId << " :";
+                } else if (0 == featureOrdinal) {
+                    diagnosticString << "\n\nError #" << std::to_string(++errorCount) << ": " << "Some feature types in the query do not match the schema for model " << this->encodedModelId << " :";
+                }
+
+                const uint8_t chunkIndex = featureOrdinal >> 5;
+                const uint8_t typeIndex = (31 & featureOrdinal) << 1;
+                const uint8_t expectedType = 3 & (this->schema.featureTypeList[chunkIndex] >> typeIndex);
+                const uint8_t actualType = 3 & (this->featureTypeList[chunkIndex] >> typeIndex);
+                if (expectedType != actualType) {
+                    if (minFeatureOrdinal > featureOrdinal) {
+                        diagnosticString << "\n    Feature #" << std::to_string(featureOrdinal) << " should be " << ClusterClient::Schema::featureTypeStrings[expectedType] << " instead of " << ClusterClient::Schema::featureTypeStrings[actualType];
+                    } else if (hasLessFeatures) {
+                        diagnosticString << "\n    Missing feature #" << std::to_string(featureOrdinal) << " with expected type " << ClusterClient::Schema::featureTypeStrings[expectedType];
+                    } else {
+                        diagnosticString << "\n    Extra feature #" << std::to_string(featureOrdinal) << " having type " << ClusterClient::Schema::featureTypeStrings[actualType];
+                    }
+                }
+            }
+            if (0 == this->featureOrdinal) {
+                diagnosticString << "\n\nIt seems like you did not put any feature at all. If you did, did you call `" << starterFunctionName[this->schema.applicationId] << "` *before* you put the features ?";
+            }
+        }
+    }
+    this->diagnosticString = "\n##### Diagnostic for last call to `";
+    this->diagnosticString += ErrorOrigin::functionName[this->errorOrigin];
+    this->diagnosticString += "` : ";
+    this->diagnosticString += std::to_string(errorCount);
+    this->diagnosticString += " error(s) detected. #####";
+    this->diagnosticString += diagnosticString.str();
+    this->diagnosticString += "\n\n##### End of error diagnostic #####\n";
+    return this->diagnosticString.c_str();
 }

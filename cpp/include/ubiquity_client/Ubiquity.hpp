@@ -9,8 +9,6 @@ namespace Ubiquity {
         using StatusCode = int32_t;
         using ApplicationType = int16_t;
 
-        static constexpr StatusCode SETUP_ERROR = 0x20000;
-
         static constexpr StatusCode UNDEFINED = 0;
 
         static constexpr StatusCode SUCCESS = 1;
@@ -18,32 +16,33 @@ namespace Ubiquity {
         static constexpr StatusCode BACK_PRESSURED = 3;
         static constexpr StatusCode NO_COMPATIBLE_NODE = 4;
 
-        static constexpr StatusCode ARCHITECTURE_NOT_SUPPORTED      = SETUP_ERROR | 1;
-        static constexpr StatusCode AERON_INITIALIZATION_FAILED     = SETUP_ERROR | 2;
+        static constexpr StatusCode ARCHITECTURE_NOT_SUPPORTED      = NO_COMPATIBLE_NODE + 1;
+        static constexpr StatusCode AERON_INITIALIZATION_FAILED     = NO_COMPATIBLE_NODE + 2;
 
-        static constexpr StatusCode INVALID_RESOURCE_ID             = SETUP_ERROR | 3;
-        static constexpr StatusCode INVALID_APP_FOR_MODEL           = SETUP_ERROR | 4;
-        static constexpr StatusCode MISMATCHED_FEATURE_TYPE         = SETUP_ERROR | 5;
-        static constexpr StatusCode INVALID_FEEDBACK_LEVEL          = SETUP_ERROR | 6;
-        static constexpr StatusCode MISSING_CREATIVES               = SETUP_ERROR | 7;
-        static constexpr StatusCode TOO_MANY_CREATIVES              = SETUP_ERROR | 8;
-        static constexpr StatusCode MISPLACED_CREATIVE_ID           = SETUP_ERROR | 9;
+        static constexpr StatusCode INVALID_RESOURCE_ID             = NO_COMPATIBLE_NODE + 3;
+        static constexpr StatusCode INVALID_APP_FOR_MODEL           = NO_COMPATIBLE_NODE + 4;
+        static constexpr StatusCode MISMATCHED_FEATURE_TYPE         = NO_COMPATIBLE_NODE + 5;
+        static constexpr StatusCode INVALID_FEEDBACK_LEVEL          = NO_COMPATIBLE_NODE + 6;
+        static constexpr StatusCode MISSING_CREATIVES               = NO_COMPATIBLE_NODE + 7;
+        static constexpr StatusCode TOO_MANY_CREATIVES              = NO_COMPATIBLE_NODE + 8;
+        static constexpr StatusCode MISPLACED_CREATIVE_ID           = NO_COMPATIBLE_NODE + 9;
 
-        static constexpr StatusCode NO_API_RESPONSE                 = SETUP_ERROR | 10;
-        static constexpr StatusCode FORBIDDEN                       = SETUP_ERROR | 11;
-        static constexpr StatusCode UNKNOWN_RESOURCE                = SETUP_ERROR | 12;
-        static constexpr StatusCode OTHER_FETCH_ERROR               = SETUP_ERROR | 13;
-        static constexpr StatusCode INVALID_CLUSTER_DESCRIPTION     = SETUP_ERROR | 14;
-        static constexpr StatusCode SCHEMA_UNAVAILABLE              = SETUP_ERROR | 15;
-        static constexpr StatusCode INVALID_HANDLE                  = SETUP_ERROR | 16;
-        static constexpr StatusCode UNAUTHORIZED                    = SETUP_ERROR | 17;
-        static constexpr StatusCode INTERNAL_API_ERROR              = SETUP_ERROR | 18;
+        static constexpr StatusCode NO_API_RESPONSE                 = NO_COMPATIBLE_NODE + 10;
+        static constexpr StatusCode FORBIDDEN                       = NO_COMPATIBLE_NODE + 11;
+        static constexpr StatusCode UNKNOWN_RESOURCE                = NO_COMPATIBLE_NODE + 12;
+        static constexpr StatusCode OTHER_FETCH_ERROR               = NO_COMPATIBLE_NODE + 13;
+        static constexpr StatusCode INVALID_CLUSTER_DESCRIPTION     = NO_COMPATIBLE_NODE + 14;
+        static constexpr StatusCode SCHEMA_UNAVAILABLE              = NO_COMPATIBLE_NODE + 15;
+        static constexpr StatusCode INVALID_HANDLE                  = NO_COMPATIBLE_NODE + 16;
+        static constexpr StatusCode UNAUTHORIZED                    = NO_COMPATIBLE_NODE + 17;
+        static constexpr StatusCode INTERNAL_API_ERROR              = NO_COMPATIBLE_NODE + 18;
 
         static constexpr ApplicationType APP_BID_SHADING = 0;
         static constexpr ApplicationType APP_PROBABILITY = 1;
         static constexpr ApplicationType APP_LINE_ITEM = 2;
         static constexpr ApplicationType APP_ACTION_RATE = 3;
-        static constexpr ApplicationType APP_UNDEFINED = -1;
+        static constexpr ApplicationType NUMBER_OF_APP_TYPES = 4;
+        static constexpr ApplicationType APP_UNDEFINED = 9999;
 
         static constexpr int8_t MISSING_BOOLEAN = -1;
         static constexpr int8_t MISSING_CATEGORICAL = -1;
@@ -83,6 +82,7 @@ namespace Ubiquity {
                 void startProbability(const char *modelId, const int64_t queryId) noexcept;
                 int32_t train(const char *modelId, int64_t queryId, int32_t level) noexcept;
                 int32_t cancel(const char *modelId, int64_t queryId) noexcept;
+                const char *getDiagnosticString() noexcept;
 
                 class Impl;
             private:

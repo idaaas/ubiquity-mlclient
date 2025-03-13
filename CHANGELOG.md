@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration tests.
 - Action rate model.
 - Build instructions for M1 architecture.
+- Method getDiagnosticString
 
 ### Fixed
 
 - GetStatusString parse status code properly.
+- More consistent client handle internal states.
 
 ### Changed
 
