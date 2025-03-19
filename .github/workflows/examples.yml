@@ -23,6 +23,10 @@ on:
           required: true
         earthly_org:
           required: true
+        dockerhub_username:
+          required: true
+        dockerhub_token:
+          required: true
 
 jobs:
     build-docker-examples:
@@ -36,6 +40,8 @@ jobs:
         - uses: actions/checkout@v4
           with:
             ref: ${{ github.ref }}
+        - name: Docker Login
+          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
         - name: Populate private prefix value
           run: |
             PRIVATE_PREFIX=$(if [ "${{ inputs.private }}" = "true" ]; then echo "private-"; else echo ""; fi)

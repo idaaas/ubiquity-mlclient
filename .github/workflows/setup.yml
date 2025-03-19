@@ -69,6 +69,8 @@ jobs:
       earthly_token: ${{ secrets.EARTHLY_TOKEN }}
       earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
       earthly_org: ${{ secrets.EARTHLY_ORG }}
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
   deploy-java8:
     needs: setup
     uses: ./.github/workflows/java8.yml
@@ -81,6 +83,8 @@ jobs:
       earthly_token: ${{ secrets.EARTHLY_TOKEN }}
       earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
       earthly_org: ${{ secrets.EARTHLY_ORG }}
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
   deploy-java17:
     needs: setup
     uses: ./.github/workflows/java17.yml
@@ -93,6 +97,8 @@ jobs:
       earthly_token: ${{ secrets.EARTHLY_TOKEN }}
       earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
       earthly_org: ${{ secrets.EARTHLY_ORG }}
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
   deploy-go:
     needs: setup
     uses: ./.github/workflows/go.yml
@@ -104,6 +110,8 @@ jobs:
       earthly_token: ${{ secrets.EARTHLY_TOKEN }}
       earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
       earthly_org: ${{ secrets.EARTHLY_ORG }}
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
   deploy-python:
     needs: setup
     uses: ./.github/workflows/python.yml
@@ -115,6 +123,8 @@ jobs:
       earthly_token: ${{ secrets.EARTHLY_TOKEN }}
       earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
       earthly_org: ${{ secrets.EARTHLY_ORG }}
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
   deploy-examples:
     needs: setup
     uses: ./.github/workflows/examples.yml
@@ -126,3 +136,5 @@ jobs:
       earthly_token: ${{ secrets.EARTHLY_TOKEN }}
       earthly_satellite: ${{ secrets.EARTHLY_SATELLITE }}
       earthly_org: ${{ secrets.EARTHLY_ORG }}
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
