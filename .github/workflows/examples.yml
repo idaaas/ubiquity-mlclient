@@ -48,5 +48,5 @@ jobs:
           run: earthly --push --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +all-examples --imagePrefix=ghcr.io/idaaas/${{ env.PRIVATE_PREFIX }} --imageSuffix=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }}
           if: inputs.release == 'false'
         - name: Build & Push Examples
-          run: earthly --push --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build-examples --imagePrefix=ghcr.io/idaaas/ --imageSuffix=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }} --latest=true
+          run: earthly --push --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +all-examples --imagePrefix=ghcr.io/idaaas/${{ env.PRIVATE_PREFIX }} --imageSuffix=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }} --latest=true
           if: inputs.release == 'true'
