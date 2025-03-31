@@ -198,7 +198,7 @@ inline Ubiquity::StatusCode ClusterClient::fetchResourceFromRestApi(
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "accept: application/json");
-    headers = curl_slist_append(headers, ("authorization: Bearer " + s_tenantId).c_str());
+    headers = curl_slist_append(headers, ("authorization: Bearer " + s_appToken).c_str());
     curl_easy_setopt(curlHandle, CURLOPT_HTTPHEADER, headers);
 
     char curlErrorString[CURL_ERROR_SIZE];
@@ -372,4 +372,4 @@ std::string ClusterClient::s_apiUrlRoot = std::string("https://api.ubiquity.ai/v
 std::shared_ptr<ClusterClient::SchemaCache> ClusterClient::s_schemaCache = std::make_shared<SchemaCache>();
 std::map<std::string, std::string> ClusterClient::s_resourceCache;
 std::shared_ptr<aeron::Aeron> ClusterClient::s_aeronClient;
-std::string ClusterClient::s_tenantId;
+std::string ClusterClient::s_appToken;

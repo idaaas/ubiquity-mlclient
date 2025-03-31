@@ -55,7 +55,7 @@ public:
     std::atomic<Ubiquity::StatusCode> statusCode = Ubiquity::NO_DATA;
 
     static std::shared_ptr<aeron::Aeron> s_aeronClient;
-    static std::string s_tenantId;
+    static std::string s_appToken;
 
     ClusterClient(void) noexcept;
 
