@@ -98,7 +98,7 @@ namespace Ubiquity {
                 ) noexcept;
 
         void setCredential(
-                const char *const tenantId
+                const char *const appToken
                 ) noexcept;
 
         void setApiAddress(

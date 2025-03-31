@@ -134,10 +134,10 @@ static inline bool initializeAeron(void) noexcept {
 }
 
 void Ubiquity::setCredential(
-        const char *tenantId
+        const char *appToken
         ) noexcept
 {
-    ClusterClient::s_tenantId = std::string(tenantId);
+    ClusterClient::S_appToken = std::string(appToken);
 }
 
 static inline Ubiquity::StatusCode initialize(void) noexcept
