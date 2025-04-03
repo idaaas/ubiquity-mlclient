@@ -16,6 +16,11 @@ class ApiUtil:
         print("Creating a line-item model...")
         endpoint = f"{self.base_url}/models/line-item"
         return self._create_model(endpoint, line_item_body)
+    
+    def create_action_rate_model(self, action_rate_body):
+        print("Creating a action-rate model...")
+        endpoint = f"{self.base_url}/models/action-rate"
+        return self._create_model(endpoint, action_rate_body)
 
     def _create_model(self, endpoint, model_body):
         headers = {

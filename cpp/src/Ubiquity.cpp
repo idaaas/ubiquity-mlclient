@@ -137,7 +137,7 @@ void Ubiquity::setCredential(
         const char *appToken
         ) noexcept
 {
-    ClusterClient::S_appToken = std::string(appToken);
+    ClusterClient::s_appToken = std::string(appToken);
 }
 
 static inline Ubiquity::StatusCode initialize(void) noexcept
