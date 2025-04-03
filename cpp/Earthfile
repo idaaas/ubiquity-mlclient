@@ -72,7 +72,7 @@ examples:
   CACHE ./build/_deps
   COPY --keep-ts --dir docs src tests include packaging CMakeLists.txt samples .
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBUILD_AERON_ARCHIVE_API=OFF -DBUILD_SAMPLES=ON -DCMAKE_BUILD_TYPE=$type -DGIT_HASH=#ghashit -DDISABLE_ID_CHECKS=$disableIdChecks -S . -B build
-  RUN cmake --build build --parallel $(nproc) --target line-item probability-estimator
+  RUN cmake --build build --parallel $(nproc) --target line-item probability-estimator action-rate
   ARG EARTHLY_GIT_SHORT_HASH # used to put HASH in the driver build (call before use, to be able to cache base images)
   FOR file IN $(find ./build/samples -type f)
     RUN sed -i "s/#ghashit/$EARTHLY_GIT_SHORT_HASH/g" $file

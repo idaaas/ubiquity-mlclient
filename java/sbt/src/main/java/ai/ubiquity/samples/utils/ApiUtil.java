@@ -20,6 +20,12 @@ public class ApiUtil {
         return createModel(probabilityEstimatorEndpoint, probabilityEstimatorBody);
     }
 
+    public String createActionRateModel(String actionRateBody) throws IOException {
+      System.out.println("Creating a action-rate model...");
+      String actionRateEndpoint = "https://api.ubiquity.ai/v1/models/action-rate";
+      return createModel(actionRateEndpoint, actionRateBody);
+  }
+
     public String createLineItemModel(String lineItemBody) throws IOException {
         System.out.println("Creating a line-item model...");
         String lineItemEndpoint = "https://api.ubiquity.ai/v1/models/line-item";

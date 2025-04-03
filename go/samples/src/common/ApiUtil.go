@@ -22,6 +22,12 @@ func CreateLineItemModel(apiToken string, lineItemBody string) string {
 	return createModel(apiToken, lineItemEndpoint, lineItemBody)
 }
 
+func CreateActionRateModel(apiToken string, actionRateBody string) string {
+	fmt.Println("Creating a action-rate model...")
+	actionRateEndpoint := "https://api.ubiquity.ai/v1/models/action-rate"
+	return createModel(apiToken, actionRateEndpoint, actionRateBody)
+}
+
 type ModelResponseBody struct {
 	Operation_id string
 }
