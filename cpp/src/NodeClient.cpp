@@ -9,7 +9,7 @@
  */
 
 namespace Period {
-    static constexpr auto CON_TIMEOUT = std::chrono::milliseconds(1000);
+    static constexpr auto CON_TIMEOUT = std::chrono::milliseconds(3000);
     static constexpr auto RETRY_COOLDOWN = std::chrono::milliseconds(1000);
     static constexpr auto DC_TIMEOUT = std::chrono::milliseconds(1000);
     static constexpr auto REQUEST = std::chrono::milliseconds(200);
@@ -748,6 +748,21 @@ void NodeClient::sendOutputBasedOnState() noexcept {
                 message->registration.output = output;
                 this->controlPub->offer({message->buffer, sizeof(RegistrationMessage)});
                 break;
+            case Output::REGISTRATION_REQUEST:
+                // Hack to send registration request only once, must be fixed by a proper FSM
+                if (this->isRegistrationRequestSent) {
+                  DBG("NodeClient " << this->slotId << " (" << this->ipString << ") [" << std::setw(4) << std::setfill('0') << std::hex << this->clientId << std::dec << "] [" << State::strings[this->state] << "] : Not sending message as already sent");
+                  break;
+                }
+                message->common.type = MessageType::REGISTRATION_REQUEST;
+                message->common.version = 0x01; // new version for v0.7
+                message->common.clientId = clientId;
+                message->registration.correlationIdHigh = this->correlationIdHigh;
+                message->registration.correlationIdLow = this->correlationIdLow;
+                message->registration.output = output;
+                this->controlPub->offer({message->buffer, sizeof(RegistrationMessage)});
+                this->isRegistrationRequestSent=true;
+                break;
             default:
                 message->common.type = MessageType::REGISTRATION_REQUEST;
                 message->common.version = 0x01; // new version for v0.7
@@ -758,6 +773,7 @@ void NodeClient::sendOutputBasedOnState() noexcept {
                 this->controlPub->offer({message->buffer, sizeof(RegistrationMessage)});
                 break;
         }
+        if (output != Output::REGISTRATION_REQUEST) this->isRegistrationRequestSent=false;
         this->lastOutputTime = now;
     }
 }
