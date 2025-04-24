@@ -51,7 +51,7 @@ examples:
   ARG os=ubuntu:22.04
   ARG --required lang
   ARG release=17
-  BUILD $lang+examples --os=$os --release=$release --latest=$latest --imagePrefix=$imagePrefix --imageSuffix=$imageSuffix
+  BUILD $lang+examples --os=$os --release=$release --latest=$latest --imagePrefix=$imagePrefix --imageSuffix=$imageSuffix --type=$type --disableIdChecks=$disableIdChecks
 
 build:
   ARG os=ubuntu:22.04

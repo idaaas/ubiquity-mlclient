@@ -37,6 +37,7 @@ class NodeClient {
     protected:
         friend ClusterClient;
         bool refreshed = false;
+        bool isRegistrationRequestSent = false;
 
         void initialize(ClusterClient *clusterClient) noexcept;
         void bind(uint32_t ip, size_t slotId) noexcept;
