@@ -88,7 +88,14 @@ int32_t Ubiquity::ClientHandle::Impl::getPredictionType(void) noexcept {
 }
 
 int8_t Ubiquity::ClientHandle::Impl::getBidStatus(void) noexcept {
-  return this->message.actionRatePrediction.price == 0 ? Ubiquity::NO_BID : Ubiquity::BID;
+  switch(this->message.common.applicationId) {
+    case Ubiquity::APP_LINE_ITEM:
+      return this->message.lineItemPrediction.price == 0 ? Ubiquity::NO_BID : Ubiquity::BID;
+    case Ubiquity::APP_ACTION_RATE:
+      return this->message.actionRatePrediction.price == 0 ? Ubiquity::NO_BID : Ubiquity::BID;
+    default:
+      return Ubiquity::BID;
+  } 
 }
 
 Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::poll(void) noexcept {
@@ -295,7 +302,11 @@ inline void Ubiquity::ClientHandle::Impl::prepareCommonHeader(
             this->schema.modelId = 0;
         }
     }
-    this->message.common.version = SERIALIZATION_VERSION;
+    if (messageType == MessageType::QUERY && this->schema.applicationId == Ubiquity::APP_LINE_ITEM) {
+      this->message.common.version = 0x01;
+    } else {
+      this->message.common.version = SERIALIZATION_VERSION;
+    }
     this->message.common.type = static_cast<uint8_t>(messageType);
     this->message.common.applicationId = this->schema.applicationId;
     this->message.common.queryId = queryId ^ this->message.common.modelId;
@@ -360,11 +371,15 @@ void Ubiquity::ClientHandle::Impl::startProbability(
 void Ubiquity::ClientHandle::Impl::startLineItem(
         const char *encodedModelId,
         const int64_t queryId,
-        const float maxCPM
+        const float maxCPM,
+        const float bidFloor,
+        const int32_t exposureCount
         ) noexcept
 {
     prepareQueryHeader(encodedModelId, queryId, Ubiquity::APP_LINE_ITEM);
     this->message.lineItemQuery.maxCPM = maxCPM;
+    this->message.lineItemQuery.bidFloor = bidFloor;
+    this->message.lineItemQuery.exposureCount = exposureCount;
 }
 
 void Ubiquity::ClientHandle::Impl::startActionRate(

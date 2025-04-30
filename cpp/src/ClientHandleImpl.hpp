@@ -91,7 +91,9 @@ class Ubiquity::ClientHandle::Impl {
         void startLineItem(
                 const char *const encodedModelId,
                 const int64_t queryId,
-                const float maxCPM
+                const float maxCPM,
+                const float bidFloor,
+                const int32_t exposureCount
                 ) noexcept;
 
         void startActionRate(
@@ -213,6 +215,8 @@ class Ubiquity::ClientHandle::Impl {
         struct LineItemQueryMessage {
             QueryMessage _;
             float maxCPM;
+            float bidFloor;
+            int32_t exposureCount;
             int32_t numCreative;
         } __attribute__((packed));
 

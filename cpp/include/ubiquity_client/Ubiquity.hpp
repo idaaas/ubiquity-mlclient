@@ -77,7 +77,7 @@ namespace Ubiquity {
                 void putNominal(const char *value) noexcept;
                 void putNumeric(const float value) noexcept;
                 void startBidShading(const char *modelId, const int64_t queryId, const float bidPrice, const float bidFloor) noexcept;
-                void startLineItem(const char *modelId, const int64_t queryId, const float maxCPM) noexcept;
+                void startLineItem(const char *modelId, const int64_t queryId, const float maxCPM, const float bidFloor=0.01f, const int32_t exposureCount=0) noexcept;
                 void startActionRate(const char *modelId, const int64_t queryId, const float bidPrice) noexcept;
                 void startProbability(const char *modelId, const int64_t queryId) noexcept;
                 int32_t train(const char *modelId, int64_t queryId, int32_t level) noexcept;

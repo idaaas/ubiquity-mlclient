@@ -84,8 +84,8 @@ void Ubiquity::ClientHandle::startBidShading(const char *modelId, const int64_t 
     this->pimpl->startBidShading(modelId, queryId, bidPrice, bidFloor);
 }
 
-void Ubiquity::ClientHandle::startLineItem(const char *modelId, const int64_t queryId, const float maxCPM) noexcept {
-    this->pimpl->startLineItem(modelId, queryId, maxCPM);
+void Ubiquity::ClientHandle::startLineItem(const char *modelId, const int64_t queryId, const float maxCPM, const float bidFloor, const int32_t exposureCount) noexcept {
+    this->pimpl->startLineItem(modelId, queryId, maxCPM, bidFloor, exposureCount);
 }
 
 void Ubiquity::ClientHandle::startActionRate(const char *modelId, const int64_t queryId, const float bidPrice) noexcept {
