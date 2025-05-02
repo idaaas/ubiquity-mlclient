@@ -187,9 +187,13 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::Impl::predict(void) noexcept {
     if (Ubiquity::SUCCESS != this->checkPredictSetupErrors()) {
         return this->statusCode;
     }
-    if (Ubiquity::APP_LINE_ITEM == this->applicationId || Ubiquity::APP_ACTION_RATE == this->applicationId) {
+    if (Ubiquity::APP_LINE_ITEM == this->applicationId) {
         this->message.lineItemQuery.numCreative = this->numCreative;
     }
+    if (Ubiquity::APP_ACTION_RATE == this->applicationId) {
+      this->message.actionRateQuery.numCreative = this->numCreative;
+    }
+    
     this->statusCode = this->clusterClient->loadBalancer->sendApplicationMessage(
             this->message.common.modelId,
             this->message.common.queryId,

@@ -334,7 +334,7 @@ inline void ClusterClient::terminate(void) noexcept {
     this->isTerminating = true;
 }
 
-static constexpr auto TIME_BEFORE_RECONFIGURATION = std::chrono::seconds(20);
+static constexpr auto TIME_BEFORE_RECONFIGURATION = std::chrono::seconds(10);
 static std::chrono::time_point<std::chrono::high_resolution_clock> s_configExpirationTime;
 
 static inline void resetConfigExpirationTime() {

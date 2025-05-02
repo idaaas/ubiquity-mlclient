@@ -348,6 +348,7 @@ static bool beforeRequestingTopology(NodeClient &nc) noexcept {
 
 static bool onRegistrationError(NodeClient &nc, const ControlMessage &message, const size_t messageLength) noexcept {
     constexpr uint32_t CORRELATION_CONFLICT = -2;
+    nc.isRegistrationRequestSent=false; // Really dirty, hack to handle latency
     if (CORRELATION_CONFLICT == message.registrationError.code) {
         nc.correlationIdHigh = Rng::generateUint64();
         nc.correlationIdLow = Rng::generateUint64();

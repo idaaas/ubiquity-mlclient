@@ -34,10 +34,11 @@ class NodeClient {
         std::shared_ptr<aeron::Publication> predPubs[2] = { nullptr, nullptr };
         std::shared_ptr<aeron::Subscription> predSub = nullptr;
 
+        bool isRegistrationRequestSent = false;
+
     protected:
         friend ClusterClient;
         bool refreshed = false;
-        bool isRegistrationRequestSent = false;
 
         void initialize(ClusterClient *clusterClient) noexcept;
         void bind(uint32_t ip, size_t slotId) noexcept;
