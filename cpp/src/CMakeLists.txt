@@ -51,8 +51,9 @@ target_include_directories(ubiquity_client PUBLIC
 
 target_include_directories(ubiquity_client_static PUBLIC  
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-    $<BUILD_INTERFACE:${aeron_SOURCE_DIR}/aeron-client/src/main/cpp>
     $<BUILD_INTERFACE:${aeron_SOURCE_DIR}/aeron-driver/src/main/c>
+    $<BUILD_INTERFACE:${aeron_SOURCE_DIR}/aeron-client/src/main/c>
+    $<BUILD_INTERFACE:${aeron_SOURCE_DIR}/aeron-client/src/main/cpp_wrapper>
     $<BUILD_INTERFACE:${json_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${xxhash_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>  # <prefix>/include/mylib

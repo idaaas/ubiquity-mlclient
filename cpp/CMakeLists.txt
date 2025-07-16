@@ -38,7 +38,7 @@ find_package(CURL REQUIRED)
 include(FetchContent)
 FetchContent_Declare(aeron
   GIT_REPOSITORY https://github.com/real-logic/aeron.git
-  GIT_TAG 1.43.0)
+  GIT_TAG 1.48.0)
 FetchContent_Declare(json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
   GIT_TAG v3.11.3)

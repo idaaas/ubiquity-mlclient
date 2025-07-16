@@ -284,19 +284,15 @@ static bool beforeDisconnected(NodeClient &nc) noexcept {
         nc.controlPub = nullptr;
     }
     if (nc.controlSub) {
-        nc.controlSub->closeAndRemoveImages();
         nc.controlSub = nullptr;
     }
     if (nc.predPubs[0]) {
-        nc.predPubs[0]->close();
         std::atomic_store(&nc.predPubs[0], std::shared_ptr<aeron::Publication>(nullptr));
     }
     if (nc.predPubs[1]) {
-        nc.predPubs[1]->close();
         std::atomic_store(&nc.predPubs[1], std::shared_ptr<aeron::Publication>(nullptr));
     }
     if (nc.predSub) {
-        nc.predSub->closeAndRemoveImages();
         nc.predSub = nullptr; //clean AFTER removing it from the list
     }
 
