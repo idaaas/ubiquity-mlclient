@@ -177,7 +177,7 @@ static size_t writeResourceString(void *buffer, size_t size, size_t nmemb, void 
     return length;
 }
 
-static constexpr size_t CURL_OPERATION_TIME_LIMIT_MS = 5000L;
+static constexpr size_t CURL_OPERATION_TIME_LIMIT_MS = 30000L;
 
 inline Ubiquity::StatusCode ClusterClient::fetchResourceFromRestApi(
         std::string *const destination,
@@ -350,9 +350,9 @@ void ClusterClient::clusterThreadFunction(
         ) noexcept
 {
     DBG("ClusterClient(" << cc->clusterId << ") : Starting dedicated thread");
-    while (cc->loadConfiguration() && !cc->isTerminating) {
+    while (!std::atomic_load(&cc->forceTerminate) && !cc->isTerminating && cc->loadConfiguration()) {
         resetConfigExpirationTime();
-        while (configurationIsNotExpired()) {
+        while (!std::atomic_load(&cc->forceTerminate) && configurationIsNotExpired()) {
             if (cc.use_count() == 1 && !cc->isTerminating && std::atomic_load(&cc->canTerminate)) {
                 cc->terminate();
             }

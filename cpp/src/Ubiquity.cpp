@@ -59,18 +59,6 @@ static aeron_driver_t *s_aeronDriver = nullptr;
 static bool s_initialized = false;
 static std::string s_aeronDir = "/dev/shm/ubiquity-driver";
 
-struct AeronResourcesHolder {
-    ~AeronResourcesHolder(void) {
-        if (s_initialized) {
-            aeron_driver_close(s_aeronDriver);
-            aeron_driver_context_close(s_aeronDriverContext);
-            s_aeronDriver = nullptr;
-            s_aeronDriverContext = nullptr;
-            ClusterClient::s_aeronClient = nullptr;
-        }
-    }
-} aeronResourceHolder{};
-
 static void onException(
         const std::exception &e
         ) noexcept
@@ -213,6 +201,8 @@ Ubiquity::ClientHandle Ubiquity::getClientHandle(void) noexcept
     return clientHandle;
 }
 
+static std::thread s_connectionThread;
+
 Ubiquity::StatusCode Ubiquity::openClient(
         const char *const clusterId
         ) noexcept
@@ -228,7 +218,7 @@ Ubiquity::StatusCode Ubiquity::openClient(
     if (clusterClient->clusterId.empty()) {
         DBG("Ubiquity : Connecting ClusterClient to cluster " << clusterId);
         clusterClient->clusterId = clusterId;
-        std::thread(&ClusterClient::clusterThreadFunction, clusterClient).detach();
+        s_connectionThread = std::thread(&ClusterClient::clusterThreadFunction, clusterClient);
     }
     while (Ubiquity::NO_DATA == std::atomic_load(&clusterClient->statusCode)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -246,6 +236,31 @@ void Ubiquity::closeClient(void) noexcept
         std::atomic_store(&clusterClient->canTerminate, true);
     }
 }
+
+static inline void forceCloseClient(void) noexcept
+{
+    std::lock_guard<std::mutex> guard(s_clusterClientsMutex);
+
+    auto clusterClient = s_clusterClient.lock();
+    if (clusterClient) {
+        DBG("Ubiquity : Forcing ClusterClient(" << clusterClient->clusterId << ") termination.");
+        std::atomic_store(&clusterClient->forceTerminate, true);
+    }
+}
+
+struct AeronResourcesHolder {
+    ~AeronResourcesHolder(void) {
+        if (s_initialized) {
+            forceCloseClient();
+            s_connectionThread.join();
+            ClusterClient::s_aeronClient = nullptr;
+            aeron_driver_close(s_aeronDriver);
+            aeron_driver_context_close(s_aeronDriverContext);
+            s_aeronDriver = nullptr;
+            s_aeronDriverContext = nullptr;
+        }
+    }
+} aeronResourceHolder{};
 
 int64_t Ubiquity::xxh3_64bits(
         const char *source

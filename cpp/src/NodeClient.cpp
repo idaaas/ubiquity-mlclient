@@ -683,7 +683,7 @@ bool NodeClient::switchStateBasedOnInput(void) noexcept
 
     bool messageProcessed = false;
     bool messageReceived = false;
-    if (nullptr != this->controlSub && 0 < this->controlSub->poll(messageReceiver, 1)) {
+    if (nullptr != this->controlSub && this->controlSub->isConnected() && 0 < this->controlSub->poll(messageReceiver, 1)) {
       messageReceived = true;
         messageProcessed = this->clientId == message->common.clientId
             || isGlobalMessage

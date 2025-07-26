@@ -91,6 +91,7 @@ public:
             ) noexcept;
 
 //shared with Ubiquity.cpp:
+    std::atomic<bool> forceTerminate = false;
     std::atomic<bool> canTerminate = false;
 
     static std::map<std::string, std::string> s_resourceCache;
