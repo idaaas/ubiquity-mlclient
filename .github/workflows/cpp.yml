@@ -8,12 +8,6 @@ on:
           required: true
           type: string
       secrets:
-        earthly_token:
-          required: true
-        earthly_satellite:
-          required: true
-        earthly_org:
-          required: true
         dockerhub_username:
           required: true
         dockerhub_token:
@@ -23,8 +17,6 @@ on:
 jobs:
     build-ubuntu-xenial:
         runs-on: ubuntu-latest
-        env:
-          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         permissions:
             contents: read
             packages: write
@@ -38,7 +30,7 @@ jobs:
         - name: Docker Login
           run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
         - name: Ubuntu 16.04
-          run: earthly --push --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build --lang=cpp --os=ubuntu:16.04
+          run: earthly --push +build --lang=cpp --os=ubuntu:16.04
         - name: Upload artifact
           uses: actions/upload-artifact@v4
           with:
@@ -47,8 +39,6 @@ jobs:
     
     build-ubuntu-focal:
         runs-on: ubuntu-latest
-        env:
-          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -61,7 +51,7 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 20.04
-          run: earthly --push --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build --lang=cpp --os=ubuntu:20.04
+          run: earthly --push +build --lang=cpp --os=ubuntu:20.04
         - name: Upload artifact
           uses: actions/upload-artifact@v4
           with:
@@ -70,8 +60,6 @@ jobs:
 
     build-ubuntu-jammy:
         runs-on: ubuntu-latest
-        env:
-          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -84,7 +72,7 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 22.04
-          run: earthly --push --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build --lang=cpp --os=ubuntu:22.04
+          run: earthly --push +build --lang=cpp --os=ubuntu:22.04
         - name: Upload artifact
           uses: actions/upload-artifact@v4
           with:
@@ -93,8 +81,6 @@ jobs:
 
     build-ubuntu-noble:
         runs-on: ubuntu-latest
-        env:
-          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -107,7 +93,7 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 24.04
-          run: earthly --push --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +build --lang=cpp --os=ubuntu:24.04
+          run: earthly --push +build --lang=cpp --os=ubuntu:24.04
         - name: Upload artifact
           uses: actions/upload-artifact@v4
           with:

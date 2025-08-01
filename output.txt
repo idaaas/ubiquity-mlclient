@@ -1,0 +1,5 @@
+Creating a line-item model...
+Model created successfully, generated model ID= 462CSD62MMDMU
+Ubiquity : Starting driver build 2fe23f66
+Deleting a model with id= 462CSD62MMDMU
+Model deleted successfully.
