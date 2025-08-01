@@ -14,12 +14,6 @@ on:
       secrets:
         secret_token:
           required: true
-        earthly_token:
-          required: true
-        earthly_satellite:
-          required: true
-        earthly_org:
-          required: true
         dockerhub_username:
           required: true
         dockerhub_token:
@@ -28,8 +22,6 @@ on:
 jobs:
     build-ubuntu-xenial:
         runs-on: ubuntu-latest
-        env:
-          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         permissions:
             contents: read
             packages: write
@@ -43,14 +35,12 @@ jobs:
         - name: Docker Login
           run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
         - name: Ubuntu 16.04 go 1.16
-          run: earthly --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +deploy --lang=go --os=ubuntu:16.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
+          run: earthly --ci +deploy --lang=go --os=ubuntu:16.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
           # trigger go build only if we are tagging main
           if: inputs.release == 'true'
     
     build-ubuntu-focal:
         runs-on: ubuntu-latest
-        env:
-          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -63,13 +53,11 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 20.04 go 1.16
-          run: earthly --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +deploy --lang=go --os=ubuntu:20.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
+          run: earthly --ci +deploy --lang=go --os=ubuntu:20.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
           if: inputs.release == 'true'
 
     build-ubuntu-jammy:
         runs-on: ubuntu-latest
-        env:
-          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -82,13 +70,11 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 22.04 go 1.16
-          run: earthly --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +deploy --lang=go --os=ubuntu:22.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
+          run: earthly --ci +deploy --lang=go --os=ubuntu:22.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
           if: inputs.release == 'true'
 
     build-ubuntu-noble:
         runs-on: ubuntu-latest
-        env:
-          EARTHLY_TOKEN: ${{ secrets.earthly_token }}
         steps:
         - uses: earthly/actions-setup@v1
           with:
@@ -101,7 +87,7 @@ jobs:
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 24.04 go 1.16
-          run: earthly --ci --sat ${{ secrets.earthly_satellite }} --org ${{ secrets.earthly_org }} +deploy --lang=go --os=ubuntu:24.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
+          run: earthly --ci +deploy --lang=go --os=ubuntu:24.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
           if: inputs.release == 'true'
 
 

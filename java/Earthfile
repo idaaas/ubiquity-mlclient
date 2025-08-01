@@ -87,10 +87,10 @@ deploy:
   ARG snap
   ARG private
   ARG TARGETPLATFORM #built in arg
-  RUN wget -q https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz > /dev/null \
-      && tar -xzvf apache-maven-3.9.9-bin.tar.gz > /dev/null \
-      && mv apache-maven-3.9.9 /opt/
-  ENV PATH=/opt/apache-maven-3.9.9/bin:$PATH
+  RUN wget -q https://dlcdn.apache.org/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz > /dev/null \
+      && tar -xzvf apache-maven-3.9.11-bin.tar.gz > /dev/null \
+      && mv apache-maven-3.9.11 /opt/
+  ENV PATH=/opt/apache-maven-3.9.11/bin:$PATH
   ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
   COPY +bindings/java-$release/ubiquity-mlclient.jar .
   COPY publish/settings.xml .
