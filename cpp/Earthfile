@@ -56,7 +56,14 @@ build:
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBUILD_AERON_ARCHIVE_API=OFF -DCMAKE_BUILD_TYPE=$type -DDISABLE_ID_CHECKS=$disableIdChecks -DGIT_HASH=#ghashit -S . -B build
   RUN cmake --build build --parallel $(nproc) --target ubiquity_client_static docs
   ARG EARTHLY_GIT_SHORT_HASH # used to put HASH in the driver build (call before use, to be able to cache base images)
-  RUN sed -i "s/#ghashit/$EARTHLY_GIT_SHORT_HASH/g" build/src/libubiquity_client_static.a
+  IF [ -n "$EARTHLY_GIT_SHORT_HASH" ]
+    RUN echo "Using EARTHLY_GIT_SHORT_HASH: $EARTHLY_GIT_SHORT_HASH"
+    ENV HASH=$EARTHLY_GIT_SHORT_HASH
+  ELSE
+    RUN echo "EARTHLY_GIT_SHORT_HASH not set, using 'aaaabbbb'"
+    ENV HASH=aaaabbbb
+  END
+  RUN sed -i "s/#ghashit/$HASH/g" build/src/libubiquity_client_static.a
   SAVE ARTIFACT build/src/libubiquity_client_static.a
   SAVE ARTIFACT include/ubiquity_client/Ubiquity.hpp
 
@@ -74,8 +81,15 @@ examples:
   RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBUILD_AERON_ARCHIVE_API=OFF -DBUILD_SAMPLES=ON -DCMAKE_BUILD_TYPE=$type -DGIT_HASH=#ghashit -DDISABLE_ID_CHECKS=$disableIdChecks -S . -B build
   RUN cmake --build build --parallel $(nproc) --target line-item probability-estimator action-rate
   ARG EARTHLY_GIT_SHORT_HASH # used to put HASH in the driver build (call before use, to be able to cache base images)
+  IF [ -n "$EARTHLY_GIT_SHORT_HASH" ]
+    RUN echo "Using EARTHLY_GIT_SHORT_HASH: $EARTHLY_GIT_SHORT_HASH"
+    ENV HASH=$EARTHLY_GIT_SHORT_HASH
+  ELSE
+    RUN echo "EARTHLY_GIT_SHORT_HASH not set, using 'aaaabbbb'"
+    ENV HASH=aaaabbbb
+  END
   FOR file IN $(find ./build/samples -type f)
-    RUN sed -i "s/#ghashit/$EARTHLY_GIT_SHORT_HASH/g" $file
+    RUN sed -i "s/#ghashit/$HASH/g" $file
   END
   RUN cp -r ./build/samples/* .
   WAIT
