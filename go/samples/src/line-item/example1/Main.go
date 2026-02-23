@@ -70,6 +70,14 @@ func example1() int {
 	bidRequests := common.LoadBidRequests(bidRequestPath)
 	feedbacks := common.LoadFeedbacks(feedbackPath)
 	feedbackHashMap := make(map[int64]common.Feedback)
+	if numQueries > len(bidRequests) || numQueries > len(feedbacks) {
+		if len(bidRequests) < len(feedbacks) {
+			numQueries = len(bidRequests)
+		} else {
+			numQueries = len(feedbacks)
+		}
+		fmt.Printf("numQueries is set to %d since it cannot be larger than the dataset size\n", numQueries)
+	}
 
 	// The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
 	pace := time.Second / 300
