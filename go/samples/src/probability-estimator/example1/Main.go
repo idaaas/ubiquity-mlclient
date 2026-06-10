@@ -42,7 +42,7 @@ func example1() int {
 	defer common.DeleteModel(apiToken, modelId)
 
 	// 2. Create and connect a ubiquity-client
-	Ubiquity.SetCredential(apiToken)
+	Ubiquity.SetCredentials(apiToken)
 	statusCode := Ubiquity.OpenClient(clusterId)
 	if Ubiquity.SUCCESS != statusCode {
 		fmt.Println("Error during connection : ", Ubiquity.GetStatusString(statusCode))
@@ -88,7 +88,7 @@ func example1() int {
 		// read the feedback for all the levels and store it in a temp map
 		feedbackHashMap[queryId] = feedback
 		// prepare a line item query using this bid request
-		clientHandle.StartProbability(modelId, queryId)
+		clientHandle.StartProbability()
 		// fill in the features as specified in the model schema in config.json
 		clientHandle.PutNominal(request.AppBundle)
 		clientHandle.PutCategorical(request.ImpBannerPos)
@@ -118,7 +118,7 @@ func example1() int {
 		clientHandle.PutNominal(request.AppPageCat)
 
 		// 4.2. send the prediction request
-		if clientHandle.Predict() == Ubiquity.SUCCESS {
+		if clientHandle.Predict(modelId, queryId) == Ubiquity.SUCCESS {
 			count++
 		}
 
@@ -140,10 +140,10 @@ func example1() int {
 		// 4.5 Sending back feedback (when applicable)
 		// 4.5.1 send a positive feedback of level 0 to the cluster to execute the query.
 		// After this call, you cannot cancel the query
-		clientHandle.Train(modelId, queryId, 0)
+		clientHandle.TrainWithLevel(modelId, queryId, 0)
 		// 4.5.2 send a positive feedback of level 1 only when it is positive
 		if feedback.Level1 {
-			clientHandle.Train(modelId, queryId, 1)
+			clientHandle.TrainWithLevel(modelId, queryId, 1)
 		}
 
 		if count%dumpPeriod == 0 {

@@ -14,12 +14,12 @@ JAVA_INSTALL:
   IF echo $os | grep -q ubuntu
     IF [ "$os" = "ubuntu:16.04" ]
       RUN apt-get install --no-install-recommends -qq software-properties-common > /dev/null && add-apt-repository -y ppa:openjdk-r/ppa > /dev/null && apt-get update -qq > /dev/null
-      RUN apt-get install --no-install-recommends -qq openjdk-17-jdk > /dev/null
+      RUN apt-get install --no-install-recommends --fix-missing -qq openjdk-17-jdk > /dev/null
       RUN dpkg --purge --force-depends ca-certificates-java > /dev/null && apt-get install -qq ca-certificates-java > /dev/null
       RUN keytool -importkeystore -srcstorepass changeit -deststorepass changeit -srckeystore /etc/ssl/certs/java/cacerts -srcstoretype pkcs12 -destkeystore key.jks -deststoretype jks > /dev/null
       RUN mv -f key.jks /etc/ssl/certs/java/cacerts
     ELSE
-      RUN apt-get install --no-install-recommends -qq openjdk-17-jdk > /dev/null
+      RUN apt-get update && apt-get install --no-install-recommends --fix-missing -qq openjdk-17-jdk > /dev/null
     END
     ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
   END
@@ -87,10 +87,10 @@ deploy:
   ARG snap
   ARG private
   ARG TARGETPLATFORM #built in arg
-  RUN wget -q https://dlcdn.apache.org/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz > /dev/null \
-      && tar -xzvf apache-maven-3.9.11-bin.tar.gz > /dev/null \
-      && mv apache-maven-3.9.11 /opt/
-  ENV PATH=/opt/apache-maven-3.9.11/bin:$PATH
+  RUN wget -q https://dlcdn.apache.org/maven/maven-3/3.9.16/binaries/apache-maven-3.9.16-bin.tar.gz > /dev/null \
+      && tar -xzvf apache-maven-3.9.16-bin.tar.gz > /dev/null \
+      && mv apache-maven-3.9.16 /opt/
+  ENV PATH=/opt/apache-maven-3.9.16/bin:$PATH
   ENV OS_NAME=$(echo $os | sed 's/ubuntu:\([0-9][0-9]\).[0-9][0-9]/ubuntu-\1/g')
   COPY +bindings/java-$release/ubiquity-mlclient.jar .
   COPY publish/settings.xml .

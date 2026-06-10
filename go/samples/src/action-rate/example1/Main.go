@@ -42,12 +42,12 @@ func example1() int {
 	defer common.DeleteModel(apiToken, modelId)
 
 	// 2. Create and connect a ubiquity-client
-	Ubiquity.SetCredential(apiToken)
+	Ubiquity.SetCredentials(apiToken)
 	statusCode := Ubiquity.OpenClient(clusterId)
 	if Ubiquity.SUCCESS != statusCode {
 		fmt.Println("Error during connection : ", Ubiquity.GetStatusString(statusCode))
 		return 1
-	}
+
 	defer Ubiquity.CloseClient()
 
 	clientHandle := Ubiquity.GetClientHandle()
@@ -92,7 +92,7 @@ func example1() int {
 		// read the feedback for all the levels and store it in a temp map
 		feedbackHashMap[queryId] = feedback
 		// prepare a line item query using this bid request
-		clientHandle.StartActionRate(modelId, queryId, bidPrice)
+		clientHandle.StartActionRate(bidPrice)
 		// fill in the creatives (only one eligible in this example)
 		clientHandle.PutCreative(creativeId)
 		// fill in the features as specified in the model schema in config.json
@@ -124,7 +124,7 @@ func example1() int {
 		clientHandle.PutNominal(request.AppPageCat)
 
 		// 4.2. send the prediction request
-		if clientHandle.Predict() == Ubiquity.SUCCESS {
+		if clientHandle.Predict(modelId, queryId) == Ubiquity.SUCCESS {
 			count++
 		}
 
@@ -154,14 +154,14 @@ func example1() int {
 			feedback = feedbackHashMap[queryId]
 
 			// 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
-			clientHandle.Train(modelId, queryId, 0)
+			clientHandle.TrainWithLevel(modelId, queryId, 0)
 			// 4.5.2 send a positive feedback of level 1 only when it is positive
 			if feedback.Level1 {
-				clientHandle.Train(modelId, queryId, 1)
+				clientHandle.TrainWithLevel(modelId, queryId, 1)
 			}
 			// 4.5.3 send a positive feedback of level 2 only when it is positive
 			if feedback.Level2 {
-				clientHandle.Train(modelId, queryId, 2)
+				clientHandle.TrainWithLevel(modelId, queryId, 2)
 			}
 		}
 

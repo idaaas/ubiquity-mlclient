@@ -19,6 +19,13 @@
       "send": "TOPOLOGY_UPDATE"
     },
     {
+      "id": "1.1",
+      "on": "TOPOLOGY_REQUEST",
+      "send": "TOPOLOGY_UPDATE",
+      "who": "node_2",
+      "waitMs": "100"
+    },
+    {
       "id": "2.0",
       "on": "CONNECTION_REQUEST.REGISTRATION_REQUEST",
       "send": "REGISTRATION_ERROR_RESPONSE.CORRELATION_CONFLICT",

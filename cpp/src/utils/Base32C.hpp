@@ -1,10 +1,12 @@
 #pragma once
 
-namespace Base32C {
+#ifndef DISABLE_ID_CHECKS
+#include <cstring>
+#endif
 
 static constexpr char encodingTable[] = "0123456789ABCDEFGHJKMNPQRSTVWXYZ*~$=U";
 
-static inline void encode(
+static inline void base_32C_encode(
         char *const destination,
         const uint64_t *const source
         ) noexcept
@@ -44,7 +46,7 @@ static constexpr uint8_t decodingTable[256] = {
     0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f,
 };
 
-static inline bool decode(
+static inline bool base_32C_decode(
         uint64_t *const destination,
         const char *const source
         ) noexcept
@@ -72,6 +74,4 @@ static inline bool decode(
 #else
     return true;
 #endif
-}
-
 }

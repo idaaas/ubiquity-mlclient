@@ -27,7 +27,7 @@ public class Example1 {
     String modelId = apiUtil.createProbabilityEstimator(modelSchema.formatted(clusterId));
 
     // 2. Create and connect a ubiquity-client
-    Ubiquity.setCredential(apiToken);
+    Ubiquity.setCredentials(apiToken);
     int statusCode = Ubiquity.openClient(clusterId);
     if (Ubiquity.SUCCESS != statusCode)
       throw new RuntimeException("Error during connection : " + statusCode);
@@ -61,7 +61,7 @@ public class Example1 {
       // read the feedback for all the levels and store it in a temp map
       feedbackHashMap.put(queryId, feedback);
       // prepare a line item query using this bid request
-      clientHandle.startProbability(modelId, queryId);
+      clientHandle.startProbability();
       // fill in the features as specified in the model schema in config.json
       clientHandle.putNominal(request.getAppBundle());
       clientHandle.putCategorical(request.getImpBannerPos());
@@ -91,7 +91,7 @@ public class Example1 {
       clientHandle.putNominal(request.getAppPageCat());
 
       // 4.2. send the prediction request
-      if (clientHandle.predict() == Ubiquity.SUCCESS)
+      if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
         count++;
 
       // 4.3. wait to poll prediction response and validate its QueryId
@@ -117,11 +117,11 @@ public class Example1 {
       feedback = feedbackHashMap.get(queryId);
       // 4.5.1 validate the query with a level 0 feedback
       // After calling the feedback level 0, no cancellation is allowed
-      clientHandle.train(modelId, queryId, 0);
+      clientHandle.trainWithLevel(modelId, queryId, 0);
 
       // 4.5.2 send a positive feedback of level 1 only when it is positive
       if (feedback.getLevel1()) {
-        clientHandle.train(modelId, queryId, 1);
+        clientHandle.trainWithLevel(modelId, queryId, 1);
       }
     }
     clientHandle.close();

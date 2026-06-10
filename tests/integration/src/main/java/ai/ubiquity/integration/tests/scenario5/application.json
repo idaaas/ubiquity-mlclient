@@ -30,7 +30,7 @@
       "on": "TOPOLOGY_REQUEST",
       "send": "TOPOLOGY_UPDATE",
       "who": "node_1",
-      "waitMs": "100"
+      "waitMs": "150"
     },
     {
       "id": "2.0",

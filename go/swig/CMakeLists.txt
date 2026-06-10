@@ -70,7 +70,7 @@ set_target_properties(libubiquityclientwrapper PROPERTIES
 # required by SWIG 4.2 to compile: https://www.swig.org/Doc4.2/Java.html#Java
 target_compile_options(libubiquityclientwrapper PRIVATE -fno-strict-aliasing)
 
-target_link_libraries(libubiquityclientwrapper PRIVATE ubiquity_client_static curl bsd uuid)
+target_link_libraries(libubiquityclientwrapper PRIVATE ubiquity_client_static curl bsd uuid ssl crypto)
 
 # add custom code to complete the binding
 add_custom_command(

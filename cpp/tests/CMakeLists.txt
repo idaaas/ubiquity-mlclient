@@ -1,0 +1,7 @@
+add_subdirectory(connection)
+add_subdirectory(node_client)
+add_subdirectory(shared_state_store)
+add_subdirectory(synchronizer)
+add_subdirectory(cluster_client)
+add_subdirectory(client_handle)
+add_subdirectory(load_balancer)

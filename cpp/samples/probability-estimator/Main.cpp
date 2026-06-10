@@ -114,7 +114,7 @@ int main(const int argc, const char **argv) {
     modelId = modelIdString.c_str();
 
     // 2. Create and connect a ubiquity-client
-    Ubiquity::setCredential(apiToken);
+    Ubiquity::setCredentials(apiToken);
     auto statusCode = Ubiquity::openClient(clusterId);
     if (Ubiquity::SUCCESS != statusCode) {
         std::cout << "Error during connection : " << Ubiquity::getStatusString(statusCode) << std::endl;
@@ -171,7 +171,7 @@ int main(const int argc, const char **argv) {
         // read the feedback for all the levels from the dataset file and store it in a temp map
         feedbackHashMap[queryId] = feedbacks[count];
         // prepare a line item query using this bid request
-        clientHandle.startProbability(modelId, queryId);
+        clientHandle.startProbability();
 
         // fill in the features as specified in the model schema
         clientHandle.putNominal    (request["appBundle"].nominal.c_str());
@@ -202,7 +202,7 @@ int main(const int argc, const char **argv) {
         clientHandle.putNominal    (request["appPageCat"].nominal.c_str());
 
         // 4.2. send the prediction request
-        if (clientHandle.predict() == Ubiquity::SUCCESS) {
+        if (clientHandle.predict(modelId, queryId) == Ubiquity::SUCCESS) {
             count++;
         }
 
@@ -226,10 +226,10 @@ int main(const int argc, const char **argv) {
         
         // 4.5.1 send a positive feedback of level 0 to the cluster to execute the query.
         // After this call, you cannot cancel the query
-        clientHandle.train(modelId, queryId, 0);
+        clientHandle.trainWithLevel(modelId, queryId, 0);
         // 4.5.2. Try to send feedback of level 1
         if (feedback["level1"].boolean) {
-            clientHandle.train(modelId, queryId, 1);
+            clientHandle.trainWithLevel(modelId, queryId, 1);
         }
         
         if (count % dumpPeriod == 0) {

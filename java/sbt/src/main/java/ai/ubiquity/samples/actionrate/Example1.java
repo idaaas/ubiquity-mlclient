@@ -25,7 +25,7 @@ public class Example1 {
     String modelId = apiUtil.createActionRateModel(modelSchema.formatted(clusterId));
 
     // 2. Create and connect a ubiquity-client
-    Ubiquity.setCredential(apiToken);
+    Ubiquity.setCredentials(apiToken);
     int statusCode = Ubiquity.openClient(clusterId);
     if (Ubiquity.SUCCESS != statusCode)
       throw new RuntimeException("Error during connection : " + statusCode);
@@ -62,7 +62,7 @@ public class Example1 {
       // read the feedback for all the levels and store it in a temp map
       feedbackHashMap.put(queryId, feedback);
       // prepare a action rate query using this bid request
-      clientHandle.startActionRate(modelId, queryId, bidPrice);
+      clientHandle.startActionRate(bidPrice);
       // fill in the creatives (only one eligible in this example)
       clientHandle.putCreative(creativeId);
       // fill in the features as specified in the model schema in config.json
@@ -94,7 +94,7 @@ public class Example1 {
       clientHandle.putNominal(request.getAppPageCat());
 
       // 4.2. send the prediction request
-      if (clientHandle.predict() == Ubiquity.SUCCESS)
+      if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
         count++;
 
       // 4.3. wait to poll prediction response and validate its QueryId
@@ -123,13 +123,13 @@ public class Example1 {
         feedback = feedbackHashMap.get(queryId);
         // 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that
         // the auction has been won, incurring an impression.
-        clientHandle.train(modelId, queryId, 0);
+        clientHandle.trainWithLevel(modelId, queryId, 0);
         // 4.5.2 send a positive feedback of level 1 only when it is positive
         if (feedback.getLevel1())
-          clientHandle.train(modelId, queryId, 1);
+          clientHandle.trainWithLevel(modelId, queryId, 1);
         // 4.5.3 send a positive feedback of level 2 only when it is positive
         if (feedback.getLevel2())
-          clientHandle.train(modelId, queryId, 2);
+          clientHandle.trainWithLevel(modelId, queryId, 2);
       }
 
       if (count % dumpPeriod == 0) {

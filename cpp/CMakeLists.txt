@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 project(
   ubiquity_client
   VERSION 0.1
-  DESCRIPTION "The Ubiquity client to connect and use the Machine Learning clusters"
+  DESCRIPTION "The Ubiquity client to connect to and use the Machine Learning clusters"
   LANGUAGES CXX)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -38,7 +38,7 @@ find_package(CURL REQUIRED)
 include(FetchContent)
 FetchContent_Declare(aeron
   GIT_REPOSITORY https://github.com/real-logic/aeron.git
-  GIT_TAG 1.43.0)
+  GIT_TAG 1.48.0)
 FetchContent_Declare(json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
   GIT_TAG v3.11.3)
@@ -46,8 +46,11 @@ FetchContent_Declare(xxHash
   GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git
   GIT_TAG v0.8.2
   SOURCE_SUBDIR cmake_unofficial)
-FetchContent_MakeAvailable(aeron json xxHash)
-# Adds aeron_driver aeron_client nlohmann_json xxhash
+FetchContent_Declare(spdlog
+  GIT_REPOSITORY https://github.com/gabime/spdlog.git
+  GIT_TAG v1.x)
+FetchContent_MakeAvailable(aeron json xxHash spdlog)
+# Adds aeron_driver aeron_client nlohmann_json xxhash spdlog
 
 # The compiled library code is here
 add_subdirectory(src)

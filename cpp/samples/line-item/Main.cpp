@@ -131,7 +131,7 @@ int main(const int argc, const char **argv) {
     modelId = modelIdString.c_str();
 
     // 2. Create and connect a ubiquity-client
-    Ubiquity::setCredential(apiToken);
+    Ubiquity::setCredentials(apiToken);
     auto statusCode = Ubiquity::openClient(clusterId);
     if (Ubiquity::SUCCESS != statusCode) {
         std::cout << "Error during connection : " << Ubiquity::getStatusString(statusCode) << std::endl;
@@ -172,7 +172,7 @@ int main(const int argc, const char **argv) {
     std::unordered_map<int64_t, Common::CsvDataMap> feedbackHashMap{};
 
     // The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
-    const auto pace = std::chrono::microseconds(3333); // 300 query / second
+    const auto pace = std::chrono::milliseconds(20); // 50 query / second
     auto nextSendTime = std::chrono::high_resolution_clock::now();
 
     // How often to print progress in the console.
@@ -193,7 +193,7 @@ int main(const int argc, const char **argv) {
         // read the feedback for all the levels from the dataset file and store it in a temp map
         feedbackHashMap[queryId] = feedbacks[count];
         // prepare a line item query using this bid request
-        clientHandle.startLineItem(modelId, queryId, maxCPM);
+        clientHandle.startLineItem(maxCPM);
         // fill in the creatives (only one eligible in this example)
         clientHandle.putCreative(creativeId);
 
@@ -226,7 +226,7 @@ int main(const int argc, const char **argv) {
         clientHandle.putNominal    (request["appPageCat"].nominal.c_str());
 
         // 4.2. send the prediction request
-        if (clientHandle.predict() == Ubiquity::SUCCESS) {
+        if (clientHandle.predict(modelId, queryId) == Ubiquity::SUCCESS) {
             count++;
         }
 
@@ -256,14 +256,14 @@ int main(const int argc, const char **argv) {
           auto feedback = feedbackHashMap[queryId];
           
           // 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
-          clientHandle.train(modelId, queryId, 0);
+          clientHandle.trainWithLevel(modelId, queryId, 0);
           // 4.5.2. Try to send feedback of level 1
           if (feedback["level1"].boolean) {
-              clientHandle.train(modelId, queryId, 1);
+              clientHandle.trainWithLevel(modelId, queryId, 1);
           }
           // 4.5.3. Try to send feedback of level 2
           if (feedback["level2"].boolean) {
-              clientHandle.train(modelId, queryId, 2);
+              clientHandle.trainWithLevel(modelId, queryId, 2);
           }
         }
 

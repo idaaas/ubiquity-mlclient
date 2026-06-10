@@ -159,7 +159,7 @@ def main(api_token, cluster_id, num_queries):
 
     try:
         # 2. Connect a ubiquity-client
-        Ubiquity.setCredential(api_token)
+        Ubiquity.setCredentials(api_token)
         if Ubiquity.openClient(cluster_id) != Ubiquity.SUCCESS:
             raise RuntimeError("Error during connection")
         client_handle = Ubiquity.getClientHandle()
@@ -198,7 +198,7 @@ def main(api_token, cluster_id, num_queries):
             feedback = feedbacks[count]
 
             feedback_hash_map[query_id] = feedback
-            client_handle.startActionRate(model_id, query_id, bid_price)
+            client_handle.startActionRate(bid_price)
             # fill in the creatives (only one eligible in this example)
             client_handle.putCreative(creative_id)
             # Add features
@@ -230,7 +230,7 @@ def main(api_token, cluster_id, num_queries):
             client_handle.putNominal(request.app_page_cat)
 
             # 4.2 Send the prediction request
-            if client_handle.predict():
+            if client_handle.predict(model_id, query_id):
                 count += 1
 
             # 4.3 Poll prediction response and validate its QueryId", flush=True
@@ -257,13 +257,13 @@ def main(api_token, cluster_id, num_queries):
                 feedback = feedback_hash_map[query_id]
 
                 # 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
-                client_handle.train(model_id, query_id, 0)  # Notify execution
+                client_handle.trainWithLevel(model_id, query_id, 0)  # Notify execution
                 # 4.5.2 send a positive feedback of level 1 only when it is positive
                 if feedback.level1:
-                    client_handle.train(model_id, query_id, 1)
+                    client_handle.trainWithLevel(model_id, query_id, 1)
                 # 4.5.3 send a positive feedback of level 2 only when it is positive
                 if feedback.level2:
-                    client_handle.train(model_id, query_id, 2)
+                    client_handle.trainWithLevel(model_id, query_id, 2)
 
             if count % dump_period == 0:
                 print(f"Total queries = {count}, last response: predicted price = {price}, conversion probability = {conversion_probability:.7f}, selected creative id = {creative_id}", flush=True)
