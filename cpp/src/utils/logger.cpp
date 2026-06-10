@@ -334,12 +334,19 @@ void ubiquity_logger_delete(
         if (NULL != s_protocol_logger && 0 < s_protocol_logger_use_count) {
             --s_protocol_logger_use_count;
             if (0 == s_protocol_logger_use_count) {
-                // TODO
+                s_protocol_logger->flush();
+                s_protocol_logger.reset();  // release shared_ptr → logger destroyed here,
+                                            // while s_sinks is still alive
             }
         }
         return;
     }
-    // TODO
+    if (logger) {
+        logger->flush();
+        logger.reset();   // for non-protocol loggers, just release the shared_ptr
+                          // caller's copy goes out of scope naturally, but
+                          // explicit flush here ensures no lost tail logs
+    }
 }
 
 void ubiquity_logger_set_level(
