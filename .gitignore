@@ -4,3 +4,4 @@ local-output
 target
 .vscode/
 .tmp-earthly-out
+build

@@ -46,8 +46,9 @@ void ubiquity_set_credentials(
 }
 
 static bool s_initialized = false;
-
+static bool s_cluster_client_closed = false; 
 static cluster_client_t *s_cluster_client = NULL;
+static std::mutex s_cluster_clients_mutex;
 
 static inline status_code_t ubiquity_initialize(void) noexcept
 {
@@ -126,7 +127,6 @@ void ubiquity_set_resource_string_in_cache(
  * HANDLES AND CONNECTIONS
  */
 
-static std::mutex s_cluster_clients_mutex;
 
 client_handle_t *ubiquity_get_client_handle(void) noexcept
 {
@@ -159,6 +159,10 @@ status_code_t ubiquity_open_client(
             cluster_id,
             &status_code
             );
+
+    if(NULL != s_cluster_client)
+        s_cluster_client_closed = false;
+
     return status_code;
 }
 
@@ -166,6 +170,7 @@ void ubiquity_close_client(void) noexcept
 {
     std::lock_guard<std::mutex> guard(s_cluster_clients_mutex);
 
+    s_cluster_client_closed = true;
     if (NULL != s_cluster_client) {
         cluster_client_allow_termination(s_cluster_client);
     }
@@ -174,6 +179,8 @@ void ubiquity_close_client(void) noexcept
 static inline void force_close_client(void) noexcept
 {
     std::lock_guard<std::mutex> guard(s_cluster_clients_mutex);
+    if(s_cluster_client_closed)
+        return;
 
     if (NULL != s_cluster_client) {
         cluster_client_force_termination(s_cluster_client);

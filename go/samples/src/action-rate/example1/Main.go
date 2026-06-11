@@ -47,7 +47,7 @@ func example1() int {
 	if Ubiquity.SUCCESS != statusCode {
 		fmt.Println("Error during connection : ", Ubiquity.GetStatusString(statusCode))
 		return 1
-
+	}
 	defer Ubiquity.CloseClient()
 
 	clientHandle := Ubiquity.GetClientHandle()
