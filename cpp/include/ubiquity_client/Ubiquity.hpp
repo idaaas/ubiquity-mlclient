@@ -75,6 +75,9 @@ namespace Ubiquity {
         static constexpr int8_t BID = 1;
         static constexpr int8_t NO_BID = 0;
 
+        static constexpr int32_t CONSERVATIVE_BID_MODE = 0;
+        static constexpr int32_t AGGRESSIVE_BID_MODE = 1;
+
         static constexpr const char *MISSING_NOMINAL = "_MISSING_";
         static constexpr float MISSING_NUMERIC = std::numeric_limits<float>::quiet_NaN();
 #endif
