@@ -26,14 +26,15 @@ status_code_t send_message_with_rendezvous(
 
         uint64_t hash_value = XXH3_64bits_withSeed(&balance_key, sizeof(balance_key), ip);
 
-        // Normalize hash to interval [0, 1)
-        // Adding 1 to avoid log(0) if hash_value == 0
-        double u = static_cast<double>(hash_value) / (static_cast<double>(std::numeric_limits<uint64_t>::max()) + 1.0);
+        // Normalize hash to interval (0,1)
+        // Extracts the 53 most significant bits of hash value
+        static constexpr double MANTISSA_SCALE = 1.0 / (1ULL << 53); // 2^-53
+        double u = static_cast<double>(hash_value >> 11) * MANTISSA_SCALE; // max = (2^53-1) * 2^-53 < 1
         u = std::max(u, std::numeric_limits<double>::min());
 
         // Weighted rendezvous score: weight / -ln(u)
         double weight = static_cast<double>(node_client_get_weight(node.get()));
-        double score = weight / (-std::log(u));
+        double score = weight * (1.0 / (-std::log(u)));
         scored.push_back({score, node});
     }
 
