@@ -192,6 +192,7 @@ typedef struct __attribute__((packed)) {
     message_query_t _;
     float bid_floor;
     float bid_price;
+    int32_t optimization_mode;
 } message_query_bid_shading_t;
 
 typedef message_query_t message_query_probability_t;
@@ -497,13 +498,15 @@ int test_predict(void)
 
     const float bid_price = 0.123;
     const float bid_floor = 0.456;
+    const int32_t optimization_mode = 1;
 
     // Same for bid shading.
     s_model_info->application_id = APPLICATION_TYPE_BID_SHADING;
     client_handle_start_bid_shading(
             client_handle,
             bid_price,
-            bid_floor
+            bid_floor,
+            optimization_mode
             );
     client_handle_put_numeric(client_handle, 0.1);
     client_handle_put_nominal(client_handle, "hey");
@@ -530,6 +533,7 @@ int test_predict(void)
     message.application.application_id = APPLICATION_TYPE_BID_SHADING;
     message.bid_shading_query.bid_floor = bid_floor;
     message.bid_shading_query.bid_price = bid_price;
+    message.bid_shading_query.optimization_mode = optimization_mode;
 
     // Buffer containing the whole message with header and features.
     buffer_clear(BUFFER_MESSAGE);

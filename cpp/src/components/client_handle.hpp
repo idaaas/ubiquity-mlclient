@@ -41,7 +41,8 @@ client_handle_t *client_handle_delete(
 void client_handle_start_bid_shading(
         client_handle_t *const client_handle,
         const float bid_price,
-        const float bid_floor
+        const float bid_floor,
+        const int32_t optimization_mode
         ) noexcept;
 
 void client_handle_start_probability(
