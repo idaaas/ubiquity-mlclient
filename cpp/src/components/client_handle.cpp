@@ -445,17 +445,21 @@ static inline status_code_t client_handle_check_predict_setup_errors(
         (uint8_t)STATUS_CODE_INVALID_APP_FOR_MODEL, // 63
     };
     model_info_t *model_info = client_handle_get_model_info(client_handle);
-    uint8_t error_level =
-        (handle_state_t::PREDICTING != client_handle->state) * 63
-        | (0 == client_handle->message.application.model_id) * 31
-        | (((0 != model_info_get_model_id(model_info)) & (client_handle->application_id != model_info_get_application_id(model_info))) | (client_handle->application_id >= APPLICATION_TYPE_COUNT)) * 63
-        | ((0 < client_handle->num_creative) & !app_uses_creatives[client_handle->message.application.application_id]) * 7
-        | ((0 == client_handle->num_creative) & app_uses_creatives[client_handle->message.application.application_id]) * 3
-        | !model_info_feature_type_lists_are_identical(
-                    model_info,
-                    &client_handle->feature_type_list
-                    );
-    error_level |= 15 * !model_info_has_metadata(model_info);
+    uint8_t error_level;
+    if (!model_info_has_metadata(model_info)) {
+        error_level = 15;
+    } else {
+        error_level =
+            (handle_state_t::PREDICTING != client_handle->state) * 63
+            | (0 == client_handle->message.application.model_id) * 31
+            | (((0 != model_info_get_model_id(model_info)) & (client_handle->application_id != model_info_get_application_id(model_info))) | (client_handle->application_id >= APPLICATION_TYPE_COUNT)) * 63
+            | ((0 < client_handle->num_creative) & !app_uses_creatives[client_handle->message.application.application_id]) * 7
+            | ((0 == client_handle->num_creative) & app_uses_creatives[client_handle->message.application.application_id]) * 3
+            | !model_info_feature_type_lists_are_identical(
+                        model_info,
+                        &client_handle->feature_type_list
+                        );
+    }
     client_handle->status_code = static_cast<status_code_t>(status_code_per_error_level[error_level]);
     return client_handle->status_code;
 }

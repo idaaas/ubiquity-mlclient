@@ -140,7 +140,8 @@ static inline bool cluster_client_delete(
 }
 
 static void cluster_client_thread_function(
-        cluster_client_t *const cluster_client
+        cluster_client_t *const cluster_client,
+        std::atomic<bool>* termination_done_flag
         ) noexcept
 {
     LOG_INFO_1(
@@ -197,6 +198,11 @@ static void cluster_client_thread_function(
 
     // Stop synchronizer thread and empty shared state store.
     cluster_client_delete(cluster_client);
+
+    // Signal that this thread is fully done,
+     if (termination_done_flag != NULL) {
+        termination_done_flag->store(true, std::memory_order_release);
+    }
 }
 
 /*
@@ -205,15 +211,6 @@ static void cluster_client_thread_function(
 
 #define CLUSTER_FIRST_CONNECTION_TIMEOUT UBIQUITY_TIME_SECONDS(30)
 
-void cluster_client_force_termination(
-        cluster_client_t *const cluster_client
-        ) noexcept
-{
-    LOG_INFO_1(cluster_client->logger, "cluster={} event=force_close_client msg=\"Ubiquity : Forcing cluster client termination.\"",
-            cluster_client->cluster_id
-            );
-    std::atomic_store(&cluster_client->is_forced_to_terminate, true);
-}
 
 bool cluster_client_is_connected(
         cluster_client_t *const cluster_client
@@ -224,6 +221,7 @@ bool cluster_client_is_connected(
 
 cluster_client_t *cluster_client_create(
         const char *const cluster_id,
+        std::atomic<bool>* termination_done_flag,
         status_code_t *const status_code
         ) noexcept
 {
@@ -280,7 +278,8 @@ cluster_client_t *cluster_client_create(
     // Create the cluster client's dedicated thread.
     cluster_client->thread = std::thread(
             &cluster_client_thread_function,
-            cluster_client
+            cluster_client, 
+            termination_done_flag
             );
 
     // Wait for the cluster to be connected before returning the cluster_client.
@@ -335,6 +334,16 @@ void cluster_client_allow_termination(
             cluster_client->cluster_id
             );
     std::atomic_store(&cluster_client->can_terminate, true);
+}
+
+void cluster_client_force_termination(
+        cluster_client_t *const cluster_client
+        ) noexcept
+{
+    LOG_INFO_1(cluster_client->logger, "cluster={} event=force_close_client msg=\"Ubiquity : Forcing cluster client termination.\"",
+            cluster_client->cluster_id
+            );
+    std::atomic_store(&cluster_client->is_forced_to_terminate, true);
 }
 
 /*

@@ -46,8 +46,9 @@ void ubiquity_set_credentials(
 }
 
 static bool s_initialized = false;
-static bool s_cluster_client_closed = false; 
 static cluster_client_t *s_cluster_client = NULL;
+static bool s_cluster_client_closed = false;
+static std::atomic<bool> s_cluster_client_thread_done{false}; 
 static std::mutex s_cluster_clients_mutex;
 
 static inline status_code_t ubiquity_initialize(void) noexcept
@@ -155,8 +156,10 @@ status_code_t ubiquity_open_client(
     }
 
     // Create the cluster client.
+    s_cluster_client_thread_done.store(false, std::memory_order_relaxed);
     s_cluster_client = cluster_client_create(
             cluster_id,
+            &s_cluster_client_thread_done,
             &status_code
             );
 
@@ -166,6 +169,15 @@ status_code_t ubiquity_open_client(
     return status_code;
 }
 
+static bool wait_for_thread_done(std::chrono::milliseconds timeout) {
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (!s_cluster_client_thread_done.load(std::memory_order_acquire)) {
+        if (std::chrono::steady_clock::now() > deadline) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return true;
+}
+
 void ubiquity_close_client(void) noexcept
 {
     std::lock_guard<std::mutex> guard(s_cluster_clients_mutex);
@@ -173,6 +185,8 @@ void ubiquity_close_client(void) noexcept
     s_cluster_client_closed = true;
     if (NULL != s_cluster_client) {
         cluster_client_allow_termination(s_cluster_client);
+        wait_for_thread_done(std::chrono::milliseconds(200));
+        s_cluster_client = NULL;
     }
 }
 
@@ -182,15 +196,20 @@ static inline void force_close_client(void) noexcept
     if(s_cluster_client_closed)
         return;
 
+    s_cluster_client_closed = true;
     if (NULL != s_cluster_client) {
         cluster_client_force_termination(s_cluster_client);
+        wait_for_thread_done(std::chrono::milliseconds(200));
+        s_cluster_client = NULL;
     }
 }
 
 struct gets_called_on_exit_t {
     ~gets_called_on_exit_t(void) {
         if (s_initialized) {
-            force_close_client();
+            if(!s_cluster_client_closed){
+                force_close_client();
+            }
             connection_close_module();
         }
     }

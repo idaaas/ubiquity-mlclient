@@ -17,6 +17,7 @@ typedef struct client_handle_s client_handle_t;
 
 cluster_client_t *cluster_client_create(
         const char *const cluster_id,
+        std::atomic<bool>* termination_done_flag,
         status_code_t *const status_code
         ) noexcept;
 

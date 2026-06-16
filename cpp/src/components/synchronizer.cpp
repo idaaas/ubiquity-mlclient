@@ -688,7 +688,9 @@ static void topology_add_new_element(
     }
     if (existing_client) {
         node_client_set_weight(existing_client.get(), new_element->weight);
-        LOG_DEBUG_2(synchronizer->logger, "cluster={} event=topology_add_new_element_skipped ip={}",
+        LOG_DEBUG_2(
+            synchronizer->logger,
+            "cluster={} event=topology_add_new_element_skipped ip={}",
             synchronizer->cluster_id,
             get_ip_string(new_element->ip)
         );
