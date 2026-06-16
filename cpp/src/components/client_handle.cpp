@@ -103,7 +103,7 @@ typedef struct message_query_bid_shading_s {
     message_query_t _;
     float bid_floor;
     float bid_price;
-    int32_t optimization_mode;
+    int32_t surplus_optimization_mode;
 } __attribute__((packed)) message_query_bid_shading_t;
 
 typedef message_query_t message_query_probability_t;
@@ -327,7 +327,7 @@ void client_handle_start_bid_shading(
         client_handle_t *const client_handle,
         const float bid_price,
         const float bid_floor,
-        const int32_t optimization_mode
+        const int32_t surplus_optimization_mode
         ) noexcept
 {
     client_handle_prepare_prediction_query(
@@ -336,12 +336,12 @@ void client_handle_start_bid_shading(
             );
     client_handle->message.bid_shading_query.bid_floor = bid_floor;
     client_handle->message.bid_shading_query.bid_price = bid_price;
-    client_handle->message.bid_shading_query.optimization_mode = optimization_mode;
-    LOG_DEBUG_4(client_handle->logger, "handle={:x} event=start_query application=bid_shading bid_price={} bid_floor={} optimization_mode={}",
+    client_handle->message.bid_shading_query.surplus_optimization_mode = surplus_optimization_mode;
+    LOG_DEBUG_4(client_handle->logger, "handle={:x} event=start_query application=bid_shading bid_price={} bid_floor={} surplus_optimization_mode={}",
             client_handle->id,
             bid_price,
             bid_floor,
-            optimization_mode
+            surplus_optimization_mode
             );
 }
 

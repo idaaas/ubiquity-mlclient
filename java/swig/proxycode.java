@@ -21,8 +21,8 @@
   public final static short NO_BID = 0;
   public final static short BID = 1;
 
-  public final static int CONSERVATIVE_BID_MODE = 0;
-  public final static int AGGRESSIVE_BID_MODE = 1;
+  public final static int CONSERVATIVE_MODE = 0;
+  public final static int AGGRESSIVE_MODE = 1;
 
   public final static int SUCCESS = 1;
   public final static int NO_DATA = 2;

@@ -75,8 +75,8 @@ namespace Ubiquity {
         static constexpr int8_t BID = 1;
         static constexpr int8_t NO_BID = 0;
 
-        static constexpr int32_t CONSERVATIVE_BID_MODE = 0;
-        static constexpr int32_t AGGRESSIVE_BID_MODE = 1;
+        static constexpr int32_t CONSERVATIVE_MODE = 0;
+        static constexpr int32_t AGGRESSIVE_MODE = 1;
 
         static constexpr const char *MISSING_NOMINAL = "_MISSING_";
         static constexpr float MISSING_NUMERIC = std::numeric_limits<float>::quiet_NaN();
@@ -105,7 +105,7 @@ namespace Ubiquity {
                 void putCreative(const int64_t value) noexcept;
                 void putNominal(const char *value) noexcept;
                 void putNumeric(const float value) noexcept;
-                void startBidShading(const float bidPrice, const float bidFloor, int32_t optimizationMode=0) noexcept;
+                void startBidShading(const float bidPrice, const float bidFloor, int32_t surplusOptimizationMode=0) noexcept;
                 void startLineItem(const float maxCPM, const float bidFloor=0.01f, const int32_t exposureCount=0) noexcept;
                 void startActionRate(const float bidPrice, const float bidFloor=0.01F, const int32_t exposureCount=0) noexcept;
                 void startProbability(void) noexcept;
