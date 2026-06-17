@@ -200,9 +200,7 @@ static void cluster_client_thread_function(
     cluster_client_delete(cluster_client);
 
     // Signal that this thread is fully done,
-     if (termination_done_flag != NULL) {
-        termination_done_flag->store(true, std::memory_order_release);
-    }
+    termination_done_flag->store(true, std::memory_order_release);
 }
 
 /*

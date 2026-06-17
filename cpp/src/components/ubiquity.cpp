@@ -47,7 +47,6 @@ void ubiquity_set_credentials(
 
 static bool s_initialized = false;
 static cluster_client_t *s_cluster_client = NULL;
-static bool s_cluster_client_closed = false;
 static std::atomic<bool> s_cluster_client_thread_done{false}; 
 static std::mutex s_cluster_clients_mutex;
 
@@ -144,8 +143,8 @@ status_code_t ubiquity_open_client(
 
     status_code_t status_code;
 
-    // If there is already an open cluster client, leave.
-    if (NULL != s_cluster_client) {
+    // If there is already an open cluster client, return it.
+    if (NULL != s_cluster_client && !s_cluster_client_thread_done.load(std::memory_order_acquire)) {
         return STATUS_CODE_SUCCESS;
     }
 
@@ -163,9 +162,6 @@ status_code_t ubiquity_open_client(
             &status_code
             );
 
-    if(NULL != s_cluster_client)
-        s_cluster_client_closed = false;
-
     return status_code;
 }
 
@@ -181,34 +177,25 @@ static bool wait_for_thread_done(std::chrono::milliseconds timeout) {
 void ubiquity_close_client(void) noexcept
 {
     std::lock_guard<std::mutex> guard(s_cluster_clients_mutex);
-
-    s_cluster_client_closed = true;
     if (NULL != s_cluster_client) {
         cluster_client_allow_termination(s_cluster_client);
-        wait_for_thread_done(std::chrono::milliseconds(200));
-        s_cluster_client = NULL;
     }
 }
 
 static inline void force_close_client(void) noexcept
 {
     std::lock_guard<std::mutex> guard(s_cluster_clients_mutex);
-    if(s_cluster_client_closed)
-        return;
-
-    s_cluster_client_closed = true;
     if (NULL != s_cluster_client) {
         cluster_client_force_termination(s_cluster_client);
-        wait_for_thread_done(std::chrono::milliseconds(200));
-        s_cluster_client = NULL;
     }
 }
 
 struct gets_called_on_exit_t {
     ~gets_called_on_exit_t(void) {
         if (s_initialized) {
-            if(!s_cluster_client_closed){
+            if(!s_cluster_client_thread_done.load(std::memory_order_acquire)){
                 force_close_client();
+                wait_for_thread_done(std::chrono::milliseconds(200));
             }
             connection_close_module();
         }
