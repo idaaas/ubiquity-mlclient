@@ -5,6 +5,13 @@
 #include <limits>
 #include <cmath> 
 
+static constexpr uint64_t FTO = (1ULL << 53) - 1;
+static constexpr double FTZ = static_cast<double>(1ULL << 53);
+
+static double toDouble(uint64_t hash) {
+    return static_cast<double>(hash & FTO) / FTZ;
+}
+
 status_code_t send_message_with_rendezvous(
         const node_client_map_t node_clients,
         const ip_set_t *const targeted_nodes,
@@ -24,13 +31,10 @@ status_code_t send_message_with_rendezvous(
 
         const auto& node = it->second;
 
-        uint64_t hash_value = XXH3_64bits_withSeed(&balance_key, sizeof(balance_key), ip);
+        uint64_t hash = XXH3_64bits_withSeed(&balance_key, sizeof(balance_key), ip);
 
-        // Normalize hash to interval (0,1)
-        // Extracts the 53 most significant bits of hash value
-        static constexpr double MANTISSA_SCALE = 1.0 / (1ULL << 53); // 2^-53
-        double u = static_cast<double>(hash_value >> 11) * MANTISSA_SCALE; // max = (2^53-1) * 2^-53 < 1
-        u = std::max(u, std::numeric_limits<double>::min());
+        // Normalize hash to interval (0,1). Avoid zero before log.
+        double u = std::max(toDouble(hash), std::numeric_limits<double>::min());
 
         // Weighted rendezvous score: weight / -ln(u)
         double weight = static_cast<double>(node_client_get_weight(node.get()));
