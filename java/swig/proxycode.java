@@ -21,8 +21,8 @@
   public final static short NO_BID = 0;
   public final static short BID = 1;
 
-  public final static int CONSERVATIVE_MODE = 0;
-  public final static int AGGRESSIVE_MODE = 1;
+  public final static int WIN_RATE_PRESERVATION = 0;
+  public final static int EXPECTED_SURPLUS_MAXIMIZATION = 1;
 
   public final static int SUCCESS = 1;
   public final static int NO_DATA = 2;

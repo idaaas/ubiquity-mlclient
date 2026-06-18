@@ -71,8 +71,8 @@ void Ubiquity::ClientHandle::putNumeric(const float value) noexcept {
     return client_handle_put_numeric(reinterpret_cast<client_handle_t *>(this->pimpl), value);
 }
 
-void Ubiquity::ClientHandle::startBidShading(const float bidPrice, const float bidFloor, const int32_t surplusOptimizationMode) noexcept {
-    return client_handle_start_bid_shading(reinterpret_cast<client_handle_t *>(this->pimpl), bidPrice, bidFloor, surplusOptimizationMode);
+void Ubiquity::ClientHandle::startBidShading(const float bidPrice, const float bidFloor, const int32_t optimizationMode) noexcept {
+    return client_handle_start_bid_shading(reinterpret_cast<client_handle_t *>(this->pimpl), bidPrice, bidFloor, optimizationMode);
 }
 
 void Ubiquity::ClientHandle::startLineItem(const float maxCPM, const float bidFloor, const int32_t exposureCount) noexcept {
