@@ -77,7 +77,7 @@ status_code_t client_handle_train(
         client_handle_t *const client_handle,
         const char *encoded_model_id,
         int64_t query_id,
-        const char* const encoded_event_id
+        const char* const encoded_feedback_name
         ) noexcept;
 
 status_code_t client_handle_train_with_level(

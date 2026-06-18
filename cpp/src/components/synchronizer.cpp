@@ -162,9 +162,9 @@ typedef struct model_metadata_element_s {
     uint64_t model_id;
     uint16_t schema_version;
     int16_t application_id;
-    uint16_t event_type_count;
+    uint16_t feedback_count;
     uint16_t feature_type_count;
-    event_id_list_t event_id_list;
+    feedback_id_list_t feedback_id_list;
     feedback_delay_list_t feedback_delay_list;
     feature_type_list_t feature_type_list;
 } __attribute__((packed)) model_metadata_element_t;
@@ -424,11 +424,11 @@ static void model_metadata_update_element(
             );
     }
     // if model metadata exists already, then only the feedback delays can be mutated in a model metadata.
-    model_info_set_event_list(
+    model_info_set_feedback_list(
             model_info_ref.get(),
-            &new_model_metadata->event_id_list,
+            &new_model_metadata->feedback_id_list,
             &new_model_metadata->feedback_delay_list,
-            new_model_metadata->event_type_count
+            new_model_metadata->feedback_count
             );
     store_upsert_model_info(
         synchronizer->store.get(),
@@ -482,11 +482,11 @@ static void model_metadata_add_new_element(
             &new_model_metadata->feature_type_list,
             new_model_metadata->feature_type_count
             );
-    model_info_set_event_list(
+    model_info_set_feedback_list(
             model_info_ref.get(),
-            &new_model_metadata->event_id_list,
+            &new_model_metadata->feedback_id_list,
             &new_model_metadata->feedback_delay_list,
-            new_model_metadata->event_type_count
+            new_model_metadata->feedback_count
             );
     store_upsert_model_info(
             synchronizer->store.get(),

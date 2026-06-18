@@ -120,28 +120,28 @@ void node_client_send_message(
  */
 
 typedef struct {
-    uint16_t event_type_count;
-    event_id_list_t event_id_list;
+    uint16_t feedback_count;
+    feedback_id_list_t feedback_id_list;
     feedback_delay_list_t feedback_delay_list;
-} feedback_event_list_t;
+} feedback_list_t;
 
-static inline feedback_event_list_t feedback_events(
+static inline feedback_list_t feedbacks(
         size_t arg_count,
         ...
         )
 {
-    feedback_event_list_t feedback_event_list;
-    event_id_list_reset(&feedback_event_list.event_id_list);
-    feedback_delay_list_reset(&feedback_event_list.feedback_delay_list);
+    feedback_list_t feedback_list;
+    feedback_id_list_reset(&feedback_list.feedback_id_list);
+    feedback_delay_list_reset(&feedback_list.feedback_delay_list);
     va_list arg_list;
     va_start(arg_list, arg_count);
     for (size_t cursor = 0; cursor < arg_count; ++cursor) {
-        feedback_event_list.event_id_list.elements[cursor] = va_arg(arg_list, event_id_t);
-        feedback_event_list.feedback_delay_list.elements[cursor] = va_arg(arg_list, feedback_delay_t);
+        feedback_list.feedback_id_list.elements[cursor] = va_arg(arg_list, feedback_id_t);
+        feedback_list.feedback_delay_list.elements[cursor] = va_arg(arg_list, feedback_delay_t);
     }
-    feedback_event_list.event_type_count = arg_count;
+    feedback_list.feedback_count = arg_count;
     va_end(arg_list);
-    return feedback_event_list;
+    return feedback_list;
 }
 
 typedef struct {
@@ -176,9 +176,9 @@ typedef struct model_metadata_s {
     uint64_t model_id;
     uint16_t schema_version;
     uint16_t application_id;
-    uint16_t event_type_count;
+    uint16_t feedback_count;
     uint16_t feature_type_count;
-    event_id_list_t event_id_list;
+    feedback_id_list_t feedback_id_list;
     feedback_delay_list_t feedback_delay_list;
     feature_type_list_t feature_type_list;
 } __attribute__((packed)) model_metadata_t;

@@ -301,33 +301,33 @@ static inline void load_feature_type_array(
     model_info->feature_type_count = count;
 }
 
-event_id_t decode_event_id(
-        const char *const encoded_event_id
+feedback_id_t decode_feedback_id(
+        const char *const feedback_name
         )
 {
     return XXH3_64bits(
-            encoded_event_id,
-            strlen(encoded_event_id)
+            feedback_name,
+            strlen(feedback_name)
             );
 }
 
-typedef struct feedback_event_s {
-    const char *encoded_event_id;
+typedef struct feedback_s {
+    const char *feedback_name;
     feedback_delay_t feedback_delay;
-} feedback_event_t;
+} feedback_t;
 
-static inline void load_event_list(
+static inline void load_feedback_list(
         model_info_t *const model_info,
-        const feedback_event_t *const feedback_event_list
+        const feedback_t *const feedback_list
         )
 {
-    model_info_clear_event_type_list(model_info);
+    model_info_clear_feedback_list(model_info);
     size_t index = 0;
-    while (NULL != feedback_event_list[index].encoded_event_id) {
-        model_info_add_event_type(
+    while (NULL != feedback_list[index].feedback_name) {
+        model_info_add_feedback(
                 model_info,
-                decode_event_id(feedback_event_list[index].encoded_event_id),
-                feedback_event_list[index].feedback_delay
+                decode_feedback_id(feedback_list[index].feedback_name),
+                feedback_list[index].feedback_delay
                 );
         ++index;
     }
@@ -349,8 +349,8 @@ int test_predict(void)
         FEATURE_TYPE_CATEGORICAL,
         FEATURE_TYPE_NONE
     };
-    feedback_event_t event_list_1[] = {
-        "first_event", 0x3333,
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
         NULL, 0,
     };
 
@@ -384,9 +384,9 @@ int test_predict(void)
             s_model_info,
             feature_type_array_1
             );
-    load_event_list(
+    load_feedback_list(
             s_model_info,
-            event_list_1
+            feedback_list_1
             );
 
     // Prepare query.
@@ -836,8 +836,8 @@ int test_creative_balance(void)
         FEATURE_TYPE_CATEGORICAL,
         FEATURE_TYPE_NONE
     };
-    feedback_event_t event_list_1[] = {
-        "first_event", 0x3333,
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
         NULL, 0,
     };
 
@@ -870,9 +870,9 @@ int test_creative_balance(void)
             s_model_info,
             feature_type_array_1
             );
-    load_event_list(
+    load_feedback_list(
             s_model_info,
-            event_list_1
+            feedback_list_1
             );
 
     // Prepare line item query.
@@ -980,9 +980,9 @@ int test_feedback(void)
         FEATURE_TYPE_CATEGORICAL,
         FEATURE_TYPE_NONE
     };
-    feedback_event_t event_list_1[] = {
-        "FIRST FEEDBACK EVENT", 0x3333,
-        "SECOND FEEDBACK EVENT", 0x1111,
+    feedback_t feedback_list_1[] = {
+        "FIRST FEEDBACK", 0x3333,
+        "SECOND FEEDBACK", 0x1111,
         NULL, 0,
     };
 
@@ -1016,9 +1016,9 @@ int test_feedback(void)
             s_model_info,
             feature_type_array_1
             );
-    load_event_list(
+    load_feedback_list(
             s_model_info,
-            event_list_1
+            feedback_list_1
             );
 
     // Send line item feedback.
@@ -1029,12 +1029,12 @@ int test_feedback(void)
             client_handle,
             encoded_model_id,
             query_id,
-            "BAD FEEDBACK EVENT"
+            "BAD FEEDBACK"
             );
 
     ubiquity_test_expect("store_get_model_info",
         "model_id" , model_id);
-    // Expect an error because the feedback event is not registered in the model metadata.
+    // Expect an error because the feedback is not registered in the model metadata.
     ubiquity_test_assert_equal(
             STATUS_CODE_INVALID_FEEDBACK_LEVEL,
             status_code
@@ -1049,7 +1049,7 @@ int test_feedback(void)
             client_handle,
             encoded_model_id,
             query_id,
-            "FIRST FEEDBACK EVENT"
+            "FIRST FEEDBACK"
             );
 
     ubiquity_test_expect("store_get_model_info",
@@ -1095,7 +1095,7 @@ int test_feedback(void)
             client_handle,
             encoded_model_id,
             query_id,
-            "SECOND FEEDBACK EVENT"
+            "SECOND FEEDBACK"
             );
 
     ubiquity_test_expect("store_get_model_info",
@@ -1144,9 +1144,9 @@ int test_cancel(void)
         FEATURE_TYPE_CATEGORICAL,
         FEATURE_TYPE_NONE
     };
-    feedback_event_t event_list_1[] = {
-        "FIRST FEEDBACK EVENT", 0x3333,
-        "SECOND FEEDBACK EVENT", 0x1111,
+    feedback_t feedback_list_1[] = {
+        "FIRST FEEDBACK", 0x3333,
+        "SECOND FEEDBACK", 0x1111,
         NULL, 0,
     };
 
@@ -1180,9 +1180,9 @@ int test_cancel(void)
             s_model_info,
             feature_type_array_1
             );
-    load_event_list(
+    load_feedback_list(
             s_model_info,
-            event_list_1
+            feedback_list_1
             );
 
     // Send line item feedback.

@@ -564,28 +564,28 @@ static inline bool apply_sharding_block(
 }
 
 typedef struct {
-    uint16_t event_type_count;
-    event_id_list_t event_id_list;
+    uint16_t feedback_count;
+    feedback_id_list_t feedback_id_list;
     feedback_delay_list_t feedback_delay_list;
-} feedback_event_list_t;
+} feedback_list_t;
 
-static inline feedback_event_list_t feedback_events(
+static inline feedback_list_t feedbacks(
         size_t arg_count,
         ...
         )
 {
-    feedback_event_list_t feedback_event_list;
-    event_id_list_reset(&feedback_event_list.event_id_list);
-    feedback_delay_list_reset(&feedback_event_list.feedback_delay_list);
+    feedback_list_t feedback_list;
+    feedback_id_list_reset(&feedback_list.feedback_id_list);
+    feedback_delay_list_reset(&feedback_list.feedback_delay_list);
     va_list arg_list;
     va_start(arg_list, arg_count);
     for (size_t cursor = 0; cursor < arg_count; ++cursor) {
-        feedback_event_list.event_id_list.elements[cursor] = va_arg(arg_list, event_id_t);
-        feedback_event_list.feedback_delay_list.elements[cursor] = va_arg(arg_list, feedback_delay_t);
+        feedback_list.feedback_id_list.elements[cursor] = va_arg(arg_list, feedback_id_t);
+        feedback_list.feedback_delay_list.elements[cursor] = va_arg(arg_list, feedback_delay_t);
     }
-    feedback_event_list.event_type_count = arg_count;
+    feedback_list.feedback_count = arg_count;
     va_end(arg_list);
-    return feedback_event_list;
+    return feedback_list;
 }
 
 typedef struct {
@@ -620,9 +620,9 @@ typedef struct model_metadata_s {
     uint64_t model_id;
     uint16_t schema_version;
     uint16_t application_id;
-    uint16_t event_type_count;
+    uint16_t feedback_count;
     uint16_t feature_type_count;
-    event_id_list_t event_id_list;
+    feedback_id_list_t feedback_id_list;
     feedback_delay_list_t feedback_delay_list;
     feature_type_list_t feature_type_list;
 } __attribute__((packed)) model_metadata_t;
@@ -644,10 +644,10 @@ static inline bool apply_metadata_block(
     for (size_t cursor = 0; cursor < arg_count; ++cursor) {
         model_metadata.model_id = va_arg(arg_list, uint64_t);
         model_metadata.application_id = va_arg(arg_list, uint64_t);
-        feedback_event_list_t feedback_event_list = va_arg(arg_list, feedback_event_list_t);
-        model_metadata.event_type_count = feedback_event_list.event_type_count;
-        model_metadata.event_id_list = feedback_event_list.event_id_list;
-        model_metadata.feedback_delay_list = feedback_event_list.feedback_delay_list;
+        feedback_list_t feedback_list = va_arg(arg_list, feedback_list_t);
+        model_metadata.feedback_count = feedback_list.feedback_count;
+        model_metadata.feedback_id_list = feedback_list.feedback_id_list;
+        model_metadata.feedback_delay_list = feedback_list.feedback_delay_list;
         feature_type_list_with_count_t feature_type_list_with_count = va_arg(arg_list, feature_type_list_with_count_t);
         model_metadata.feature_type_count = feature_type_list_with_count.feature_type_count;
         model_metadata.feature_type_list = feature_type_list_with_count.feature_type_list;
@@ -792,8 +792,8 @@ int metadata_update(void)
     const model_id_t model_id_2 = 2;
     const application_id_t application_id_1 = 2;
     const application_id_t application_id_2 = 3;
-    const event_id_t event_id_1 = 111;
-    const event_id_t event_id_2 = 222;
+    const feedback_id_t feedback_id_1 = 111;
+    const feedback_id_t feedback_id_2 = 222;
     const feedback_delay_t feedback_delay_1 = 3;
     const feedback_delay_t feedback_delay_2 = 6;
     feature_type_list_t feature_type_list_1;
@@ -854,8 +854,8 @@ int metadata_update(void)
     ubiquity_test_assert_true(
             apply_metadata_block(synchronizer, block_id_0, 1,
                     model_id_1, application_id_1,
-                        feedback_events(1,
-                                event_id_1, feedback_delay_1
+                        feedbacks(1,
+                                feedback_id_1, feedback_delay_1
                         ),
                         feature_types(5,
                                 FEATURE_TYPE_CATEGORICAL,
@@ -878,8 +878,8 @@ int metadata_update(void)
 
     ubiquity_test_assert_equal(model_info->model_id, model_id_1);
     ubiquity_test_assert_equal(model_info->application_id, application_id_1);
-    ubiquity_test_assert_equal(model_info->event_type_count, 1);
-    ubiquity_test_assert_equal(model_info->event_id_list.elements[0], event_id_1);
+    ubiquity_test_assert_equal(model_info->feedback_count, 1);
+    ubiquity_test_assert_equal(model_info->feedback_id_list.elements[0], feedback_id_1);
     ubiquity_test_assert_equal(model_info->feedback_delay_list.elements[0], feedback_delay_1);
     ubiquity_test_assert_equal(model_info->feature_type_count, 5);
     ubiquity_test_assert_true(
@@ -889,13 +889,13 @@ int metadata_update(void)
                     )
             );
 
-    // Modify event list for model 1. Attempt to modify everything else. Only the event list should change.
+    // Modify feeedback list for model 1. Attempt to modify everything else. Only the feedback list should change.
     ubiquity_test_assert_true(
             apply_metadata_block(synchronizer, block_id_0, 1,
                     model_id_1, 999,
-                        feedback_events(2,
-                                event_id_1, feedback_delay_1,
-                                event_id_2, feedback_delay_2
+                        feedbacks(2,
+                                feedback_id_1, feedback_delay_1,
+                                feedback_id_2, feedback_delay_2
                         ),
                         feature_types(2,
                                 FEATURE_TYPE_CATEGORICAL,
@@ -913,12 +913,12 @@ int metadata_update(void)
     ubiquity_test_assert_not_null(model_info);
     ubiquity_test_assert_true(model_info_has_metadata(model_info));
 
-    // Same attributes as before except for the event list.
+    // Same attributes as before except for the feedback list.
     ubiquity_test_assert_equal(model_info->model_id, model_id_1);
     ubiquity_test_assert_equal(model_info->application_id, application_id_1);
-    ubiquity_test_assert_equal(model_info->event_type_count, 2);
-    ubiquity_test_assert_equal(model_info->event_id_list.elements[0], event_id_1);
-    ubiquity_test_assert_equal(model_info->event_id_list.elements[1], event_id_2);
+    ubiquity_test_assert_equal(model_info->feedback_count, 2);
+    ubiquity_test_assert_equal(model_info->feedback_id_list.elements[0], feedback_id_1);
+    ubiquity_test_assert_equal(model_info->feedback_id_list.elements[1], feedback_id_2);
     ubiquity_test_assert_equal(model_info->feedback_delay_list.elements[0], feedback_delay_1);
     ubiquity_test_assert_equal(model_info->feedback_delay_list.elements[1], feedback_delay_2);
     ubiquity_test_assert_equal(model_info->feature_type_count, 5);
@@ -945,9 +945,9 @@ int metadata_update(void)
     // Add metadata for model 2.
     ubiquity_test_assert_true(
             apply_metadata_block(synchronizer, block_id_0, 1,
-                    model_id_2, application_id_2, feedback_events(2,
-                                event_id_1, feedback_delay_1,
-                                event_id_2, feedback_delay_2
+                    model_id_2, application_id_2, feedbacks(2,
+                                feedback_id_1, feedback_delay_1,
+                                feedback_id_2, feedback_delay_2
                             ), feature_types(2,
                                     FEATURE_TYPE_CATEGORICAL,
                                     FEATURE_TYPE_NUMERIC
@@ -966,9 +966,9 @@ int metadata_update(void)
 
     ubiquity_test_assert_equal(model_info->model_id, model_id_2);
     ubiquity_test_assert_equal(model_info->application_id, application_id_2);
-    ubiquity_test_assert_equal(model_info->event_type_count, 2);
-    ubiquity_test_assert_equal(model_info->event_id_list.elements[0], event_id_1);
-    ubiquity_test_assert_equal(model_info->event_id_list.elements[1], event_id_2);
+    ubiquity_test_assert_equal(model_info->feedback_count, 2);
+    ubiquity_test_assert_equal(model_info->feedback_id_list.elements[0], feedback_id_1);
+    ubiquity_test_assert_equal(model_info->feedback_id_list.elements[1], feedback_id_2);
     ubiquity_test_assert_equal(model_info->feedback_delay_list.elements[0], feedback_delay_1);
     ubiquity_test_assert_equal(model_info->feedback_delay_list.elements[1], feedback_delay_2);
     ubiquity_test_assert_equal(model_info->feature_type_count, 2);
@@ -984,8 +984,8 @@ int metadata_update(void)
     ubiquity_test_assert_true(
             apply_metadata_block(synchronizer, block_id_0, 2,
                     model_id_1, application_id_1,
-                        feedback_events(1,
-                                event_id_1, feedback_delay_1
+                        feedbacks(1,
+                                feedback_id_1, feedback_delay_1
                         ),
                         feature_types(5,
                                 FEATURE_TYPE_CATEGORICAL,
@@ -995,9 +995,9 @@ int metadata_update(void)
                                 FEATURE_TYPE_NUMERIC
                         ),
                     model_id_2, application_id_2,
-                        feedback_events(2,
-                                event_id_1, feedback_delay_1,
-                                event_id_2, feedback_delay_2
+                        feedbacks(2,
+                                feedback_id_1, feedback_delay_1,
+                                feedback_id_2, feedback_delay_2
                         ),
                         feature_types(2,
                                 FEATURE_TYPE_CATEGORICAL,
@@ -1017,8 +1017,8 @@ int metadata_update(void)
 
     ubiquity_test_assert_equal(model_info->model_id, model_id_1);
     ubiquity_test_assert_equal(model_info->application_id, application_id_1);
-    ubiquity_test_assert_equal(model_info->event_type_count, 1);
-    ubiquity_test_assert_equal(model_info->event_id_list.elements[0], event_id_1);
+    ubiquity_test_assert_equal(model_info->feedback_count, 1);
+    ubiquity_test_assert_equal(model_info->feedback_id_list.elements[0], feedback_id_1);
     ubiquity_test_assert_equal(model_info->feedback_delay_list.elements[0], feedback_delay_1);
     ubiquity_test_assert_equal(model_info->feature_type_count, 5);
     ubiquity_test_assert_true(
@@ -1040,9 +1040,9 @@ int metadata_update(void)
 
     ubiquity_test_assert_equal(model_info->model_id, model_id_2);
     ubiquity_test_assert_equal(model_info->application_id, application_id_2);
-    ubiquity_test_assert_equal(model_info->event_type_count, 2);
-    ubiquity_test_assert_equal(model_info->event_id_list.elements[0], event_id_1);
-    ubiquity_test_assert_equal(model_info->event_id_list.elements[1], event_id_2);
+    ubiquity_test_assert_equal(model_info->feedback_count, 2);
+    ubiquity_test_assert_equal(model_info->feedback_id_list.elements[0], feedback_id_1);
+    ubiquity_test_assert_equal(model_info->feedback_id_list.elements[1], feedback_id_2);
     ubiquity_test_assert_equal(model_info->feedback_delay_list.elements[0], feedback_delay_1);
     ubiquity_test_assert_equal(model_info->feedback_delay_list.elements[1], feedback_delay_2);
     ubiquity_test_assert_equal(model_info->feature_type_count, 2);
@@ -1085,7 +1085,7 @@ int metadata_sharding_update(void)
     size_t block_id_0 = 0;
     const model_id_t model_id_1 = 1;
     const application_id_t application_id_1 = 2;
-    const event_id_t event_id_1 = 111;
+    const feedback_id_t feedback_id_1 = 111;
     const feedback_delay_t feedback_delay_1 = 3;
     const ip4_t ip_1 = 123;
 
@@ -1126,8 +1126,8 @@ int metadata_sharding_update(void)
     ubiquity_test_assert_true(
             apply_metadata_block(synchronizer, block_id_0, 1,
                     model_id_1, application_id_1,
-                        feedback_events(1,
-                                event_id_1, feedback_delay_1
+                        feedbacks(1,
+                                feedback_id_1, feedback_delay_1
                         ),
                         feature_types(5,
                                 FEATURE_TYPE_CATEGORICAL,
@@ -1211,8 +1211,8 @@ int metadata_sharding_update(void)
     ubiquity_test_assert_true(
             apply_metadata_block(synchronizer, block_id_0, 1,
                     model_id_1, application_id_1,
-                        feedback_events(1,
-                                event_id_1, feedback_delay_1
+                        feedbacks(1,
+                                feedback_id_1, feedback_delay_1
                         ),
                         feature_types(5,
                                 FEATURE_TYPE_CATEGORICAL,

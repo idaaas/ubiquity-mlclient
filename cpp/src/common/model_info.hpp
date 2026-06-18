@@ -70,11 +70,11 @@ static inline feature_type_t feature_type_list_get_element(
     Feedback delay list.
 */
 
-#define MAXIMUM_EVENT_LEVEL 8
+#define MAXIMUM_FEEDBACK_LEVEL 8
 
 typedef uint32_t feedback_delay_t;
 typedef struct feedback_delay_list_s {
-    feedback_delay_t elements[MAXIMUM_EVENT_LEVEL];
+    feedback_delay_t elements[MAXIMUM_FEEDBACK_LEVEL];
 } feedback_delay_list_t;
 
 static inline void feedback_delay_list_reset(
@@ -89,23 +89,23 @@ static inline void feedback_delay_list_reset(
 }
 
 /*
-    Event id list.
+    Feedback id list.
 */
 
-typedef uint64_t event_id_t;
+typedef uint64_t feedback_id_t;
 
-typedef struct event_id_list_s {
-    event_id_t elements[MAXIMUM_EVENT_LEVEL];
-} event_id_list_t;
+typedef struct feedback_id_list_s {
+    feedback_id_t elements[MAXIMUM_FEEDBACK_LEVEL];
+} feedback_id_list_t;
 
-static inline void event_id_list_reset(
-        event_id_list_t *const event_id_list
+static inline void feedback_id_list_reset(
+        feedback_id_list_t *const feedback_id_list
         )
 {
     memset(
-            event_id_list,
+            feedback_id_list,
             0,
-            sizeof(*event_id_list)
+            sizeof(*feedback_id_list)
             );
 }
 
@@ -121,9 +121,9 @@ typedef int16_t application_id_t;
 typedef struct model_info_s {
     model_id_t model_id;
     application_id_t application_id;
-    size_t event_type_count;
+    size_t feedback_count;
     size_t feature_type_count;
-    event_id_list_t event_id_list;
+    feedback_id_list_t feedback_id_list;
     feedback_delay_list_t feedback_delay_list;
     feature_type_list_t feature_type_list;
     ip_set_t compatible_node_set;
@@ -166,11 +166,11 @@ static inline application_id_t model_info_get_application_id(
     return model_info->application_id;
 }
 
-static inline size_t model_info_get_event_type_count(
+static inline size_t model_info_get_feedback_count(
         const model_info_t *const model_info
         )
 {
-    return model_info->event_type_count;
+    return model_info->feedback_count;
 }
 
 static inline size_t model_info_get_feature_type_count(
@@ -180,50 +180,50 @@ static inline size_t model_info_get_feature_type_count(
     return model_info->feature_type_count;
 }
 
-static inline event_id_t model_info_get_event_id(
+static inline feedback_id_t model_info_get_feedback_id(
         const model_info_t *const model_info,
         const size_t index
         )
 {
-    return model_info->event_id_list.elements[index];
+    return model_info->feedback_id_list.elements[index];
 }
 
-static inline size_t model_info_find_event_level(
+static inline size_t model_info_find_feedback_level(
         const model_info_t *const model_info,
-        const char* const encoded_event_id
+        const char* const feedback_name
         )
 {
-    const event_id_t event_id = XXH3_64bits(
-            encoded_event_id,
-            strlen(encoded_event_id)
+    const feedback_id_t feedback_id = XXH3_64bits(
+            feedback_name,
+            strlen(feedback_name)
             );
-    size_t event_level = 0;
-    while (event_level < MAXIMUM_EVENT_LEVEL && event_id != model_info_get_event_id(
+    size_t feedback_level = 0;
+    while (feedback_level < MAXIMUM_FEEDBACK_LEVEL && feedback_id != model_info_get_feedback_id(
                 model_info,
-                event_level
+                feedback_level
                 )) {
-        ++event_level;
+        ++feedback_level;
     }
-    return event_level;
+    return feedback_level;
 }
 
-static inline void model_info_clear_event_type_list(
+static inline void model_info_clear_feedback_list(
         model_info_t *const model_info
         )
 {
-    model_info->event_type_count = 0;
+    model_info->feedback_count = 0;
 }
 
-static inline void model_info_add_event_type(
+static inline void model_info_add_feedback(
         model_info_t *const model_info,
-        const event_id_t event_id,
+        const feedback_id_t feedback_id,
         const feedback_delay_t feedback_delay
         )
 {
-    const size_t event_type_count = model_info->event_type_count;
-    model_info->feedback_delay_list.elements[event_type_count] = feedback_delay;
-    model_info->event_id_list.elements[event_type_count] = event_id;
-    model_info->event_type_count = event_type_count + 1;
+    const size_t feedback_count = model_info->feedback_count;
+    model_info->feedback_delay_list.elements[feedback_count] = feedback_delay;
+    model_info->feedback_id_list.elements[feedback_count] = feedback_id;
+    model_info->feedback_count = feedback_count + 1;
 }
 
 static inline int64_t model_info_get_feedback_delay(
@@ -234,18 +234,18 @@ static inline int64_t model_info_get_feedback_delay(
     return model_info->feedback_delay_list.elements[index];
 }
 
-static inline void model_info_set_event_list(
+static inline void model_info_set_feedback_list(
         model_info_t *const model_info,
-        const event_id_list_t *const event_id_list,
+        const feedback_id_list_t *const feedback_id_list,
         const feedback_delay_list_t *const feedback_delay_list,
-        const size_t event_type_count
+        const size_t feedback_count
         )
 {
-    for (size_t event_index = 0; event_index < MAXIMUM_EVENT_LEVEL; ++event_index) {
-        model_info->event_id_list.elements[event_index] = event_id_list->elements[event_index];
-        model_info->feedback_delay_list.elements[event_index] = feedback_delay_list->elements[event_index];
+    for (size_t feedback_index = 0; feedback_index < MAXIMUM_FEEDBACK_LEVEL; ++feedback_index) {
+        model_info->feedback_id_list.elements[feedback_index] = feedback_id_list->elements[feedback_index];
+        model_info->feedback_delay_list.elements[feedback_index] = feedback_delay_list->elements[feedback_index];
     }
-    model_info->event_type_count = event_type_count;
+    model_info->feedback_count = feedback_count;
 }
 
 static inline bool model_info_feature_type_lists_are_identical(
@@ -352,7 +352,7 @@ static inline void model_info_copy(
 {
     model_info_initialize(dst, src->model_id);
     model_info_set_application_id(dst, src->application_id);
-    model_info_set_event_list(dst, &src->event_id_list, &src->feedback_delay_list, src->event_type_count);
+    model_info_set_feedback_list(dst, &src->feedback_id_list, &src->feedback_delay_list, src->feedback_count);
     model_info_set_feature_type_list(dst, &src->feature_type_list, src->feature_type_count);
     dst->compatible_node_set.clear();
     dst->compatible_node_set = src->compatible_node_set;

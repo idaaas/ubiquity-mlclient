@@ -557,7 +557,7 @@ static inline status_code_t client_handle_check_feedback_setup_errors(
     model_info_t *model_info = client_handle_get_model_info(client_handle);
     uint8_t error_level =
         (0 == client_handle->message.application.model_id) * 7
-        | (client_handle->message.application.feedback_level_or_feature_list_length >= model_info_get_event_type_count(model_info));
+        | (client_handle->message.application.feedback_level_or_feature_list_length >= model_info_get_feedback_count(model_info));
     error_level |= 3 * !model_info_has_metadata(model_info);
     client_handle->status_code = static_cast<status_code_t>(status_code_per_error_level[error_level]);
     return client_handle->status_code;
@@ -567,7 +567,7 @@ static inline status_code_t client_handle_train_impl(
         client_handle_t *const client_handle,
         const char *encoded_model_id,
         int64_t query_id,
-        const char* const encoded_event_id,
+        const char* const feedback_name,
         const uint16_t feedback_level
         ) noexcept
 {
@@ -579,18 +579,18 @@ static inline status_code_t client_handle_train_impl(
             );
     model_info_t *model_info = client_handle_get_model_info(client_handle);
     client_handle->message.common.version = SERIALIZATION_VERSION;
-    size_t event_level = feedback_level;
-    if (MAXIMUM_EVENT_LEVEL == event_level) {
-        event_level = model_info_find_event_level(
+    size_t level = feedback_level;
+    if (MAXIMUM_FEEDBACK_LEVEL == level) {
+        level = model_info_find_feedback_level(
                 model_info,
-                encoded_event_id
+                feedback_name
                 );
     }
-    client_handle->message.application.feedback_level_or_feature_list_length = event_level;
+    client_handle->message.application.feedback_level_or_feature_list_length = level;
     client_handle->state = handle_state_t::TRAINED;
     client_handle->error_origin = error_origin_t::TRAIN;
     client_handle->message.feedback.event_occured = 1;
-    if (0 == event_level) {
+    if (0 == level) {
         client_handle->message.feedback_first_level.weight = 1.0;
     }
 
@@ -606,14 +606,14 @@ static inline status_code_t client_handle_train_impl(
         return client_handle->status_code;
     }
 
-    // Loading feedback delays. Must only happens after checking setup errors to avoid invalid event index !
+    // Loading feedback delays. Must only happens after checking setup errors to avoid invalid feedback index !
     client_handle->message.feedback.feedback_delay = model_info_get_feedback_delay(
             model_info,
-            event_level
+            level
             );
     client_handle->message.feedback.next_feedback_delay = model_info_get_feedback_delay(
             model_info,
-            event_level + 1
+            level + 1
             );
 
     // Send the feedback message.
@@ -623,7 +623,7 @@ static inline status_code_t client_handle_train_impl(
             client_handle->message.application.query_id,    // Use query id as a balance key.
             STREAM_ID_FEEDBACK,
             client_handle->message.buffer,
-            0 == event_level
+            0 == level
                 ? sizeof(message_feedback_first_level_t)
                 : sizeof(message_feedback_t)
             );
@@ -657,15 +657,15 @@ status_code_t client_handle_train(
         client_handle_t *const client_handle,
         const char *encoded_model_id,
         int64_t query_id,
-        const char* const encoded_event_id
+        const char* const feedback_name
         ) noexcept
 {
     return client_handle_train_impl(
             client_handle,
             encoded_model_id,
             query_id,
-            encoded_event_id,
-            MAXIMUM_EVENT_LEVEL
+            feedback_name,
+            MAXIMUM_FEEDBACK_LEVEL
             );
 }
 
@@ -1039,10 +1039,10 @@ const char *client_handle_get_diagnostic_string(
             << " unless you provided a well-formed model ID but it corresponds to no existing model."
             << "\nIn most cases, i.e. when you're certain the model IDs you provide correspond to existing models, you can simply ignore client_handle error or loop until it disappears.";
     } else if (error_origin_t::TRAIN == client_handle->error_origin || error_origin_t::CANCEL == client_handle->error_origin) {
-        if (client_handle->message.application.feedback_level_or_feature_list_length >= model_info_get_event_type_count(model_info)) {
+        if (client_handle->message.application.feedback_level_or_feature_list_length >= model_info_get_feedback_count(model_info)) {
             diagnostic_string << "\n\nError #" << std::to_string(++error_count) << ": "
                 << "The feedback level [" << client_handle->message.application.feedback_level_or_feature_list_length << "] you provided to `" << error_origin_t::function_name[client_handle->error_origin]
-                << "` exceeds model " << client_handle->encoded_model_id << " 's maximum feedback level [" << model_info_get_event_type_count(model_info) << "].";
+                << "` exceeds model " << client_handle->encoded_model_id << " 's maximum feedback level [" << model_info_get_feedback_count(model_info) << "].";
         }
     } else if (error_origin_t::PREDICT == client_handle->error_origin) {
         base_32C_encode(client_handle->encoded_model_id, &client_handle->message.application.model_id);
