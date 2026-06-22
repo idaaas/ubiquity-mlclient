@@ -109,7 +109,6 @@ namespace Ubiquity {
                 void startLineItem(const float maxCPM, const float bidFloor=0.01f, const int32_t exposureCount=0) noexcept;
                 void startActionRate(const float bidPrice, const float bidFloor=0.01F, const int32_t exposureCount=0) noexcept;
                 void startProbability(void) noexcept;
-                int32_t trainWithLevel(const char *modelId, int64_t queryId, const uint16_t feedback_level) noexcept;
                 int32_t train(const char *modelId, int64_t queryId, const uint16_t feedback_level) noexcept;
                 int32_t cancel(const char *modelId, int64_t queryId) noexcept;
                 const char *getDiagnosticString() noexcept;

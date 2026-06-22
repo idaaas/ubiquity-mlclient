@@ -91,10 +91,6 @@ Ubiquity::StatusCode Ubiquity::ClientHandle::predict(const char *modelId, const 
     return client_handle_predict(reinterpret_cast<client_handle_t *>(this->pimpl), modelId, queryId);
 }
 
-Ubiquity::StatusCode Ubiquity::ClientHandle::trainWithLevel(const char *modelId, const int64_t queryId, const uint16_t feedback_level) noexcept {
-    return client_handle_train_with_level(reinterpret_cast<client_handle_t *>(this->pimpl), modelId, queryId, feedback_level);
-}
-
 Ubiquity::StatusCode Ubiquity::ClientHandle::train(const char *modelId, const int64_t queryId, const uint16_t feedback_level) noexcept {
     return client_handle_train_with_level(reinterpret_cast<client_handle_t *>(this->pimpl), modelId, queryId, feedback_level);
 }
