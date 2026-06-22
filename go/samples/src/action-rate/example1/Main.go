@@ -154,14 +154,14 @@ func example1() int {
 			feedback = feedbackHashMap[queryId]
 
 			// 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
-			clientHandle.TrainWithLevel(modelId, queryId, 0)
+			clientHandle.Train(modelId, queryId, 0)
 			// 4.5.2 send a positive feedback of level 1 only when it is positive
 			if feedback.Level1 {
-				clientHandle.TrainWithLevel(modelId, queryId, 1)
+				clientHandle.Train(modelId, queryId, 1)
 			}
 			// 4.5.3 send a positive feedback of level 2 only when it is positive
 			if feedback.Level2 {
-				clientHandle.TrainWithLevel(modelId, queryId, 2)
+				clientHandle.Train(modelId, queryId, 2)
 			}
 		}
 

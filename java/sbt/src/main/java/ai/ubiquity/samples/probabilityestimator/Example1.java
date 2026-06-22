@@ -117,11 +117,11 @@ public class Example1 {
       feedback = feedbackHashMap.get(queryId);
       // 4.5.1 validate the query with a level 0 feedback
       // After calling the feedback level 0, no cancellation is allowed
-      clientHandle.trainWithLevel(modelId, queryId, 0);
+      clientHandle.train(modelId, queryId, 0);
 
       // 4.5.2 send a positive feedback of level 1 only when it is positive
       if (feedback.getLevel1()) {
-        clientHandle.trainWithLevel(modelId, queryId, 1);
+        clientHandle.train(modelId, queryId, 1);
       }
     }
     clientHandle.close();
