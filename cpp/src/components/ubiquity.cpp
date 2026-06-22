@@ -71,7 +71,7 @@ static inline status_code_t ubiquity_initialize(void) noexcept
         LOG_CRITICAL_1(s_logger, "event=ubiquity_initialize status={} msg=\"Ubiquity : No connection module available.\"",
                 ubiquity_get_status_string(STATUS_CODE_AERON_INITIALIZATION_FAILED)
                 );
-        return STATUS_CODE_ARCHITECTURE_NOT_SUPPORTED;
+        return STATUS_CODE_AERON_INITIALIZATION_FAILED;
     }
 
     // Sleep for a random duration between 0 and 2 seconds in order to desynchronize clients.
@@ -109,18 +109,18 @@ void ubiquity_set_api_address(
 }
 
 void ubiquity_set_resource_string_in_cache(
-        const char *const id,
+        const char *const cluster_id,
         const char *const resource_string
         ) noexcept
 {
     if (UBIQUITY_LOGGER_NULL != s_logger) {
         LOG_INFO_1(
                 s_logger,
-                "event=set_resource_in_cache id={} msg=\"Ubiquity : Resource manually set in cache.\"",
-                id
+                "event=set_resource_in_cache cluster={} msg=\"Ubiquity : Resource manually set in cache.\"",
+                cluster_id
                 );
     }
-    web_client_set_resource_in_cache(id, resource_string);
+    web_client_set_resource_in_cache(cluster_id, resource_string);
 }
 
 /*

@@ -51,7 +51,7 @@ void node_client_init(
     ubiquity_prng_seed(&node_client->prng);
 
     // The new node client is ready.
-    LOG_DEBUG_2(node_client->logger, "node_client={} ip={} event=node_client_create msg=\"New node client created.\"",
+    LOG_DEBUG_2(node_client->logger, "event=node_client_create node_client={} ip={} msg=\"New node client created.\"",
             (void *)node_client,
             node_client->ip_string
             );
@@ -100,7 +100,7 @@ void node_client_delete(
         node_client_t *const node_client
         ) noexcept
 {
-    LOG_DEBUG_2(node_client->logger, "node_client={} ip={} event=node_client_delete",
+    LOG_DEBUG_2(node_client->logger, "event=node_client_delete node_client={} ip={}",
             (void *)node_client,
             node_client->ip_string
             ); 
@@ -185,7 +185,7 @@ void node_client_handle_connection_down(
         node_client->connection = nullptr;
 
         if (connection) {
-            LOG_DEBUG_2(node_client->logger, "node_client={} ip={} event=node_client_expired_connection",
+            LOG_DEBUG_2(node_client->logger, "event=node_client_expired_connection node_client={} ip={}",
                 (void *)node_client,
                 node_client->ip_string
                 ); 

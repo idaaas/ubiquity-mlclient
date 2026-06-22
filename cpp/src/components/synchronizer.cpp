@@ -627,10 +627,9 @@ static void topology_update_element(
     topology_element_t *const old_element = (topology_element_t *)old_list + old_index;
     // Set new node weight if different from old one.
     if (old_element->weight != new_element->weight) {
-         LOG_DEBUG_2(
+         LOG_DEBUG_1(
             synchronizer->logger,
-            "cluster={} event=topology_update_element ip={}",
-            synchronizer->cluster_id,
+            "event=topology_update_element ip={}",
             get_ip_string(old_element->ip)
             );
         auto it = synchronizer->node_clients.find(new_element->ip);
@@ -649,10 +648,9 @@ static void topology_remove_old_element(
         ) noexcept
 {
     const topology_element_t *const old_element = (topology_element_t *)element_list + index;
-    LOG_DEBUG_2(
+    LOG_DEBUG_1(
             synchronizer->logger,
-            "cluster={} event=topology_remove_old_element ip={}",
-            synchronizer->cluster_id,
+            "event=topology_remove_old_element ip={}",
             get_ip_string(old_element->ip)
             );
     // decrement ref count, which will trigger connection termination once ref count = 0     
@@ -674,10 +672,9 @@ static void topology_add_new_element(
         ) noexcept
 {
     const topology_element_t *const new_element = (topology_element_t *)element_list + index;
-    LOG_DEBUG_2(
+    LOG_DEBUG_1(
             synchronizer->logger,
-            "cluster={} event=topology_add_new_element ip={}",
-            synchronizer->cluster_id,
+            "event=topology_add_new_element ip={}",
             get_ip_string(new_element->ip)
             );
     // If the IP is already bound to a node client, skip it.
@@ -688,17 +685,16 @@ static void topology_add_new_element(
     }
     if (existing_client) {
         node_client_set_weight(existing_client.get(), new_element->weight);
-        LOG_DEBUG_2(
+        LOG_DEBUG_1(
             synchronizer->logger,
-            "cluster={} event=topology_add_new_element_skipped ip={}",
-            synchronizer->cluster_id,
+            "event=topology_add_new_element_skipped ip={}",
             get_ip_string(new_element->ip)
         );
         return;
     }
-    LOG_DEBUG_2(
-        synchronizer->logger, "cluster={} event=node_client_create ip={} msg=\"New node client is being created.\"",
-        synchronizer->cluster_id,
+    LOG_DEBUG_1(
+        synchronizer->logger, 
+        "event=node_client_create ip={} msg=\"New node client is being created.\"",
         get_ip_string(new_element->ip)
         );
 
@@ -723,10 +719,9 @@ static void topology_add_new_element(
             );                                                                                                         \
                                                                                                                        \
     if (0 != memcmp(&new_block_hash, block_hash, sizeof(block_hash_t))) {                                              \
-        LOG_ERROR_7(                                                                                                   \
+        LOG_ERROR_6(                                                                                                   \
                 synchronizer->logger,                                                                                  \
-                "cluster={} event=apply_block_update status=MISMATCHED_BLOCK_HASH block_type={} block_index={} received_block_hash={:x}{:x} expected_block_hash={:x}{:x} msg=\"Received block hash does not match expected block hash as defined in received block header.\"",\
-                synchronizer->cluster_id,                                                                              \
+                "event=apply_block_update status=MISMATCHED_BLOCK_HASH block_type={} block_index={} received_block_hash={:x}{:x} expected_block_hash={:x}{:x} msg=\"Received block hash does not match expected block hash as defined in received block header.\"",\
                 #block_type,                                                                                           \
                 block_index,                                                                                           \
                 new_block_hash.chunks[1],                                                                              \
@@ -989,7 +984,7 @@ static inline void synchronizer_parse_block_update_message(
     if (0 == (message->common.type & MESSAGE_TYPE_MASK_BLOCK_UPDATE)) {
         LOG_WARNING_4(
                 synchronizer->logger,
-                "node_client={} ip={} event=invalid_sync_message_type type={} size={} msg=\"Node client : Received synchronization message with invalid type.\"",
+                "event=invalid_sync_message_type node_client={} ip={} type={} size={} msg=\"Node client : Received synchronization message with invalid type.\"",
                 (void *)node_client,
                 get_ip_string(
                         node_client_get_ip(node_client)
@@ -999,23 +994,21 @@ static inline void synchronizer_parse_block_update_message(
                 );
         return;
     }
-    if(message->common.type == 0x80){
-        LOG_DEBUG_4(
-            synchronizer->logger,
-            "node_client={} ip={} event=sync_message_received type={} size={}",
-            (void *)node_client,
-            get_ip_string(
-                    node_client_get_ip(node_client)
-                    ),
-            message_type_get_string(message->common.type),
-            synchronizer->message_size
-            );
-    }
+    LOG_DEBUG_4(
+        synchronizer->logger,
+        "event=sync_message_received node_client={} ip={} type={} size={}",
+        (void *)node_client,
+        get_ip_string(
+                node_client_get_ip(node_client)
+                ),
+        message_type_get_string(message->common.type),
+        synchronizer->message_size
+        );
 
     if (EMPTY_BLOCK_UPDATE_MESSAGE_SIZE > synchronizer->message_size) {
         LOG_WARNING_4(
                 synchronizer->logger,
-                "node_client={} ip={} event=incomplete_block_message minimal_size={} actual_size={}",
+                "event=incomplete_block_message node_client={} ip={} minimal_size={} actual_size={}",
                 (void *)node_client,
                 get_ip_string(
                         node_client_get_ip(node_client)
@@ -1030,19 +1023,10 @@ static inline void synchronizer_parse_block_update_message(
 
     // Assert computed size of the new block matches provided size of new block.
     const size_t block_size = synchronizer->message_size - EMPTY_BLOCK_UPDATE_MESSAGE_SIZE;
-    if (BLOCK_TYPE_TOPOLOGY == block_type && block_size >= sizeof(topology_element_t)) {
-        LOG_DEBUG_3(
-                synchronizer->logger,
-                "node_client={} ip={} event=topology_block_update first_element_ip={}",
-                (void *)node_client,
-                get_ip_string(node_client_get_ip(node_client) ),
-                get_ip_string(((topology_element_t *)message->block_update.block_content)->ip)
-                );
-    }
     if (message->block_update.block_size != block_size) {
         LOG_WARNING_4(
                 synchronizer->logger,
-                "node_client={} ip={} event=mismatched_block_size indicated_size={} actual_size={}",
+                "event=mismatched_block_size node_client={} ip={} indicated_size={} actual_size={}",
                 (void *)node_client,
                 get_ip_string(
                         node_client_get_ip(node_client)

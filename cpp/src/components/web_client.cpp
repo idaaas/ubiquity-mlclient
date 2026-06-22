@@ -121,7 +121,7 @@ static inline status_code_t fetch_resource_from_rest_api(
     if (200 != http_status) {
         LOG_ERROR_3(
                 web_client->logger,
-                "cluster={} event=fetch_resource_from_rest_api url={} http_status={} msg=\"Web client : Http error.\"",
+                "event=fetch_resource_from_rest_api cluster={} url={} http_status={} msg=\"Web client : Http error.\"",
                 web_client->cluster_id,
                 url,
                 http_status
@@ -132,7 +132,7 @@ static inline status_code_t fetch_resource_from_rest_api(
 
 static std::map<std::string, std::string> s_resource_cache;
 
-static inline const std::string consume_resource_string_from_cache(
+static inline const std::string consume_resource_in_cache(
         const std::string &resource_id
         ) noexcept
 {
@@ -196,15 +196,15 @@ status_code_t web_client_get_cluster_info(
 {
     LOG_TRACE_1(
             web_client->logger,
-            "event=consume_resource_string_from_cache id={} msg=\"Web client : Looking for string resource in cache.\"",
+            "event=consume_resource_in_cache cluster={} msg=\"Web client : Looking for string resource in cache.\"",
             web_client->cluster_id
             );
-    std::string config_string = consume_resource_string_from_cache(web_client->cluster_id);
+    std::string config_string = consume_resource_in_cache(web_client->cluster_id);
     if (config_string.empty()) {
         web_client->resource_string = &config_string;
         LOG_DEBUG_1(
                 web_client->logger,
-                "cluster={} event=load_configuration msg=\"Web client : Cluster information not in cache ; fetching it through the web API.\"",
+                "event=load_configuration cluster={} msg=\"Web client : Cluster information not in cache ; fetching it through the web API.\"",
                 web_client->cluster_id
                 );
         status_code_t status_code = fetch_resource_from_rest_api(
@@ -214,7 +214,7 @@ status_code_t web_client_get_cluster_info(
         if (STATUS_CODE_SUCCESS != status_code) {
             LOG_ERROR_2(
                     web_client->logger,
-                    "cluster={} event=get_cluster_info status={} msg=\"Web client : Failed to fetch cluster information through the web API.\"",
+                    "event=get_cluster_info cluster={} status={} msg=\"Web client : Failed to fetch cluster information through the web API.\"",
                     web_client->cluster_id,
                     ubiquity_get_status_string(status_code)
                     );
@@ -223,7 +223,7 @@ status_code_t web_client_get_cluster_info(
     } else {
         LOG_DEBUG_1(
                 web_client->logger,
-                "cluster={} event=load_configuration msg=\"Web client : Cluster information consumed from cache.\"",
+                "event=load_configuration cluster={} msg=\"Web client : Cluster information consumed from cache.\"",
                 web_client->cluster_id
                 );
     }

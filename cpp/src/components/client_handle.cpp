@@ -249,8 +249,7 @@ client_handle_t *client_handle_create(
     // One more handle uses the cluster client.
     cluster_client_increment_use_count(cluster_client);
 
-    LOG_INFO_3(client_handle->logger, "cluster={} event=handle_create handle={:x} status={}",
-            client_handle->cluster_id,
+    LOG_INFO_2(client_handle->logger, "event=handle_create handle={:x} status={}",
             client_handle->id,
             ubiquity_get_status_string(client_handle->status_code)
             );
@@ -277,8 +276,7 @@ client_handle_t *client_handle_delete(
 {
     client_handle_get_invalid_handle();
     if (s_invalid_handle != client_handle) {
-        LOG_INFO_2(client_handle->logger, "cluster={} event=handle_delete handle={:x}",
-                client_handle->cluster_id,
+        LOG_INFO_1(client_handle->logger, "event=handle_delete handle={:x}",
                 client_handle->id
                 );
         cluster_client_decrement_use_count(client_handle->cluster_client);
@@ -337,7 +335,7 @@ void client_handle_start_bid_shading(
     client_handle->message.bid_shading_query.bid_floor = bid_floor;
     client_handle->message.bid_shading_query.bid_price = bid_price;
     client_handle->message.bid_shading_query.optimization_mode = optimization_mode;
-    LOG_DEBUG_4(client_handle->logger, "handle={:x} event=start_query application=bid_shading bid_price={} bid_floor={} optimization_mode={}",
+    LOG_DEBUG_4(client_handle->logger, " event=start_query handle={:x} application=bid_shading bid_price={} bid_floor={} optimization_mode={}",
             client_handle->id,
             bid_price,
             bid_floor,
@@ -353,7 +351,7 @@ void client_handle_start_probability(
             client_handle,
             APPLICATION_TYPE_PROBABILITY
             );
-    LOG_DEBUG_1(client_handle->logger, "handle={:x} event=start_query application=probability",
+    LOG_DEBUG_1(client_handle->logger, "event=start_query handle={:x} application=probability",
             client_handle->id
             );
 }
@@ -372,7 +370,7 @@ void client_handle_start_line_item(
     client_handle->message.line_item_query.max_cpm = max_cpm;
     client_handle->message.line_item_query.bid_floor = bid_floor;
     client_handle->message.line_item_query.exposure_count = exposure_count;
-    LOG_DEBUG_4(client_handle->logger, "handle={:x} event=start_query application=line_item max_cpm={} bid_floor={} exposure_count={}",
+    LOG_DEBUG_4(client_handle->logger, "event=start_query handle={:x} application=line_item max_cpm={} bid_floor={} exposure_count={}",
             client_handle->id,
             max_cpm,
             bid_floor,
@@ -394,7 +392,7 @@ void client_handle_start_action_rate(
     client_handle->message.action_rate_query.bid_price = bid_price;
     client_handle->message.action_rate_query.bid_floor = bid_floor;
     client_handle->message.action_rate_query.exposure_count = exposure_count;
-    LOG_DEBUG_4(client_handle->logger, "handle={:x} event=start_query application=action_rate bid_price={} bid_floor={} exposure_count={}",
+    LOG_DEBUG_4(client_handle->logger, "event=start_query handle={:x} application=action_rate bid_price={} bid_floor={} exposure_count={}",
             client_handle->id,
             bid_price,
             bid_floor,
@@ -493,7 +491,7 @@ status_code_t client_handle_predict(
             );
     client_handle->error_origin = error_origin_t::PREDICT;
     if (STATUS_CODE_SUCCESS != client_handle_check_predict_setup_errors(client_handle)) {
-        LOG_ERROR_5(client_handle->logger, "handle={:x} event=predict model_id={} query_id={} internal_query_id={} status={}",
+        LOG_ERROR_5(client_handle->logger, "event=predict handle={:x} model_id={} query_id={} internal_query_id={} status={}",
                 client_handle->id,
                 encoded_model_id,
                 query_id,
@@ -531,7 +529,7 @@ status_code_t client_handle_predict(
             client_handle->offset
             );
     if (STATUS_CODE_SUCCESS == client_handle->status_code) {
-            LOG_DEBUG_5(client_handle->logger, "handle={:x} event=predict model_id={} query_id={} internal_query_id={} status={}",
+            LOG_DEBUG_5(client_handle->logger, "event=predict handle={:x} model_id={} query_id={} internal_query_id={} status={}",
             client_handle->id,
             encoded_model_id,
             query_id,
@@ -596,7 +594,7 @@ static inline status_code_t client_handle_train_impl(
 
     // Check if there were no error in setting up the feedback message.
     if (STATUS_CODE_SUCCESS != client_handle_check_feedback_setup_errors(client_handle)) {
-        LOG_ERROR_5(client_handle->logger, "handle={:x} event=train model_id={} query_id={} internal_query_id={} status={}",
+        LOG_ERROR_5(client_handle->logger, "event=train handle={:x} model_id={} query_id={} internal_query_id={} status={}",
                 client_handle->id,
                 encoded_model_id,
                 query_id,
@@ -627,7 +625,7 @@ static inline status_code_t client_handle_train_impl(
                 ? sizeof(message_feedback_first_level_t)
                 : sizeof(message_feedback_t)
             );
-    LOG_DEBUG_5(client_handle->logger, "handle={:x} event=train model_id={} query_id={} internal_query_id={} status={}",
+    LOG_DEBUG_5(client_handle->logger, "event=train handle={:x} model_id={} query_id={} internal_query_id={} status={}",
             client_handle->id,
             encoded_model_id,
             query_id,
@@ -691,7 +689,7 @@ status_code_t client_handle_cancel(
     client_handle->state = handle_state_t::CANCELED;
     client_handle->error_origin = error_origin_t::CANCEL;
     if (STATUS_CODE_SUCCESS != client_handle_check_feedback_setup_errors(client_handle)) {
-        LOG_ERROR_5(client_handle->logger, "handle={:x} event=cancel model_id={} query_id={}internal_query_id={} status={}",
+        LOG_ERROR_5(client_handle->logger, "event=cancel handle={:x} model_id={} query_id={}internal_query_id={} status={}",
                 client_handle->id,
                 encoded_model_id,
                 query_id,
@@ -709,7 +707,7 @@ status_code_t client_handle_cancel(
             client_handle->message.buffer,
             sizeof(message_cancel_t)
             );
-    LOG_DEBUG_5(client_handle->logger, "handle={:x} event=cancel model_id={} query_id={} internal_query_id={} status={}",
+    LOG_DEBUG_5(client_handle->logger, "event=cancel handle={:x} model_id={} query_id={} internal_query_id={} status={}",
             client_handle->id,
             encoded_model_id,
             query_id,
@@ -747,12 +745,12 @@ status_code_t client_handle_poll(
             if (__glibc_unlikely(MESSAGE_TYPE_PREDICTION != client_handle->message.common.type
                         || application_id >= static_cast<uint16_t>(APPLICATION_TYPE_COUNT)
                         || expected_input_message_size[application_id] != message_length)) {
-                LOG_WARNING_1(client_handle->logger, "handle={:x} event=poll status=INVALID_PREDICTION_RECEIVED",
+                LOG_WARNING_1(client_handle->logger, "event=poll handle={:x} status=INVALID_PREDICTION_RECEIVED",
                         client_handle->id
                         );
             } else {
                 client_handle->status_code = STATUS_CODE_SUCCESS;
-                LOG_DEBUG_4(client_handle->logger, "handle={:x} event=poll query_id={} internal_query_id={} status={}",
+                LOG_DEBUG_4(client_handle->logger, "event=poll handle={:x} query_id={} internal_query_id={} status={}",
                         client_handle->id,
                         0 + (client_handle->message.application.model_id ^ client_handle->message.application.query_id), 
                         0 + client_handle->message.application.query_id,
@@ -824,7 +822,7 @@ void client_handle_put_boolean(
             value,
             FEATURE_TYPE_BOOLEAN
             );
-    LOG_DEBUG_2(client_handle->logger, "handle={:x} event=put_boolean value={}",
+    LOG_DEBUG_2(client_handle->logger, "event=put_boolean handle={:x} value={}",
             client_handle->id,
             value
             );
@@ -840,7 +838,7 @@ void client_handle_put_categorical(
             value,
             FEATURE_TYPE_CATEGORICAL
             );
-    LOG_DEBUG_2(client_handle->logger, "handle={:x} event=put_categorical value={}",
+    LOG_DEBUG_2(client_handle->logger, "event=put_categorical handle={:x} value={}",
             client_handle->id,
             value
             );
@@ -857,7 +855,7 @@ void client_handle_put_nominal(
             value,
             FEATURE_TYPE_NOMINAL
             );
-    LOG_DEBUG_3(client_handle->logger, "handle={:x} event=put_nominal raw_value={} value={}",
+    LOG_DEBUG_3(client_handle->logger, "event=put_nominal handle={:x} raw_value={} value={}",
             client_handle->id,
             raw_value,
             value
@@ -875,7 +873,7 @@ void client_handle_put_numeric(
             *reinterpret_cast<const int32_t*>(val),
             FEATURE_TYPE_NUMERIC
             );
-    LOG_DEBUG_2(client_handle->logger, "handle={:x} event=put_numeric value={}",
+    LOG_DEBUG_2(client_handle->logger, "event=put_numeric handle={:x} value={}",
             client_handle->id,
             value
             );
@@ -887,7 +885,7 @@ void client_handle_put_creative(
         ) noexcept
 {
     client_handle->creative_reservoir[client_handle->num_creative++ & CREATIVE_COUNT_MASK] = creative_id;
-    LOG_DEBUG_2(client_handle->logger, "handle={:x} event=put_creative value={}",
+    LOG_DEBUG_2(client_handle->logger, "event=put_creative handle={:x} value={}",
             client_handle->id,
             creative_id
             );

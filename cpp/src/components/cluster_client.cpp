@@ -47,7 +47,7 @@ static inline status_code_t cluster_client_load_topology(
 {
     LOG_DEBUG_1(
             cluster_client->logger,
-            "cluster={} event=load_topology msg=\"Cluster client : Attempting to fetch and load cluster topology.\"",
+            "event=load_topology cluster={} msg=\"Cluster client : Attempting to fetch and load cluster topology.\"",
             cluster_client->cluster_id
             );
 
@@ -77,13 +77,13 @@ static inline status_code_t cluster_client_load_topology(
     if (STATUS_CODE_SUCCESS != status_code) {
         LOG_WARNING_1(
                 cluster_client->logger,
-                "cluster={} event=load_topology status=UNFETCHABLE_CLUSTER_TOPOLOGY msg=\"Failed to fetch cluster topology through the web API. Attempting to use the last known topology as a fallback.\"",
+                "event=load_topology cluster={} status=UNFETCHABLE_CLUSTER_TOPOLOGY msg=\"Failed to fetch cluster topology through the web API. Attempting to use the last known topology as a fallback.\"",
                 cluster_client->cluster_id
                 );
     } else {
         LOG_WARNING_1(
                 cluster_client->logger,
-                "cluster={} event=load_topology status=UNLOADABLE_CLUSTER_TOPOLOGY sub_status=INVALID_CLUSTER_TOPOLOGY msg=\"The cluster topology fetched through the web API is invalid. Attempting to use the last known topology as a fallback.\"",
+                "event=load_topology cluster={} status=UNLOADABLE_CLUSTER_TOPOLOGY sub_status=INVALID_CLUSTER_TOPOLOGY msg=\"The cluster topology fetched through the web API is invalid. Attempting to use the last known topology as a fallback.\"",
                 cluster_client->cluster_id
                 );
     }
@@ -100,7 +100,7 @@ static inline status_code_t cluster_client_load_topology(
     // If fetching and loading a new topology failed and there is no known valid topology to use as a fallback, the whole topology loading failed.
     LOG_ERROR_1(
             cluster_client->logger,
-            "cluster={} event=load_topology status=NO_CLUSTER_TOPOLOGY msg=\"Failed to fetch cluster topology through the web API or failed to load it.\" No known topology to use as a fallback.",
+            "event=load_topology cluster={} status=NO_CLUSTER_TOPOLOGY msg=\"Failed to fetch cluster topology through the web API or failed to load it.\" No known topology to use as a fallback.",
             cluster_client->cluster_id
             );
     return status_code;
@@ -146,7 +146,7 @@ static void cluster_client_thread_function(
 {
     LOG_INFO_1(
             cluster_client->logger,
-            "cluster={} event=ubiquity_open_client build={} msg=\"Ubiquity : Starting client.\"",
+            "event=ubiquity_open_client cluster={} msg=\"Ubiquity : Starting client.\"",
             cluster_client->cluster_id
             );
     cluster_client->is_gracefully_terminating = false;
@@ -180,7 +180,7 @@ static void cluster_client_thread_function(
                 && cluster_client_can_terminate(cluster_client)) {
             LOG_INFO_1(
                     cluster_client->logger,
-                    "cluster={} event=unbind_all_clients msg=\"Cluster client : Unbinding all node clients before termination.\"",
+                    "event=unbind_all_clients cluster={} msg=\"Cluster client : Unbinding all node clients before termination.\"",
                     cluster_client->cluster_id
                     );
             cluster_client->is_gracefully_terminating = true;
@@ -192,7 +192,7 @@ static void cluster_client_thread_function(
 
     LOG_INFO_1(
             cluster_client->logger,
-            "cluster={} event=terminate_thread msg=\"Cluster client : Terminating dedicated thread.\"",
+            "event=terminate_thread cluster={} msg=\"Cluster client : Terminating dedicated thread.\"",
             cluster_client->cluster_id
             );
 
@@ -328,7 +328,7 @@ void cluster_client_allow_termination(
         cluster_client_t *const cluster_client
         ) noexcept
 {
-    LOG_INFO_1(cluster_client->logger, "cluster={} event=close_client msg=\"Ubiquity : Authorizing cluster client termination.\"",
+    LOG_INFO_1(cluster_client->logger, "event=close_client cluster={} msg=\"Ubiquity : Authorizing cluster client termination.\"",
             cluster_client->cluster_id
             );
     std::atomic_store(&cluster_client->can_terminate, true);
@@ -338,7 +338,7 @@ void cluster_client_force_termination(
         cluster_client_t *const cluster_client
         ) noexcept
 {
-    LOG_INFO_1(cluster_client->logger, "cluster={} event=force_close_client msg=\"Ubiquity : Forcing cluster client termination.\"",
+    LOG_INFO_1(cluster_client->logger, "event=force_close_client cluster={} msg=\"Ubiquity : Forcing cluster client termination.\"",
             cluster_client->cluster_id
             );
     std::atomic_store(&cluster_client->is_forced_to_terminate, true);

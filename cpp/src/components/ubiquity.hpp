@@ -15,7 +15,7 @@ void ubiquity_set_api_address(
         ) noexcept;
 
 void ubiquity_set_resource_string_in_cache(
-        const char *const id,
+        const char *const cluster_id,
         const char *const config_string
         ) noexcept;
 

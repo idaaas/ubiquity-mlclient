@@ -45,11 +45,11 @@ void Ubiquity::setApiAddress(
 }
 
 void Ubiquity::setResourceStringInCache(
-        const char *const id,
+        const char *const clusterId,
         const char *const resourceString
         ) noexcept
 {
-    ubiquity_set_resource_string_in_cache(id, resourceString);
+    ubiquity_set_resource_string_in_cache(clusterId, resourceString);
 }
 
 /*
