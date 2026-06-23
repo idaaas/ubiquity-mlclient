@@ -204,7 +204,7 @@ static client_handle_t *s_invalid_handle;
 
 static inline client_handle_t *client_handle_get_invalid_handle(void) {
     if (nullptr == s_invalid_handle) {
-        s_invalid_handle = new (std::nothrow) client_handle_t();
+        s_invalid_handle = new (std::nothrow) client_handle_t{};
         s_invalid_handle->status_code = STATUS_CODE_INVALID_HANDLE;
     }
     return s_invalid_handle;
@@ -219,11 +219,7 @@ client_handle_t *client_handle_create(
     if (nullptr == cluster_client) {
         return client_handle_get_invalid_handle();
     }
-    client_handle_t *client_handle = new (std::nothrow) client_handle_t();
-    if (!client_handle) {
-        fprintf(stderr, "new: out of memory\n");
-        exit(EXIT_FAILURE);
-    }
+    client_handle_t *client_handle = new (std::nothrow) client_handle_t{};
 
     // Copy arguments.
     client_handle->cluster_client = cluster_client;

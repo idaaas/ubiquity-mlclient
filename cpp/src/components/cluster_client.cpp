@@ -224,12 +224,11 @@ cluster_client_t *cluster_client_create(
         ) noexcept
 {
     ubiquity_time_t timeout;
-    *status_code = STATUS_CODE_NO_MEMORY;
+    *status_code = STATUS_CODE_OUT_OF_MEMORY;
 
     // Create the cluster client.
-    cluster_client_t *const cluster_client = new cluster_client_t{}; 
+    cluster_client_t *const cluster_client = new (std::nothrow) cluster_client_t{}; 
     if (NULL == cluster_client) {
-        // TODO error
         goto initialization_failure_1;
     }
     strcpy(cluster_client->cluster_id, cluster_id);
@@ -238,28 +237,24 @@ cluster_client_t *cluster_client_create(
     // Create the logger.
     cluster_client->logger = ubiquity_logger_create(true);
     if (UBIQUITY_LOGGER_NULL == cluster_client->logger) {
-        // TODO error
         goto initialization_failure_2;
     }
 
     // Create the web client.
     cluster_client->web_client = web_client_create(cluster_id);
     if (NULL == cluster_client->web_client) {
-        // TODO error
         goto initialization_failure_3;
     }
 
     // Create the shared store
     cluster_client->store =  shared_state_store_create();
     if (NULL == cluster_client->store) {
-        // TODO error
         goto initialization_failure_5;        
     }
 
     // Create the synchronizer.
     cluster_client->synchronizer = synchronizer_create(cluster_id, cluster_client->store);
     if (NULL == cluster_client->synchronizer) {
-        // TODO error
         goto initialization_failure_5;
     }
 
@@ -269,7 +264,6 @@ cluster_client_t *cluster_client_create(
     // Load the initial cluster client's topology.
     *status_code = cluster_client_load_topology(cluster_client);
     if (STATUS_CODE_SUCCESS != *status_code) {
-        // TODO error
         goto initialization_failure_6;
     }
 

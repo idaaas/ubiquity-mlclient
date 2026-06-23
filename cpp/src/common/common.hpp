@@ -128,7 +128,7 @@ static inline const char *ubiquity_get_status_string(
         "INVALID_HANDLE",
         "UNAUTHORIZED",
         "INTERNAL_API_ERROR",
-        "NO_MEMORY",
+        "OUT_OF_MEMORY",
         "CONNECTION_TIMEOUT",
     };
     return status_code <= STATUS_CODE_CONNECTION_TIMEOUT

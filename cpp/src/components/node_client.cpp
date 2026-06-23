@@ -61,13 +61,12 @@ node_client_ref_t node_client_create(
         const ip4_t ip,
         const node_weight_t weight) noexcept 
 {
-    node_client_t *const c = new (std::nothrow) node_client_t();
-    if (!c) {
-        fprintf(stderr, "new: out of memory\n");
-        exit(EXIT_FAILURE);
+    node_client_t *const client = new (std::nothrow) node_client_t{};
+    if (!client) {
+        return nullptr;
     }
-    node_client_init(c, ip, weight);
-    return std::shared_ptr<node_client_t>(c, node_client_delete);
+    node_client_init(client, ip, weight);
+    return std::shared_ptr<node_client_t>(client, node_client_delete);
 }
 
 ip4_t node_client_get_ip(

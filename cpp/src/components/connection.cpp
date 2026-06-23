@@ -284,6 +284,9 @@ void connection_init(
                     &connection->handler_arguments[stream_id]
                     );
         }
+        else {
+            connection->fragment_assembler[stream_id] = nullptr; // explicit intent
+        }
     }
     LOG_DEBUG_2(s_logger, "event=connection_create client_session_id={} ip={}",
         client_session_id,
@@ -300,10 +303,9 @@ connection_ref_t connection_create(
         return nullptr;
     }
 
-    connection_t *connection = new (std::nothrow) connection_t();
-    if (!connection) {
-        fprintf(stderr, "new: out of memory\n");
-        exit(EXIT_FAILURE);
+    connection_t *connection = new (std::nothrow) connection_t{};
+    if(!connection){
+        return nullptr;
     }
 
     connection_init(connection, ip_string, client_session_id);

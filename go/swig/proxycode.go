@@ -36,7 +36,7 @@ const NO_MODEL_METADATA int = 0x13
 const INVALID_HANDLE int = 0x14
 const UNAUTHORIZED int = 0x15
 const INTERNAL_API_ERROR int = 0x16
-const NO_MEMORY int = 0x17
+const OUT_OF_MEMORY int = 0x17
 
 const APP_BID_SHADING int = 0
 const APP_PROBABILITY int = 1

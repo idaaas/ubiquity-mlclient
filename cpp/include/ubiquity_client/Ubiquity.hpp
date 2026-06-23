@@ -36,7 +36,7 @@ namespace Ubiquity {
         static constexpr StatusCode INVALID_HANDLE                  = NO_COMPATIBLE_NODE + 16;
         static constexpr StatusCode UNAUTHORIZED                    = NO_COMPATIBLE_NODE + 17;
         static constexpr StatusCode INTERNAL_API_ERROR              = NO_COMPATIBLE_NODE + 18;
-        static constexpr StatusCode NO_MEMORY                       = NO_COMPATIBLE_NODE + 19;
+        static constexpr StatusCode OUT_OF_MEMORY                   = NO_COMPATIBLE_NODE + 19;
         static constexpr StatusCode CONNECTION_TIMEOUT              = NO_COMPATIBLE_NODE + 20;
 
         static constexpr ApplicationType APP_BID_SHADING = 0;

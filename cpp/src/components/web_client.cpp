@@ -18,9 +18,11 @@ web_client_t *web_client_create(
         const char *const cluster_id
         ) noexcept
 {
-    web_client_t *web_client =  new web_client_t();
+    web_client_t *web_client =  new (std::nothrow) web_client_t{};
+    if(!web_client){
+        return NULL;
+    }
     snprintf(web_client->cluster_id, CLUSTER_ID_MAX_LENGTH, "%s", cluster_id);
-    // TODO check errors
     web_client->logger = ubiquity_logger_create(true);
     web_client->resource_cache = new std::map<std::string, std::string>{};
     return web_client;

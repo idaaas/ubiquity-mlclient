@@ -49,7 +49,7 @@
   public final static int INVALID_HANDLE = 0x14;
   public final static int UNAUTHORIZED = 0x15;
   public final static int INTERNAL_API_ERROR = 0x16;
-  public final static int NO_MEMORY = 0x17;
+  public final static int OUT_OF_MEMORY = 0x17;
   public final static int CONNECTION_TIMEOUT = 0x18;
 
   public final static int APP_BID_SHADING = 0;

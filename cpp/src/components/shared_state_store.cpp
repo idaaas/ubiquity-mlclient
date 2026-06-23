@@ -15,7 +15,10 @@ typedef struct shared_state_store_s {
 
 shared_state_store_ref_t shared_state_store_create() 
 {
-    shared_state_store_t* store = new shared_state_store_t{};
+    shared_state_store_t* store = new (std::nothrow) shared_state_store_t{};
+    if(!store) {
+        return nullptr;
+    }
 
     // initialize with empty maps
     store->node_clients_active = std::make_shared<node_client_map_t>();

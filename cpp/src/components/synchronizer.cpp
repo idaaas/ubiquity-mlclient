@@ -212,10 +212,9 @@ synchronizer_t *synchronizer_create(
         shared_state_store_ref_t store
         ) noexcept
 {
-    synchronizer_t *synchronizer = new (std::nothrow) synchronizer_t();
+    synchronizer_t *synchronizer = new (std::nothrow) synchronizer_t{};
     if (!synchronizer) {
-        fprintf(stderr, "new: out of memory\n");
-        exit(EXIT_FAILURE);
+        return nullptr;
     }
     strcpy(
             synchronizer->cluster_id,
