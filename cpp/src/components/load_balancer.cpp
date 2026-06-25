@@ -1,14 +1,16 @@
 #include "load_balancer.hpp"
-#include <cstring>
 #include <vector>
 #include <algorithm>
 #include <limits>
-#include <cmath> 
+#include <cmath>
+#include <xxh3.h>
 
+// (2^53) - 1 : fifty-three ones in binary (0x1FFFFFFFFFFFFF)
 static constexpr uint64_t FTO = (1ULL << 53) - 1;
+// 2^53 as a double
 static constexpr double FTZ = static_cast<double>(1ULL << 53);
 
-static double toDouble(uint64_t hash) {
+static inline double toDouble(uint64_t hash) {
     return static_cast<double>(hash & FTO) / FTZ;
 }
 

@@ -1,24 +1,14 @@
 #include "components/shared_state_store.hpp"
 #include "components/load_balancer.hpp"
 #include "ubiquity_test.hpp"
-#include "common/common.hpp"
 #include "common/model_info.hpp"
 #include "utils/prng.hpp"
-#include "utils/ubiquity_time.h"
-
-#include <openssl/evp.h>
-#include <unistd.h>
-
-/*
- * MOCKS
- */
 
 /*
     Node client.
 */
 #define MAX_MESSAGES_PER_NODE 2048
 #define QUANTITY_OF_MESSAGES_TO_RECEIVE MAX_MESSAGES_PER_NODE
-#define POLLER_LINGER_TIME_NS 10000000
 #define MAX_MESSAGE_SIZE 8
 #define BALANCED_MESSAGE_SENT_COUNT 0x40000
 // Allowed relative deviation from perfect balance.
@@ -27,6 +17,8 @@
 // so we give it a slightly wider margin.
 #define WEIGHTED_BALANCE_ERROR_MARGIN 0.05
 
+static constexpr uint64_t FTO = (1ULL << 53) - 1;
+static constexpr double FTZ = static_cast<double>(1ULL << 53);
 
 uint64_t messages_to_send[QUANTITY_OF_MESSAGES_TO_RECEIVE];
 size_t received_message_table[QUANTITY_OF_MESSAGES_TO_RECEIVE];
@@ -128,6 +120,18 @@ void node_client_send_message(
 /*
  * TESTS
  */
+
+int test_normalized_hash_range(void) {
+    const ip4_t &ip = 0xC0A80001; //192.168.0.1
+    for (size_t i = 0; i < BALANCED_MESSAGE_SENT_COUNT; ++i) {
+        uint64_t h = XXH3_64bits_withSeed(&i, sizeof(i), ip);
+        double u = static_cast<double>(h & FTO) / FTZ;
+        const bool within_bounds = u >= 0.0 && u < 1.0;
+
+        ubiquity_test_assert_equal(within_bounds, true);
+    }
+    return 0;
+}
 
 int test_rendezvous_uniform_balance(void)
 {
@@ -669,6 +673,7 @@ int main(void) {
             );        
 
     ubiquity_test_function_t test_list[] = {
+        test_normalized_hash_range,
         test_rendezvous_uniform_balance,
         test_rendezvous_weighted_balance,
         test_rendezvous_weight_update,
