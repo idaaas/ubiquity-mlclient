@@ -271,7 +271,6 @@ static inline int send_message(
 int test_connection(void)
 {
     // Constants.
-    const client_session_id_t client_session_id = 3021;
     const char *const ip_string = "127.0.0.1";
 
     // Variables.
@@ -296,10 +295,7 @@ int test_connection(void)
 
 
     // Create the connection.
-    connection_ref_t connection_ref = connection_create(
-            ip_string,
-            client_session_id
-            );
+    connection_ref_t connection_ref = connection_create( ip_string);
 
     // Ready first connection.
     connection_t *connection = connection_ref.get();

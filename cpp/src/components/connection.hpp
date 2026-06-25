@@ -29,13 +29,11 @@ bool connection_set_directory(
 
 void connection_init(
         connection_t *const connection,
-        const char *const ip_string,
-        const client_session_id_t client_session_id
+        const char *const ip_string
         ) noexcept;
 
 connection_ref_t connection_create(
-        const char *const ip_string,
-        const client_session_id_t client_session_id
+        const char *const ip_string
         ) noexcept;
 
 void connection_delete(

@@ -633,8 +633,6 @@ static void topology_update_element(
             );
         auto it = synchronizer->node_clients.find(new_element->ip);
         if(it != synchronizer->node_clients.end()){
-            // TODO: next operation needs to be atomic
-            // this is the only one on a shared node client
             node_client_set_weight(it->second.get(), new_element->weight);
         }
     }
@@ -922,52 +920,23 @@ if (ubiquity_time_is_past(synchronizer->CONCAT(block_type, _block_store).next_re
 
 #define MESSAGE_TYPE_MASK_BLOCK_UPDATE 0x80
 
-// TODO keep only the non-obsolete messages.
 static const char *const message_type_strings_1[] = {
-    "NONE",
-    "REGISTRATION_REQUEST",
-    "REGISTRATION_CONFIRMATION",
-    "REGISTRATION_ERROR",
-    "SCHEMA",
-    "QUERY",
-    "PREDICTION",
-    "FEEDBACK",
-    "RESERVED_08",
-    "RESERVED_09",
-    "SERVER_READY",
-    "RESERVED_0B",
-    "PRED_OPENED",
-    "RESERVED_0D",
-    "RESERVED_0E",
-    "RESERVED_0F",
-    "RESERVED_10",
-    "DISCONNECTION_CONFIRMATION",
-    "RESERVED_12",
-    "RESERVED_13",
-    "MODEL_ADD_OLD",
-    "MODEL_REMOVE_OLD",
-    "TOPOLOGY_REQUEST_OLD",
-};
-
-static const char *const message_type_strings_2[] = {
     "TOPOLOGY_REQUEST",
     "MODEL_METADATA_REQUEST",
     "MODEL_SHARDING_REQUEST",
 };
 
-static const char *const message_type_strings_3[] = {
+static const char *const message_type_strings_2[] = {
     "TOPOLOGY_UPDATE",
     "MODEL_METADATA_UPDATE",
     "MODEL_SHARDING_UPDATE",
 };
 
 static inline const char *message_type_get_string(int id) {
-    if (id < 0x40) {
-        return message_type_strings_1[id];
-    } else if (id < 0x80) {
-        return message_type_strings_2[id - 0x40];
+    if (id < 0x80) {
+        return message_type_strings_1[id - 0x40];
     } else {
-        return message_type_strings_3[id - 0x80];
+        return message_type_strings_2[id - 0x80];
     }
 }
 
@@ -1059,7 +1028,7 @@ static inline void receive_synchronization_messages(
                 &synchronizer->message_size
                 );
         if (sizeof(message_common_t) >= synchronizer->message_size) {
-            // TODO : warning
+            // no message has been polled
             continue;
         }
         synchronizer_parse_block_update_message(

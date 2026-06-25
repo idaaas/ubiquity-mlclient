@@ -43,7 +43,6 @@ namespace Ubiquity {
         static constexpr ApplicationType APP_PROBABILITY = 1;
         static constexpr ApplicationType APP_LINE_ITEM = 2;
         static constexpr ApplicationType APP_ACTION_RATE = 3;
-        static constexpr ApplicationType NUMBER_OF_APP_TYPES = 4;
         static constexpr ApplicationType APP_UNDEFINED = 9999;
 
         static constexpr int32_t LOG_OFF = 0;
@@ -71,15 +70,15 @@ namespace Ubiquity {
 
         static constexpr int8_t MISSING_BOOLEAN = -1;
         static constexpr int8_t MISSING_CATEGORICAL = -1;
-
+        static constexpr const char *MISSING_NOMINAL = "_MISSING_";
+        static constexpr float MISSING_NUMERIC = std::numeric_limits<float>::quiet_NaN();
+        
         static constexpr int8_t BID = 1;
         static constexpr int8_t NO_BID = 0;
 
         static constexpr int32_t WIN_RATE_PRESERVATION = 0;
         static constexpr int32_t EXPECTED_SURPLUS_MAXIMIZATION = 1;
 
-        static constexpr const char *MISSING_NOMINAL = "_MISSING_";
-        static constexpr float MISSING_NUMERIC = std::numeric_limits<float>::quiet_NaN();
 #endif
 
         class ClientHandle {
@@ -109,7 +108,7 @@ namespace Ubiquity {
                 void startLineItem(const float maxCPM, const float bidFloor=0.01f, const int32_t exposureCount=0) noexcept;
                 void startActionRate(const float bidPrice, const float bidFloor=0.01F, const int32_t exposureCount=0) noexcept;
                 void startProbability(void) noexcept;
-                int32_t train(const char *modelId, int64_t queryId, const uint16_t feedback_level) noexcept;
+                int32_t train(const char *modelId, int64_t queryId, const uint16_t feedbackLevel) noexcept;
                 int32_t cancel(const char *modelId, int64_t queryId) noexcept;
                 const char *getDiagnosticString() noexcept;
                 void setLogLevel(const int32_t level) noexcept;

@@ -49,8 +49,6 @@ static constexpr uint16_t BLOCK_TYPE_MODEL_METADATA = 1;
 static constexpr uint16_t BLOCK_TYPE_MODEL_SHARDING = 2;
 static constexpr uint16_t BLOCK_TYPE_COUNT = 3;
 
-typedef uint32_t client_session_id_t;
-
 typedef uint32_t ip4_t;
 
 typedef std::unordered_set<ip4_t> ip_set_t;

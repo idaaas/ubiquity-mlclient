@@ -18,7 +18,6 @@ typedef struct fragment_handler_arguments_s {
 
 typedef struct connection_s {
     char ip_string[INET_ADDRSTRLEN];
-    client_session_id_t client_session_id;
 
     aeron_async_add_publication_t *pub_add[MAXIMUM_STREAM_ID];
     aeron_async_add_subscription_t *sub_add[MAXIMUM_STREAM_ID];
@@ -265,15 +264,11 @@ static bool uses_extended_term_buffer[MAXIMUM_STREAM_ID] = {
 
 void connection_init(
         connection_t *const connection,
-        const char *const ip_string,
-        const client_session_id_t client_session_id
+        const char *const ip_string
         ) noexcept
 {
     // Store the ip string.
     strcpy(connection->ip_string, ip_string);
-
-    // Client session id is used cluster side to identify a client session through connection session id.
-    connection->client_session_id = client_session_id;
 
     // Each stream using extented term buffer needs a fragment assembler.
     for (size_t stream_id = 0; stream_id < MAXIMUM_STREAM_ID; ++stream_id) {
@@ -288,15 +283,13 @@ void connection_init(
             connection->fragment_assembler[stream_id] = nullptr; // explicit intent
         }
     }
-    LOG_DEBUG_2(s_logger, "event=connection_create client_session_id={} ip={}",
-        client_session_id,
+    LOG_DEBUG_1(s_logger, "event=connection_create ip={}",
         ip_string
         );
 }
 
 connection_ref_t connection_create(
-        const char *const ip_string,
-        const client_session_id_t client_session_id
+        const char *const ip_string
         ) noexcept
 {
     if (INET_ADDRSTRLEN <= strlen(ip_string)) {
@@ -308,7 +301,7 @@ connection_ref_t connection_create(
         return nullptr;
     }
 
-    connection_init(connection, ip_string, client_session_id);
+    connection_init(connection, ip_string);
 
     return std::shared_ptr<connection_t>(connection, connection_delete);
 }
@@ -320,7 +313,6 @@ connection_ref_t connection_create(
 
 static inline char *get_request_channel_uri(
         const char *const endpoint_string,
-        const uint32_t session_id,
         const int64_t response_correlation_id,
         const bool extend_term_buffer_length
         )
@@ -340,8 +332,7 @@ static inline char *get_request_channel_uri(
     if (extend_term_buffer_length) {
         destination = stpcpy(destination, "|term-length=256k");
     }
-   // destination = stpcpy(destination, "|session-id=");
-   // snprintf(destination, SESSION_ID_MAX_SIZE, "%d", session_id);
+
     return buffer;
 }
 
@@ -432,7 +423,6 @@ static inline void initiate_stream_publication_creation(
             g_ubiquity_aeron_client,
             get_request_channel_uri(
                     connection->ip_string,
-                    connection->client_session_id ^ stream_id,
                     has_response * connection->response_correlation_id[stream_id],
                     uses_extended_term_buffer[stream_id]),
             stream_id);
@@ -578,8 +568,7 @@ void connection_delete(
         connection_t *const connection
         ) noexcept
 {
-    LOG_DEBUG_2(s_logger, "event=connection_delete client_session_id={} ip={}",
-        connection->client_session_id,
+    LOG_DEBUG_1(s_logger, "event=connection_delete ip={}",
         connection->ip_string
         );
     connection_terminate(connection);

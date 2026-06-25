@@ -120,7 +120,6 @@ status_code_t web_client_get_cluster_info(
         cluster_info_t *cluster_info,
         const std::string cluster_id
         ) {
-    // TODO
     cluster_info->ip_count = 0;
     return STATUS_CODE_SUCCESS;
 }

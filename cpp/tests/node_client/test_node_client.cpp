@@ -16,7 +16,6 @@
 #define MESSAGE_BUFFER_LENGTH 0x100
 typedef struct connection_s {
     char ip_string[16];
-    client_session_id_t client_session_id;
     uint8_t message_content[MESSAGE_BUFFER_LENGTH];
     size_t message_length;
 } connection_t;
@@ -35,13 +34,11 @@ void connection_delete(
 }
 
 connection_ref_t connection_create(
-        const char *const ip_string,
-        const client_session_id_t client_session_id
+        const char *const ip_string
         ) noexcept
 {
     connection_t *const connection =  new connection_t();
     strcpy(connection->ip_string, ip_string);
-    connection->client_session_id = client_session_id;
     connection->message_length = 0;
     ubiquity_test_emit("connection_create",
             "ip_string", ip_string

@@ -6,10 +6,8 @@
 #include <cmath> 
 
 typedef struct shared_state_store_s {
-    // node clients 
     node_client_map_ref_t  node_clients_active;
 
-    // model infos
     model_info_map_ref_t   models_active;
 } shared_state_store_t;
 
@@ -20,7 +18,6 @@ shared_state_store_ref_t shared_state_store_create()
         return nullptr;
     }
 
-    // initialize with empty maps
     store->node_clients_active = std::make_shared<node_client_map_t>();
     store->models_active = std::make_shared<model_info_map_t>();
 
@@ -34,7 +31,6 @@ void shared_state_store_clear(
     std::atomic_store(&store->models_active, std::make_shared<model_info_map_t>());
 }
 
-// reader 
 node_client_map_ref_t store_get_node_clients(
         shared_state_store_t* store) 
 {
@@ -52,25 +48,24 @@ node_client_ref_t store_get_node_client(
         return nullptr;
     }
     
-    return it->second; // Returns a copy (value), safely pinning the node's lifetime
+    return it->second;
 }
 
-// writer (COW + swap) 
 void store_upsert_node_client(
         shared_state_store_t* store,
         ip4_t                 key,
         node_client_ref_t     client)
 {
-    // Step 1: Load the current snapshot
+    // Load the current snapshot
     node_client_map_ref_t current_snap = std::atomic_load(&store->node_clients_active); // Count is safely +1.
 
-    // Step 2: Perform the map duplication 
+    // Perform the map duplication 
     node_client_map_ref_t next = std::make_shared<node_client_map_t>(*current_snap);
 
-    // Step 3: Add client to the new map 
+    // Add client to the new map 
     (*next)[key] = client;
 
-    // Step 4: atomic swap
+    // Atomic swap
     std::atomic_store(&store->node_clients_active, next);
 }
 
@@ -78,24 +73,23 @@ void store_remove_node_client(
         shared_state_store_t* store,
         ip4_t                 key)
 {
-    // Step 1: Load the current snapshot
+    // Load the current snapshot
     node_client_map_ref_t current = std::atomic_load(&store->node_clients_active);
 
     if (current->find(key) == current->end()) {
         return;
     }
 
-    // Step 2: Duplicate the map on the heap
+    // Duplicate the map on the heap
     node_client_map_ref_t next = std::make_shared<node_client_map_t>(*current);
 
-    // Step 3: Remove node from the copy
+    // Remove node from the copy
     next->erase(key);
 
-    // Step 4: atomic swap
+    // Atomic swap
     std::atomic_store(&store->node_clients_active, next);
 }
 
-// reader
 model_info_ref_t store_get_model_info(
         shared_state_store_t* store,
         model_id_t            key)
@@ -110,22 +104,21 @@ model_info_ref_t store_get_model_info(
     return it->second;
 }
 
-// writer
 void store_upsert_model_info(
         shared_state_store_t* store,
         model_id_t            key,
         model_info_ref_t      info)
 {
-    // Step 1: Load the current snapshot
+    // Load the current snapshot
     model_info_map_ref_t current_snap = std::atomic_load(&store->models_active);
 
-    // Step 2: Perform the map duplication
+    // Perform the map duplication
     model_info_map_ref_t next = std::make_shared<model_info_map_t>(*current_snap);
 
-    // Step 3: Insert the mdel info to the map (transfert ownership of the shared_ptr)
+    // Insert the mdel info to the map (transfert ownership of the shared_ptr)
     (*next)[key] = std::move(info);
 
-    // Step 4:atomic swap
+    // Atomic swap
     std::atomic_store(&store->models_active, next);
 }
 
@@ -133,20 +126,20 @@ void store_remove_model_info(
         shared_state_store_t* store,
         model_id_t            key)
 {
-    // Step 1: Load the current snapshot
+    // Load the current snapshot
     model_info_map_ref_t current = std::atomic_load(&store->models_active);
 
     if (current->find(key) == current->end()) {
         return;
     }
 
-    // Step 2: Duplicate the map on the heap
+    // Duplicate the map on the heap
     model_info_map_ref_t next = std::make_shared<model_info_map_t>(*current);
 
-    // Step 3: Mutate private copy
+    // Mutate private copy
     next->erase(key);
 
-    // Step 4:  atomic swap
+    // Atomic swap
     std::atomic_store(&store->models_active, next);
 }
 

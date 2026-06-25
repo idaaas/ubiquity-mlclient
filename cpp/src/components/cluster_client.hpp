@@ -46,7 +46,6 @@ void cluster_client_decrement_use_count(
         ) noexcept;
 
 /*
-    TODO
     Should be called by ubiquity at some point to allow user to check for cluster connectivity.
 */
 

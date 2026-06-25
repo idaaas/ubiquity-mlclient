@@ -362,5 +362,5 @@ typedef std::shared_ptr<model_info_t> model_info_ref_t;
 
 inline model_info_ref_t model_info_allocate() noexcept 
 {
-    return std::make_shared<model_info_t>();  // ← constructor + destructor handled correctly
+    return std::make_shared<model_info_t>();
 }

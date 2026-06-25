@@ -36,15 +36,6 @@ size_t synchronizer_invoke(
         ) noexcept;
 
 /*
-    Called by the client handle.
-*/
-
-model_info_t *synchronizer_get_model_info(
-        synchronizer_t *const synchronizer,
-        const int64_t model_id
-        ) noexcept;
-
-/*
     Called internally and by component testing.
 */
 

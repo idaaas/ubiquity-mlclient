@@ -4,25 +4,24 @@
 #include "connection.hpp"
 
 #include "utils/logger.hpp"
-#include "utils/prng.hpp"
 #include "utils/ubiquity_time.h"
 
 #include <arpa/inet.h>
 #include <cstring>
 #include <memory>
+#include <atomic>
 
 typedef struct node_client_s { 
 
     // Set at creation.
     ip4_t ip;
     char ip_string[INET_ADDRSTRLEN];
-    computed_node_weight_t weight;
+    std::atomic<uint64_t> weight;
     connection_status_t connection_status;
     ubiquity_time_t connection_status_expiration_time;
     connection_ref_t connection;
     // Tools.
     ubiquity_logger_t logger;
-    ubiquity_prng_t prng;
 } node_client_t;
 
 
@@ -46,9 +45,6 @@ void node_client_init(
     node_client->connection_status_expiration_time = 0;
     // Create a new connection.
     node_client->connection = nullptr;
-
-    // Initialize the random number generator.
-    ubiquity_prng_seed(&node_client->prng);
 
     // The new node client is ready.
     LOG_DEBUG_2(node_client->logger, "event=node_client_create node_client={} ip={} msg=\"New node client created.\"",
@@ -80,7 +76,7 @@ computed_node_weight_t node_client_get_weight(
         const node_client_t *const node_client
         ) noexcept
 {
-    return node_client->weight;
+    return std::atomic_load(&node_client->weight);
 }
 
 void node_client_set_weight(
@@ -92,7 +88,7 @@ void node_client_set_weight(
     const computed_node_weight_t positive_computed_weight = 0 == computed_weight ? 1 : computed_weight;
 
     //   FIXME: update the weight atomically
-    node_client->weight = positive_computed_weight;
+    std::atomic_store(&node_client->weight, positive_computed_weight);
 }
 
 void node_client_delete(
@@ -129,8 +125,7 @@ void node_client_handle_connection_empty(
 {
     // Create a new connection.
     node_client->connection = connection_create(
-            node_client->ip_string,
-            ubiquity_prng_generate(&node_client->prng) // client_session_id
+            node_client->ip_string
             );
     node_client_update_connection_status(node_client, CONNECTION_CREATED);
 }

@@ -412,8 +412,7 @@ static inline void client_handle_prepare_common_header(
             encoded_model_id
             );
     const uint64_t model_id = client_handle->message.application.model_id;
-    // WARNING: since we use copy-on-write, the cached value of model_info needs to be refreshed each time!!!
-    //if (nullptr != client_handle->cached_model_info && model_id != model_info_get_model_id(client_handle->cached_model_info.get())) {}
+    // IMPORTANT: since we use copy-on-write, the cached value of model_info needs to be refreshed each time!!!
     client_handle->cached_model_info = store_get_model_info(
         client_handle->store.get(),
         model_id
@@ -512,10 +511,6 @@ status_code_t client_handle_predict(
         client_handle->offset += selection_size * sizeof(uint64_t);
     }
 
-    //DBG("query_id " << std::hex << client_handle->message.application.query_id << std::dec << std::endl);
-    //DBG("model_id " << std::hex << model_info_get_model_id(client_handle->model_info) << std::dec << std::endl);
-
-    // Give the message to the load balancer to send it.
     client_handle->status_code = shared_send_message_with_rendezvous(
             client_handle->store.get(),
             &model_info->compatible_node_set,
