@@ -163,9 +163,7 @@ typedef union message_buffer_u {
     message_cancel_t cancel;
 } message_buffer_t;
 
-#define CREATIVE_RESERVOIR_SIZE 0x80
-#define CREATIVE_COUNT_MASK (CREATIVE_RESERVOIR_SIZE - 1)
-#define CREATIVE_SLOTS_COUNT 18
+#define CREATIVE_RESERVOIR_SIZE 20
 
 typedef struct client_handle_s {
     status_code_t status_code = STATUS_CODE_SUCCESS;
@@ -463,7 +461,6 @@ status_code_t client_handle_predict(
         const int64_t query_id
         ) noexcept
 {
-    // TODO : should the copy be here or in common header preparation ?
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wstringop-truncation"
     strncpy(client_handle->encoded_model_id, encoded_model_id, 14);
@@ -496,19 +493,21 @@ status_code_t client_handle_predict(
         return client_handle->status_code;
     }
 
+           
     // If creatives were put, they must be appened to the message.
     if (0 < client_handle->num_creative) {
-        client_handle->message.creative_query.num_creative = client_handle->num_creative;
         client_handle->offset += (~client_handle->offset + 1) & 7;
-        const int32_t selection_size = CREATIVE_SLOTS_COUNT < client_handle->num_creative
-            ? CREATIVE_SLOTS_COUNT
+
+        const int32_t selection_size = CREATIVE_RESERVOIR_SIZE < client_handle->num_creative
+            ? CREATIVE_RESERVOIR_SIZE
             : client_handle->num_creative;
-        for (int32_t cursor = 0; cursor < selection_size; ++cursor) {
-            const uint64_t selected = ubiquity_prng_generate(&client_handle->prng) % client_handle->num_creative;
-            *((uint64_t *)(client_handle->message.buffer + client_handle->offset) + cursor) = client_handle->creative_reservoir[selected];
-            client_handle->creative_reservoir[selected] = client_handle->creative_reservoir[--client_handle->num_creative];
+        
+        client_handle->message.creative_query.num_creative = selection_size;
+
+        for (int32_t cursor = 0; cursor < selection_size; cursor ++) {
+            *((int64_t *)(client_handle->message.buffer + client_handle->offset) + cursor) = client_handle->creative_reservoir[cursor];
         }
-        client_handle->offset += selection_size * sizeof(uint64_t);
+        client_handle->offset += selection_size * sizeof(int64_t);
     }
 
     client_handle->status_code = shared_send_message_with_rendezvous(
@@ -875,11 +874,21 @@ void client_handle_put_creative(
         const int64_t creative_id
         ) noexcept
 {
-    client_handle->creative_reservoir[client_handle->num_creative++ & CREATIVE_COUNT_MASK] = creative_id;
     LOG_DEBUG_2(client_handle->logger, "event=put_creative handle={:x} value={}",
             client_handle->id,
             creative_id
             );
+    int i = client_handle->num_creative++;
+    
+    if (i < CREATIVE_RESERVOIR_SIZE) {
+        client_handle->creative_reservoir[i] = creative_id;
+    } 
+    else {
+        uint64_t j = ubiquity_prng_generate(&client_handle->prng) % i; 
+        if (j < CREATIVE_RESERVOIR_SIZE) {
+            client_handle->creative_reservoir[j] = creative_id;
+        }
+    }
 }
 
 /*

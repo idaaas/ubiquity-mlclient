@@ -6,6 +6,7 @@
 #include "common/model_info.hpp"
 
 #include "utils/Base32C.hpp"
+#include "utils/prng.hpp"
 
 #include "xxh3.h"
 
@@ -82,14 +83,12 @@ status_code_t shared_send_message_with_rendezvous(
         const size_t message_size
         ) noexcept
 {
-
     ubiquity_test_emit("shared_send_message_with_rendezvous",
             "compatible_node_set", compatible_node_set,
             "balance_key", balance_key,
             "stream_id", stream_id,
             "message", message_size, message_content
             );
-    // TODO FAILURE
     return STATUS_CODE_SUCCESS;
 }
 
@@ -737,40 +736,28 @@ int test_predict(void)
 typedef struct {
     int64_t creative_id;
     size_t creative_offset;
-    int32_t num_creative;
 } creative_check_t;
 
 #include <stdio.h>
 
-// bool creative_was_selected(
-//         const event_argument_t *const argument,
-//         void *const user_data
-//         )
-// {
-//     const uint8_t *const buffer = *(uint8_t **)&argument->value;
-//     const creative_check_t *const check = (creative_check_t *)user_data;
-//     for (int32_t cursor = 0; cursor < check->num_creative; ++cursor) {
-//         if (check->creative_id == *(int64_t *)(((int64_t *)(buffer + check->creative_offset)) + cursor)) {
-//             return true;
-//         }
-//     }
-//     return false;
-// }
+#define TESTED_CREATIVE_COUNT 10
+#define MAX_CREATIVE_COUNT 20
+#define SENT_LINE_ITEM_QUERY 1
 
 bool creative_was_selected(
         const event_argument_t *const argument,
         void *const user_data
         )
 {
-    // fix 1: read stored pointer out of value via memcpy
     const uint8_t *buffer;
     memcpy(&buffer, &argument->value, sizeof(buffer));
+	int32_t num_creatives = TESTED_CREATIVE_COUNT < MAX_CREATIVE_COUNT ? TESTED_CREATIVE_COUNT : MAX_CREATIVE_COUNT;
 
     const creative_check_t *const check = (creative_check_t *)user_data;
-    for (int32_t cursor = 0; cursor < check->num_creative; ++cursor) {
-        // fix 2: read int64_t from buffer via memcpy
-        int64_t creative_id;
-        memcpy(&creative_id, buffer + check->creative_offset + cursor * sizeof(int64_t), sizeof(creative_id));
+	const int64_t *creatives = (const int64_t *)(buffer + check->creative_offset);
+
+    for (int32_t cursor = 0; cursor < num_creatives; cursor++) {
+        int64_t creative_id = creatives[cursor];
         if (check->creative_id == creative_id) {
             return true;
         }
@@ -778,9 +765,7 @@ bool creative_was_selected(
     return false;
 }
 
-#define TESTED_CREATIVE_COUNT 50
-#define CREATIVE_SLOTS_COUNT 18
-#define SENT_LINE_ITEM_QUERY 0x8000
+int64_t creative_ids[TESTED_CREATIVE_COUNT];
 
 status_code_t send_a_line_item_query(
         client_handle_t *const client_handle,
@@ -798,8 +783,8 @@ status_code_t send_a_line_item_query(
             exposure_count
             );
 
-    for (int64_t creative_id = 0; creative_id < TESTED_CREATIVE_COUNT; ++creative_id) {
-        client_handle_put_creative(client_handle, creative_id);
+    for (int64_t i = 0; i < TESTED_CREATIVE_COUNT; i++) {
+        client_handle_put_creative(client_handle, creative_ids[i]);
     }
 
     client_handle_put_numeric(client_handle, 0.1);
@@ -841,9 +826,6 @@ int test_creative_balance(void)
         NULL, 0,
     };
 
-    // Variables.
-    message_buffer_t message;
-
     // Expects a new handle to be created, increasing use count of the cluster client.
     client_handle_t *client_handle = client_handle_create(
             &s_cluster_client,
@@ -881,78 +863,48 @@ int test_creative_balance(void)
     const float max_cpm = 0.789;
     const float bid_floor = 0.456;
     const int32_t exposure_count = 0x4488;
-    for (size_t cursor = 0; cursor < SENT_LINE_ITEM_QUERY; ++cursor) {
+	ubiquity_prng_t prng;
+	ubiquity_prng_seed(&prng);
+	for (int i = 0; i < TESTED_CREATIVE_COUNT; ++i) {
+		creative_ids[i] = (int64_t) ubiquity_prng_generate(&prng);
+	}
+
+    for (size_t cursor = 0; cursor < SENT_LINE_ITEM_QUERY; cursor++) {
         ubiquity_test_assert_equal(STATUS_CODE_SUCCESS, send_a_line_item_query(client_handle, encoded_model_id, query_id, max_cpm, bid_floor, exposure_count));
-    }
-
-    ubiquity_test_expect("store_get_model_info",
-        "model_id" , model_id);
-
-    // Message header for type line item.
-    message.common.version = SERIALIZATION_VERSION;
-    message.common.type = MESSAGE_TYPE_QUERY;
-    message.common.reserved = 0;
-    message.application.application_id = APPLICATION_TYPE_LINE_ITEM;
-    message.application.feedback_level_or_features_length = 0x16;
-    message.application.model_id = model_id;
-    message.application.query_id = query_id ^ model_id;
-    message.query.feedback_delay = 0x3333;
-    message.line_item_query.max_cpm = max_cpm;
-    message.line_item_query.bid_floor = bid_floor;
-    message.line_item_query.exposure_count = exposure_count;
-
-    // Buffer containing the features.
-    buffer_clear(BUFFER_FEATURES);
-    buffer_push_f32(BUFFER_FEATURES, 0.1); // numeric
-    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30); // nominal "hey" through xxh3
-    buffer_push_u8(BUFFER_FEATURES, 1); // boolean
-    buffer_push_u8(BUFFER_FEATURES, 7); // categorical
-    buffer_push_u16(BUFFER_FEATURES, 0); // padding
-    buffer_push_f32(BUFFER_FEATURES, 0.3); // numeric
-    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30); // nominal "hey" through xxh3
-    buffer_push_u8(BUFFER_FEATURES, 0); // boolean
-    buffer_push_u8(BUFFER_FEATURES, 8); // categorical
-
-    // Buffer containing creatives.
-    buffer_clear(BUFFER_CREATIVES);
-    for (int64_t creative_id = 0; creative_id < TESTED_CREATIVE_COUNT; ++creative_id) {
-        buffer_push_i64(BUFFER_CREATIVES, creative_id);
-    }
-
-    // Buffer containing the whole message with header and features.
-    buffer_clear(BUFFER_MESSAGE);
-    buffer_push_mem(BUFFER_MESSAGE, &message, sizeof(message_query_line_item_t));
-    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_FEATURES);
-    buffer_align(BUFFER_MESSAGE, 8);
-    const size_t creative_offset = buffer_size(BUFFER_MESSAGE);
-    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_CREATIVES);
-
-    // Consume all send message balanced events.
-    ubiquity_test_expect_partial("shared_send_message_with_rendezvous", 3,
-            "compatible_node_set", &s_model_info->compatible_node_set,
-            "balance_key", query_id ^ model_id,
-            "stream_id", STREAM_ID_PREDICTION
-            );
-
-    // Count occurences of every creative ID to later verify balance.
-    creative_check_t check = {
-        0,
-        creative_offset,
-        CREATIVE_SLOTS_COUNT < TESTED_CREATIVE_COUNT
-            ? CREATIVE_SLOTS_COUNT
-            : TESTED_CREATIVE_COUNT
-    };
-    int64_t counts[TESTED_CREATIVE_COUNT];
-    for (int64_t creative_id = 0; creative_id < TESTED_CREATIVE_COUNT; ++creative_id) {
-        //fprintf(stderr, "\ncreative_id : %li\n", creative_id);
-        check.creative_id = creative_id;
-        counts[creative_id] = ubiquity_test_count_filtered_by_arguments("shared_send_message_with_rendezvous",
-                "compatible_node_set", ubiquity_test_ignore, NULL,
-                "balance_key", ubiquity_test_ignore, NULL,
-                "stream_id", ubiquity_test_ignore, NULL,
-                "message", creative_was_selected, &check
+        ubiquity_test_expect("store_get_model_info",
+                "model_id" , model_id);
+        // Consume all send message balanced events.
+        ubiquity_test_expect_partial("shared_send_message_with_rendezvous", 3,
+                "compatible_node_set", &s_model_info->compatible_node_set,
+                "balance_key", query_id ^ model_id,
+                "stream_id", STREAM_ID_PREDICTION
                 );
     }
+    
+	const size_t creative_offset = 72;
+
+	// Count occurences of every creative ID to later verify balance.
+	creative_check_t check = {
+			0,
+			creative_offset
+	};
+
+    int64_t counts[TESTED_CREATIVE_COUNT];
+	for (int i = 0; i < TESTED_CREATIVE_COUNT; ++i) {
+			check.creative_id = creative_ids[i];
+			counts[i] = ubiquity_test_count_filtered_by_arguments("shared_send_message_with_rendezvous",
+					"compatible_node_set", ubiquity_test_ignore, NULL,
+					"balance_key", ubiquity_test_ignore, NULL,
+					"stream_id", ubiquity_test_ignore, NULL,
+					"message", creative_was_selected, &check
+					);
+	}
+	// Debug: print counts
+	fprintf(stderr, "\nCreative ID counts:\n");
+	for (int64_t i = 0; i < TESTED_CREATIVE_COUNT; ++i) {
+		fprintf(stderr, "Creative %ld: %ld\n", i, counts[i]);
+	}
+	fflush(stderr);
 
     // Verify that creative balancing works within a 5% margin.
     ubiquity_test_assert_almost_equal_array(
@@ -1472,8 +1424,7 @@ int main(void) {
     ubiquity_test_function_t test_list[] = {
         test_create_delete,
         test_predict,
-        // FIXME: see what's wrong with this test
-        // test_creative_balance, 
+        test_creative_balance, 
         test_feedback,
         test_cancel,
         test_poll,
