@@ -15,14 +15,6 @@ const char *Ubiquity::getStatusString(
  * MAIN CONFIGURATION
  */
 
-// Deprecated.
-void Ubiquity::setCredential(
-        const char *appToken
-        ) noexcept
-{
-    ubiquity_set_credentials(appToken);
-}
-
 void Ubiquity::setCredentials(
         const char *appToken
         ) noexcept

@@ -125,11 +125,6 @@ namespace Ubiquity {
                 const char *const directoryPath
                 ) noexcept;
 
-        // Deprecated.
-        void setCredential(
-                const char *const appToken
-                ) noexcept;
-
         void setCredentials(
                 const char *const appToken
                 ) noexcept;

@@ -5,16 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.0.0] - 2026-06-29
 
-## Added
+### Fixed
 
-- bid floor and frequency capping in line-item
+- **Connection issues** between ML client and ML cluster were fixed. The MlClient now relies on a new robust communication protocol based on hash lists.
+    - Improved reliability and fault tolerance
+    - Optimized message delivery guarantees
+    - Better error recovery and retry logic
 
-## Fixed
+### Added
 
-- action rate query setup
-- protocol registration request error handling
+- **Bid Shading** application is now available with two operational modes: (1) Expected surplus maximization, (2) Win Rate Preservation. 
+
+- **C# support** added for the ML client integration.
+
+- **Backoff idle strategy**: Added an exponential backoff sleeping strategy that can be used when waiting for predictions from the cluster.
+
+- **Comprehensive logging framework** with configurable levels and outputs.
+
+- Status codes `OUT_OF_MEMORY` and `CONNECTION_TIMEOUT`.
+
+### Changed
+
+- **[Breaking]** `ClientHandle.startLineItem()` method signature has been changed. The fields `modelId` and `queryId` were removed from the query setup. The field `bidFloor` is added with a default value of `0.01` and the field `exposureCount` is added but remains optional for now (Used for **frequency capping**, a feature to be released later).
+    - **Before**: `startLineItem(modelId, queryId, maxCPM)`
+    - **After**: `startLineItem(maxCPM, bidFloor=0.01f, exposureCount=0)`
+
+- **[Breaking]** `ClientHandle.startActionrate()` method signature has been changed. The fields `modelId` and `queryId` were removed from the query setup. The field `bidFloor` is added with a default value of `0.01` and the field `exposureCount` is added but remains optional for now (Used for **frequency capping**, a feature to be released later).
+    - **Before**: `startActionRate(modelId, queryId, bidPrice)`
+    - **After**: `startActionRate(bidPrice, bidFloor=0.01F, exposureCount=0)`
+
+- **[Breaking]** `ClientHandle.predict()` method signature has been changed. The fields `modelId` and `queryId`were move from query setup to here.
+    - **Before**: `predict()`
+    - **After**: `predict(modelId, queryId)`
+
+- **[Breaking]** `Ubiquity.setCredential()` method signature has been fixed. 
+    - **Before**: `setCredential(appToken)`
+    - **After**: `setCredentials(appToken)`
 
 ## [v0.9.2] - 2025-10-06
 
@@ -107,7 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - Refactor load balancer to avoid race condition.
 
-[Unreleased]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.9.2...HEAD
+[v1.0.0]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.9.2...v1.0.0
 [v0.9.2]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.9.1...v0.9.2
 [v0.9.1]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.9.0...v0.9.1
 [v0.9.0]: https://github.com/idaaas/ubiquity-mlclient/compare/v0.8.1...v0.9.0
