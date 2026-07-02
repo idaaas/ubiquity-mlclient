@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>UbiquityMlClient</AssemblyName>
+    <RootNamespace>UbiquityMlClient</RootNamespace>
+
+    <PackageId>UbiquityMlClient</PackageId>
+    <Version>0.9.3</Version>
+    <Authors>IDAaaS</Authors>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/idaaas/ubiquity-mlclient</RepositoryUrl>
+    <Description>SWIG-generated C# bindings for Ubiquity ML Client.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <NoWarn>NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="build/output/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)UbiquityMlClient.dll"
+        Pack="true"
+        PackagePath="lib/netstandard2.0/" />
+
+    <None Include="$(OutputPath)UbiquityMlClient.dll"
+          Pack="true"
+          PackagePath="runtimes/any/lib/$(TargetFramework)/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="./package/native/linux-x64/libmlclient.so"
+          Pack="true"
+          PackagePath="runtimes/linux-x64/native/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

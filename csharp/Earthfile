@@ -1,0 +1,61 @@
+VERSION 0.8
+FROM busybox
+
+ARG --global --required os
+ARG --global type=Release
+ARG --global disableIdChecks=OFF
+
+IMPORT ../.earthly/common AS common
+IMPORT ../cpp AS cpp
+
+DOTNET_INSTALL:
+  FUNCTION
+  IF echo $os | grep -q ubuntu
+    IF [ "$os" = "ubuntu:20.04" ]
+      RUN wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
+          && dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb && apt-get update -qq
+    END
+    RUN apt-get install --no-install-recommends -qq dotnet-sdk-8.0
+  END
+
+dotnet-image:
+  FROM cpp+base-image --os=$os
+  DO +DOTNET_INSTALL
+
+dotnet-swig-image:
+  FROM cpp+cmake-image --os=$os
+  DO +DOTNET_INSTALL
+  DO --pass-args common+SWIG_INSTALL
+
+bindings:
+  FROM +dotnet-swig-image
+  RUN apt install -yqq vim
+  COPY UbiquityMlClient.csproj README.md swig .
+  COPY (cpp+build/* --os=$os --type=$type --disableIdChecks=$disableIdChecks) .
+  RUN cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=Release -S . -B build
+  RUN cmake --build build --parallel $(nproc) --target mlclient
+  RUN dotnet build UbiquityMlClient.csproj -c Release
+  RUN dotnet pack UbiquityMlClient.csproj -c Release --no-build -o nupkgs
+  SAVE ARTIFACT nupkgs/*
+
+examples-build:
+  FROM +dotnet-image
+  COPY +bindings/* Ubiquity/
+  COPY samples .
+  RUN dotnet build Samples.csproj -c Release
+  SAVE ARTIFACT bin
+
+examples:
+  ARG latest=false
+  ARG imagePrefix
+  ARG imageSuffix=latest
+  FROM cpp+base-image --os=$os
+  RUN apt-get install --no-install-recommends -qq dotnet-runtime-8.0
+  COPY +examples-build/bin/ .
+  WAIT
+    COPY ../datasets/+files/ datasets
+    SAVE IMAGE --push ${imagePrefix}csharp-examples:${imageSuffix}
+    IF [ "$latest" = "true" ]
+      SAVE IMAGE --push ${imagePrefix}csharp-examples:latest
+    END
+  END

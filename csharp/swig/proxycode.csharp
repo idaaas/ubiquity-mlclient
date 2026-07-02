@@ -1,0 +1,67 @@
+  public const sbyte MISSING_BOOLEAN = -1;
+  public const sbyte MISSING_CATEGORICAL = -1;
+  public const string MISSING_NOMINAL = "_MISSING_";
+  public const float MISSING_NUMERIC = float.NaN;
+  
+  public const int UNDEFINED = 0;
+  
+  public const short NO_BID = 0;
+  public const short BID = 1;
+  
+  public const int CONSERVATIVE_MODE = 0;
+  public const int AGGRESSIVE_MODE = 1;
+
+  public const int SUCCESS = 1;
+  public const int NO_DATA = 2;
+  public const int BACK_PRESSURED = 3;
+  public const int NO_COMPATIBLE_NODE = 4;
+  
+  public const int ARCHITECTURE_NOT_SUPPORTED = 0x05;
+  public const int AERON_INITIALIZATION_FAILED = 0x06;
+  public const int INVALID_RESOURCE_ID = 0x07;
+  public const int INVALID_APP_FOR_MODEL = 0x08;
+  public const int MISMATCHED_FEATURE_TYPE = 0x09;
+  public const int INVALID_FEEDBACK_LEVEL = 0x0A;
+  public const int MISSING_CREATIVES = 0x0B;
+  public const int TOO_MANY_CREATIVES = 0x0C;
+  public const int MISPLACED_CREATIVE_ID = 0x0D;
+  public const int NO_API_RESPONSE = 0x0E;
+  public const int FORBIDDEN = 0x0F;
+  public const int UNKNOWN_RESOURCE = 0x10;
+  public const int OTHER_FETCH_ERROR = 0x11;
+  public const int INVALID_CLUSTER_DESCRIPTION = 0x12;
+  public const int NO_MODEL_METADATA = 0x13;
+  public const int INVALID_HANDLE = 0x14;
+  public const int UNAUTHORIZED = 0x15;
+  public const int INTERNAL_API_ERROR = 0x16;
+  public const int NO_MEMORY = 0x17;
+  public const int CONNECTION_TIMEOUT = 0x18;
+
+  public const int APP_BID_SHADING = 0;
+  public const int APP_PROBABILITY = 1;
+  public const int APP_LINE_ITEM = 2;
+  public const int APP_ACTION_RATE = 3;
+  public const int APP_UNDEFINED = 9999;
+
+  public const int LOG_OFF = 0;
+
+  public const int LOG_TRACE = 0x01;
+  public const int LOG_DEBUG = 0x02;
+  public const int LOG_INFO = 0x04;
+  public const int LOG_WARNING = 0x08;
+  public const int LOG_ERROR = 0x10;
+  public const int LOG_CRITICAL = 0x20;
+
+  public const int MIN_LOG_TRACE = 0x3f;
+  public const int MIN_LOG_DEBUG = 0x3e;
+  public const int MIN_LOG_INFO = 0x3c;
+  public const int MIN_LOG_WARNING = 0x38;
+  public const int MIN_LOG_ERROR = 0x30;
+  public const int MIN_LOG_CRITICAL = 0x20;
+
+  public const int MAX_LOG_TRACE = 0x01;
+  public const int MAX_LOG_DEBUG = 0x03;
+  public const int MAX_LOG_INFO = 0x07;
+  public const int MAX_LOG_WARNING = 0x0f;
+  public const int MAX_LOG_ERROR = 0x1f;
+  public const int MAX_LOG_CRITICAL = 0x3f;
