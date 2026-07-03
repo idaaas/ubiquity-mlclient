@@ -98,14 +98,14 @@ namespace ai.ubiquity.samples.lineitem
                         long completedQueryId = clientHandle.getQueryId();
                         if (feedbackByQueryId.TryGetValue(completedQueryId, out Feedback completedFeedback))
                         {
-                            clientHandle.trainWithLevel(modelId, completedQueryId, 0);
+                            clientHandle.train(modelId, completedQueryId, 0);
                             if (completedFeedback.Level1)
                             {
-                                clientHandle.trainWithLevel(modelId, completedQueryId, 1);
+                                clientHandle.train(modelId, completedQueryId, 1);
                             }
                             if (completedFeedback.Level2)
                             {
-                                clientHandle.trainWithLevel(modelId, completedQueryId, 2);
+                                clientHandle.train(modelId, completedQueryId, 2);
                             }
                         }
                     }

@@ -14,6 +14,7 @@ namespace ai.ubiquity.samples.bidshading
 
         static readonly TimeSpan PredictionTimeout = TimeSpan.FromMilliseconds(100);
         static readonly TimeSpan AuctionPollDelay = TimeSpan.FromMilliseconds(500);
+        static readonly TimeSpan WaitForFeedback = TimeSpan.FromSeconds(10);
 
         record PredictionResponse(
             string ModelId,
@@ -55,7 +56,6 @@ namespace ai.ubiquity.samples.bidshading
         }
 
         static async Task AuctionFeedbackRoutineAsync(
-            ConcurrentDictionary<string, Feedback> feedbacks,
             CancellationToken token)
         {
             using var client = Ubiquity.getClientHandle();
@@ -68,11 +68,10 @@ namespace ai.ubiquity.samples.bidshading
                         continue;
 
                     // do someting with the response, e.g. send it to the ad exchange and get the auction result
-                    //FIXME : feedback map doesn't do anything useful here, just a placeholder for the example
-                    if (!feedbacks.TryGetValue(ComputeChannelId(resp.ModelId, resp.QueryId), out var feedback))
-                        continue;
+                    // simulated with sleep 10sec
+                    await Task.Delay(WaitForFeedback, token);
 
-                    client.train(resp.ModelId, resp.QueryId, "level_0");
+                    client.train(resp.ModelId, resp.QueryId, 0);
                 }
 
                 await Task.Delay(AuctionPollDelay, token);
@@ -91,6 +90,7 @@ namespace ai.ubiquity.samples.bidshading
             var clusterId = args[1];
             var numQueries = args.Length > 2 ? int.Parse(args[2]) : 500000;
 
+            // Create model with the API token and cluster ID, and get the model ID
             ApiUtil apiUtil = new ApiUtil(apiToken);
             string modelId = apiUtil.CreateBidShadingModel(BuildBidShadingModelSchema(clusterId));
 
@@ -99,7 +99,7 @@ namespace ai.ubiquity.samples.bidshading
 
             try
             {
-                Ubiquity.setCredential(apiToken);
+                Ubiquity.setCredentials(apiToken);
 
                 var status = Ubiquity.openClient(clusterId);
                 if (status != Ubiquity.SUCCESS)
@@ -112,14 +112,12 @@ namespace ai.ubiquity.samples.bidshading
                 {
                     using var predictClient = Ubiquity.getClientHandle();
 
-                    var feedbackMap = new ConcurrentDictionary<string, Feedback>();
-
                     using var cts = new CancellationTokenSource();
 
                     // Start the polling and feedback routines as background tasks in separate threads
                     // Only one client handle per thread is allowed, so we create a new client handle for each routine
                     _ = Task.Run(() => PollingRoutineAsync(cts.Token));
-                    _ = Task.Run(() => AuctionFeedbackRoutineAsync(feedbackMap, cts.Token));
+                    _ = Task.Run(() => AuctionFeedbackRoutineAsync(cts.Token));
 
                     const int ThroughputQps = 50;
                     var pace = TimeSpan.FromSeconds(1.0 / ThroughputQps);
@@ -174,12 +172,6 @@ namespace ai.ubiquity.samples.bidshading
                             AppPageCat = "IAB" + rng.Next(1, 20)
                         };
 
-                        // Random feedback, in a real scenario this would come from the ad exchange after the auction
-                        feedbackMap[ComputeChannelId(modelId, queryId)] = new Feedback
-                        {
-                            Level1 = rng.Next(0, 2) == 0
-                        };
-
                         const float bidPrice = 5.0f;
                         const float bidFloor = 0.01f;
                         const int optimizationMode = 1; // WIN_RATE_PRESERVATION = 0, EXPECTED_SURPLUS_MAXIMIZATION = 1
@@ -222,6 +214,7 @@ namespace ai.ubiquity.samples.bidshading
                         var channelId = ComputeChannelId(modelId, queryId);
                         var channel = Channel.CreateBounded<PredictionResponse>(1);
 
+                        // Store the channel in the Pending dictionary so that the polling routine can find it when the response arrives
                         Pending[channelId] = channel;
 
                         // Start a background task to wait for the prediction response with a timeout (cancellation token)
@@ -229,6 +222,7 @@ namespace ai.ubiquity.samples.bidshading
                         {
                             try
                             {
+                                // Wait for the prediction response to arrive on the channel, with a timeout
                                 using var timeout =
                                     new CancellationTokenSource(PredictionTimeout);
 
@@ -244,6 +238,7 @@ namespace ai.ubiquity.samples.bidshading
                                         $"Price={response.Price:F4} ");
                                 }
                             }
+                            // If the timeout occurs, remove the channel from the Pending dictionary and log a message
                             catch (OperationCanceledException)
                             {
                                 Pending.TryRemove(channelId, out _);
@@ -275,9 +270,9 @@ namespace ai.ubiquity.samples.bidshading
             return $$"""
                         {
                             "cluster_id": "{{clusterId}}",
-                            "name": "bid-shading/Example1",
+                            "name": "bidshading/Example1",
                             "feedback_delays": [
-                                65,
+                                65
                             ],
                             "min_bid_price": 0.01,
                             "max_bid_price": 10.0,
@@ -386,7 +381,7 @@ namespace ai.ubiquity.samples.bidshading
                                     "name": "app.pagecat",
                                     "type": "nominal"
                                 }
-                            ],
+                            ]
                         }
                         """;
         }
@@ -491,15 +486,6 @@ namespace ai.ubiquity.samples.bidshading
             };
         }
 
-        private static List<Feedback> BuildFeedbacks()
-        {
-            return new List<Feedback>
-            {
-                new Feedback { Level1 = true },
-                new Feedback { Level1 = false }
-            };
-        }
-
         private sealed class BidRequest
         {
             public string AppBundle { get; set; } = string.Empty;
@@ -528,131 +514,6 @@ namespace ai.ubiquity.samples.bidshading
             public sbyte DeviceType { get; set; }
             public bool ImpInstl { get; set; }
             public string AppPageCat { get; set; } = string.Empty;
-        }
-
-        private sealed class Feedback
-        {
-            public bool Level1 { get; set; }
-
-        }
-
-        private static string BuildLineItemModelSchema(string clusterId)
-        {
-            return $$"""
-                        {
-                            "cluster_id": "{{clusterId}}",
-                            "name": "bidshading/Example1",
-                            "feedback_delays": [
-                                65,
-                            ],
-                            "features": [
-                                {
-                                    "name": "app.bundle",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "imp.banner.pos",
-                                    "type": "categorical"
-                                },
-                                {
-                                    "name": "localtime",
-                                    "type": "categorical"
-                                },
-                                {
-                                    "name": "device.os",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "device.geo.city",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "device.model",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "bcat",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "device.geo.zip",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "user.yob",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "app.publisher.name",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "device.connectiontype",
-                                    "type": "categorical"
-                                },
-                                {
-                                    "name": "device.geo.region",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "app.cat",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "device.make",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "device.HxW",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "user.gender",
-                                    "type": "categorical"
-                                },
-                                {
-                                    "name": "device.language",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "imp.displaymanager",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "imp.banner.battr",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "device.geo.country",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "app.content.language",
-                                    "type": "nominal"
-                                },
-                                {
-                                    "name": "app.content.context",
-                                    "type": "categorical"
-                                },
-                                {
-                                    "name": "imp.banner.topframe",
-                                    "type": "boolean"
-                                },
-                                {
-                                    "name": "device.devicetype",
-                                    "type": "categorical"
-                                },
-                                {
-                                    "name": "imp.instl",
-                                    "type": "boolean"
-                                },
-                                {
-                                    "name": "app.pagecat",
-                                    "type": "nominal"
-                                }
-                            ],
-                        }
-                        """;
         }
     }
 }

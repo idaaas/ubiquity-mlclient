@@ -29,7 +29,8 @@ all:
     --lang=java \
     --lang=cpp \
     --lang=go \
-    --lang=python
+    --lang=python \
+    --lang=csharp
 
 all-examples:
   ARG latest=false
@@ -41,6 +42,7 @@ all-examples:
     --lang=cpp \
     --lang=go \
     --lang=python \
+    --lang=csharp \
     --latest=$latest \
     --imagePrefix=$imagePrefix \
     --imageSuffix=$imageSuffix
