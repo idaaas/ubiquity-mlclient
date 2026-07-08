@@ -2,7 +2,7 @@
 
 ## Built module
 
-You can download go module for a direct use [here](https://github.com/idaaas/ubiquity-go-mlclient/tree/ubuntu-22-v0.7.4).  
+You can download go module for a direct use [here](https://github.com/idaaas/ubiquity-go-mlclient/tree/ubuntu-22-v1.0.1).  
 Select the appropriate **tag** corresponding to your **os version** and read the repo **README** for installation instructions.
 
 ## Build

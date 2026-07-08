@@ -22,8 +22,7 @@ namespace ai.ubiquity.samples.bidshading
             float Price
         );
 
-        static readonly ConcurrentDictionary<string, Channel<PredictionResponse>> Pending = new();
-        static readonly ConcurrentDictionary<string, PredictionResponse> AuctionPending = new();
+        static readonly ConcurrentDictionary<string, Channel<PredictionResponse>> PendingChannels = new();
 
         static string ComputeChannelId(string modelId, long queryId)
         {
@@ -32,49 +31,75 @@ namespace ai.ubiquity.samples.bidshading
 
         static async Task PollingRoutineAsync(CancellationToken token)
         {
-            using var client = Ubiquity.getClientHandle();
-
-            while (!token.IsCancellationRequested)
+            var client = Ubiquity.getClientHandle();
+            try 
             {
-                if (client.poll() == Ubiquity.SUCCESS)
+                var status = Ubiquity.NO_DATA;
+                do 
                 {
+                    status = client.poll();
+                    if(status != Ubiquity.SUCCESS){
+                        // Apply an exponential backoff strategy to avoid busy loop 
+                        client.idle();
+                        continue;
+                    }
                     var response = new PredictionResponse(
                         client.getModelId(),
                         client.getQueryId(),
                         client.getPrice());
 
                     var channelId = ComputeChannelId(response.ModelId, response.QueryId);
-
-                    if (Pending.TryRemove(channelId, out var channel))
-                        await channel.Writer.WriteAsync(response, token);
-                    else
-                        Console.WriteLine($"Received response for unknown channel {channelId}");
-                }
-
-                await Task.Yield();
+                    await PendingChannels[channelId].Writer.WriteAsync(response, token);
+                } while (!token.IsCancellationRequested);
+            }
+            finally 
+            {
+                client.close();
             }
         }
 
-        static async Task AuctionFeedbackRoutineAsync(
-            CancellationToken token)
+        static async Task AuctionFeedbackRoutineAsync(string modelId, long queryId)
         {
-            using var client = Ubiquity.getClientHandle();
-
-            while (!token.IsCancellationRequested)
+            var client = Ubiquity.getClientHandle();
+            using var delay = new CancellationTokenSource(WaitForFeedback);
+            try 
             {
-                foreach (var kv in AuctionPending)
-                {
-                    if (!AuctionPending.TryRemove(kv.Key, out var resp))
-                        continue;
+                // Simulate waiting for a positive feedback 
+                await Task.Delay(WaitForFeedback, delay.Token);
+                // once your positive feedback is received, use it 
+                Console.WriteLine(
+                    $"Received a feedback notification for WinAuction");
+                // Only call train when you win the auction (feedback level is always 0 for bid shading feedbacks)
+                client.train(modelId, queryId, 0);
+            }
+            finally 
+            {
+                client.close();
+            }
+        }
 
-                    // do someting with the response, e.g. send it to the ad exchange and get the auction result
-                    // simulated with sleep 10sec
-                    await Task.Delay(WaitForFeedback, token);
+        static async Task PredictionRoutineAsync(string channelId)
+        {
+            try
+            {
+                // Wait for the prediction response to arrive on the channel, with a timeout
+                using var timeout = new CancellationTokenSource(PredictionTimeout);
 
-                    client.train(resp.ModelId, resp.QueryId, 0);
-                }
+                var response = await PendingChannels[channelId].Reader.ReadAsync(timeout.Token);
+                Console.WriteLine(
+                    $"Received prediction response for prediction {channelId}");
 
-                await Task.Delay(AuctionPollDelay, token);
+                // Do someting with the response, e.g. send it to the ad exchange and get the auction result
+                // available fields in the response 
+                //      resp.ModelId
+                //      resp.QueryId
+                //      resp.Price
+            }
+            // If the timeout occurs, log a message
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine(
+                    $"Timeout waiting for prediction {channelId}");
             }
         }
       
@@ -82,15 +107,15 @@ namespace ai.ubiquity.samples.bidshading
         {
             if (args.Length < 2)
             {
-                Console.WriteLine("Usage: <apiToken> <clusterId> [numQueries]");
+                Console.WriteLine("Usage: <apiToken> <clusterId>");
                 return 1;
             }
 
             var apiToken = args[0];
             var clusterId = args[1];
-            var numQueries = args.Length > 2 ? int.Parse(args[2]) : 500000;
 
             // Create model with the API token and cluster ID, and get the model ID
+            // This model uses a predefined feature engineering as an example
             ApiUtil apiUtil = new ApiUtil(apiToken);
             string modelId = apiUtil.CreateBidShadingModel(BuildBidShadingModelSchema(clusterId));
 
@@ -100,6 +125,7 @@ namespace ai.ubiquity.samples.bidshading
             try
             {
                 Ubiquity.setCredentials(apiToken);
+                Ubiquity.setDefaultLogLevel(Ubiquity.LOG_OFF);
 
                 var status = Ubiquity.openClient(clusterId);
                 if (status != Ubiquity.SUCCESS)
@@ -110,147 +136,104 @@ namespace ai.ubiquity.samples.bidshading
 
                 try
                 {
-                    using var predictClient = Ubiquity.getClientHandle();
+                    var predictClient = Ubiquity.getClientHandle();
+                    // simulate the request Id by generating a random long
+                    var rng = Random.Shared;
+                    var queryId = rng.NextInt64();
 
-                    using var cts = new CancellationTokenSource();
+                    using var pollingCts = new CancellationTokenSource(); 
 
                     // Start the polling and feedback routines as background tasks in separate threads
-                    // Only one client handle per thread is allowed, so we create a new client handle for each routine
-                    _ = Task.Run(() => PollingRoutineAsync(cts.Token));
-                    _ = Task.Run(() => AuctionFeedbackRoutineAsync(cts.Token));
+                    // Client handles are not thread-safe, so we create a new client handle for each routine
+                    var pollingRoutine = Task.Run(() => PollingRoutineAsync(pollingCts.Token));
+                    var feedbackRoutine = Task.Run(() => AuctionFeedbackRoutineAsync(modelId, queryId));
 
-                    const int ThroughputQps = 50;
-                    var pace = TimeSpan.FromSeconds(1.0 / ThroughputQps);
-                    var nextSend = DateTime.UtcNow;
-
-                    const int dumpPeriod = 1000;
-
-                    var rng = Random.Shared;
-                    var count = 0;
-
-                    // Generate random bid requests and send them to the model for prediction
-                    while (count < numQueries)
+                    // Random bid request, in a real scenario this would come from the ad exchange
+                    var request = new BidRequest
                     {
-                        if (DateTime.UtcNow < nextSend)
-                        {
-                            await Task.Yield();
-                            continue;
-                        }
+                        AppBundle = "com.example.app" + rng.Next(1, 100),
+                        ImpBannerPos = (sbyte)rng.Next(0, 5),
+                        LocalTime = (sbyte)rng.Next(0, 24),
+                        DeviceOs = rng.Next(0, 2) == 0 ? "android" : "ios",
+                        DeviceGeoCity = "city" + rng.Next(1, 100),
+                        DeviceModel = "model" + rng.Next(1, 50),
+                        Bcat = "IAB" + rng.Next(1, 20),
+                        DeviceGeoZip = rng.Next(10000, 99999).ToString(),
+                        UserYob = (1980 + rng.Next(0, 40)).ToString(),
+                        AppPublisherName = "publisher-" + rng.Next(1, 10),
+                        DeviceConnectionType = (sbyte)rng.Next(0, 3),
+                        DeviceGeoRegion = "region" + rng.Next(1, 10),
+                        AppCat = "IAB" + rng.Next(1, 20) + "-" + rng.Next(1, 5),
+                        DeviceMake = "make" + rng.Next(1, 10),
+                        DeviceHxW = $"{rng.Next(720, 1440)}x{rng.Next(1280, 2560)}",
+                        UserGender = (sbyte)rng.Next(0, 3),
+                        DeviceLanguage = rng.Next(0, 2) == 0 ? "en" : "fr",
+                        ImpDisplayManager = rng.Next(0, 2) == 0 ? "admob" : "gma",
+                        ImpBannerBattr = rng.Next(0, 2) == 0 ? "none" : "audio",
+                        DeviceGeoCountry = rng.Next(0, 2) == 0 ? "us" : "fr",
+                        AppContentLanguage = rng.Next(0, 2) == 0 ? "en" : "fr",
+                        AppContentContext = (sbyte)rng.Next(0, 5),
+                        ImpBannerTopFrame = rng.Next(0, 2) == 0,
+                        DeviceType = (sbyte)rng.Next(0, 5),
+                        ImpInstl = rng.Next(0, 2) == 0,
+                        AppPageCat = "IAB" + rng.Next(1, 20)
+                    };
 
-                        nextSend += pace;
+                    const float bidPrice = 5.0f; 
+                    const float bidFloor = 0.01f;
+                    // Use any of the available modes: WIN_RATE_PRESERVATION, EXPECTED_SURPLUS_MAXIMIZATION
+                    const int optimizationMode = Ubiquity.EXPECTED_SURPLUS_MAXIMIZATION;
+                    predictClient.startBidShading(bidPrice, bidFloor, optimizationMode);
 
-                        var queryId = rng.NextInt64();
+                    predictClient.putNominal(request.AppBundle);
+                    predictClient.putCategorical(request.ImpBannerPos);
+                    predictClient.putCategorical(request.LocalTime);
+                    predictClient.putNominal(request.DeviceOs);
+                    predictClient.putNominal(request.DeviceGeoCity);
+                    predictClient.putNominal(request.DeviceModel);
+                    predictClient.putNominal(request.Bcat);
+                    predictClient.putNominal(request.DeviceGeoZip);
+                    predictClient.putNominal(request.UserYob);
+                    predictClient.putNominal(request.AppPublisherName);
+                    predictClient.putCategorical(request.DeviceConnectionType);
+                    predictClient.putNominal(request.DeviceGeoRegion);
+                    predictClient.putNominal(request.AppCat);
+                    predictClient.putNominal(request.DeviceMake);
+                    predictClient.putNominal(request.DeviceHxW);
+                    predictClient.putCategorical(request.UserGender);
+                    predictClient.putNominal(request.DeviceLanguage);
+                    predictClient.putNominal(request.ImpDisplayManager);
+                    predictClient.putNominal(request.ImpBannerBattr);
+                    predictClient.putNominal(request.DeviceGeoCountry);
+                    predictClient.putNominal(request.AppContentLanguage);
+                    predictClient.putCategorical(request.AppContentContext);
+                    predictClient.putBoolean((sbyte)(request.ImpBannerTopFrame ? 1 : 0));
+                    predictClient.putCategorical(request.DeviceType);
+                    predictClient.putBoolean((sbyte)(request.ImpInstl ? 1 : 0));
+                    predictClient.putNominal(request.AppPageCat);
 
-                        // Random bid request, in a real scenario this would come from the ad exchange
-                        var request = new BidRequest
-                        {
-                            AppBundle = "com.example.app" + rng.Next(1, 100),
-                            ImpBannerPos = (sbyte)rng.Next(0, 5),
-                            LocalTime = (sbyte)rng.Next(0, 24),
-                            DeviceOs = rng.Next(0, 2) == 0 ? "android" : "ios",
-                            DeviceGeoCity = "city" + rng.Next(1, 100),
-                            DeviceModel = "model" + rng.Next(1, 50),
-                            Bcat = "IAB" + rng.Next(1, 20),
-                            DeviceGeoZip = rng.Next(10000, 99999).ToString(),
-                            UserYob = (1980 + rng.Next(0, 40)).ToString(),
-                            AppPublisherName = "publisher-" + rng.Next(1, 10),
-                            DeviceConnectionType = (sbyte)rng.Next(0, 3),
-                            DeviceGeoRegion = "region" + rng.Next(1, 10),
-                            AppCat = "IAB" + rng.Next(1, 20) + "-" + rng.Next(1, 5),
-                            DeviceMake = "make" + rng.Next(1, 10),
-                            DeviceHxW = $"{rng.Next(720, 1440)}x{rng.Next(1280, 2560)}",
-                            UserGender = (sbyte)rng.Next(0, 3),
-                            DeviceLanguage = rng.Next(0, 2) == 0 ? "en" : "fr",
-                            ImpDisplayManager = rng.Next(0, 2) == 0 ? "admob" : "gma",
-                            ImpBannerBattr = rng.Next(0, 2) == 0 ? "none" : "audio",
-                            DeviceGeoCountry = rng.Next(0, 2) == 0 ? "us" : "fr",
-                            AppContentLanguage = rng.Next(0, 2) == 0 ? "en" : "fr",
-                            AppContentContext = (sbyte)rng.Next(0, 5),
-                            ImpBannerTopFrame = rng.Next(0, 2) == 0,
-                            DeviceType = (sbyte)rng.Next(0, 5),
-                            ImpInstl = rng.Next(0, 2) == 0,
-                            AppPageCat = "IAB" + rng.Next(1, 20)
-                        };
+                    // Send the prediction request, which is syncrhonous. 
+                    // Retry until success
+                    do {
+                        status = predictClient.predict(modelId, queryId);
+                    }while(status != Ubiquity.SUCCESS);
 
-                        const float bidPrice = 5.0f;
-                        const float bidFloor = 0.01f;
-                        const int optimizationMode = 1; // WIN_RATE_PRESERVATION = 0, EXPECTED_SURPLUS_MAXIMIZATION = 1
-                        predictClient.startBidShading(bidPrice, bidFloor, optimizationMode);
+                    predictClient.close();
 
-                        predictClient.putNominal(request.AppBundle);
-                        predictClient.putCategorical(request.ImpBannerPos);
-                        predictClient.putCategorical(request.LocalTime);
-                        predictClient.putNominal(request.DeviceOs);
-                        predictClient.putNominal(request.DeviceGeoCity);
-                        predictClient.putNominal(request.DeviceModel);
-                        predictClient.putNominal(request.Bcat);
-                        predictClient.putNominal(request.DeviceGeoZip);
-                        predictClient.putNominal(request.UserYob);
-                        predictClient.putNominal(request.AppPublisherName);
-                        predictClient.putCategorical(request.DeviceConnectionType);
-                        predictClient.putNominal(request.DeviceGeoRegion);
-                        predictClient.putNominal(request.AppCat);
-                        predictClient.putNominal(request.DeviceMake);
-                        predictClient.putNominal(request.DeviceHxW);
-                        predictClient.putCategorical(request.UserGender);
-                        predictClient.putNominal(request.DeviceLanguage);
-                        predictClient.putNominal(request.ImpDisplayManager);
-                        predictClient.putNominal(request.ImpBannerBattr);
-                        predictClient.putNominal(request.DeviceGeoCountry);
-                        predictClient.putNominal(request.AppContentLanguage);
-                        predictClient.putCategorical(request.AppContentContext);
-                        predictClient.putBoolean((sbyte)(request.ImpBannerTopFrame ? 1 : 0));
-                        predictClient.putCategorical(request.DeviceType);
-                        predictClient.putBoolean((sbyte)(request.ImpInstl ? 1 : 0));
-                        predictClient.putNominal(request.AppPageCat);
+                    // Create a channel to receive the prediction response for this query
+                    var channelId = ComputeChannelId(modelId, queryId);
+                    var channel = Channel.CreateBounded<PredictionResponse>(1);
+                    PendingChannels[channelId] = channel;
 
-                        // Start the prediction request and wait for it to be sent.
-                        if (predictClient.predict(modelId, queryId) != Ubiquity.SUCCESS)
-                            continue;
+                    // Start a background task to wait for the prediction response with a timeout
+                    var predictionRoutine = PredictionRoutineAsync(channelId);
 
-                        count++;
+                    // Terminate all routines after they are done  
+                    await Task.WhenAll(predictionRoutine, feedbackRoutine);
 
-                        // Create a channel to receive the prediction response for this query
-                        var channelId = ComputeChannelId(modelId, queryId);
-                        var channel = Channel.CreateBounded<PredictionResponse>(1);
-
-                        // Store the channel in the Pending dictionary so that the polling routine can find it when the response arrives
-                        Pending[channelId] = channel;
-
-                        // Start a background task to wait for the prediction response with a timeout (cancellation token)
-                        _ = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                // Wait for the prediction response to arrive on the channel, with a timeout
-                                using var timeout =
-                                    new CancellationTokenSource(PredictionTimeout);
-
-                                var response =
-                                    await channel.Reader.ReadAsync(timeout.Token);
-
-                                AuctionPending[channelId] = response;
-
-                                if (count % dumpPeriod == 0)
-                                {
-                                    Console.WriteLine(
-                                        $"Total={count} " +
-                                        $"Price={response.Price:F4} ");
-                                }
-                            }
-                            // If the timeout occurs, remove the channel from the Pending dictionary and log a message
-                            catch (OperationCanceledException)
-                            {
-                                Pending.TryRemove(channelId, out _);
-                                Console.WriteLine(
-                                    $"Timeout waiting for prediction {channelId}");
-                            }
-                        });
-                    }
-
-                    await Task.Delay(TimeSpan.FromSeconds(196));
-
-                    cts.Cancel();
+                    // Send a notification to stop the polling routine at the end
+                    pollingCts.Cancel();
+                    
                 }
                 finally
                 {
@@ -271,8 +254,11 @@ namespace ai.ubiquity.samples.bidshading
                         {
                             "cluster_id": "{{clusterId}}",
                             "name": "bidshading/Example1",
-                            "feedback_delays": [
-                                65
+                            "feedbacks": [
+                                {
+                                    "name": "win",
+                                    "max_delay": 1800
+                                }
                             ],
                             "min_bid_price": 0.01,
                             "max_bid_price": 10.0,
@@ -386,106 +372,6 @@ namespace ai.ubiquity.samples.bidshading
                         """;
         }
         
-        private static long GetTimeNanos()
-        {
-            return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1_000_000L;
-        }
-
-        private static void FillFeatures(ClientHandle clientHandle, BidRequest request)
-        {
-            clientHandle.putNominal(request.AppBundle);
-            clientHandle.putCategorical(request.ImpBannerPos);
-            clientHandle.putCategorical(request.LocalTime);
-            clientHandle.putNominal(request.DeviceOs);
-            clientHandle.putNominal(request.DeviceGeoCity);
-            clientHandle.putNominal(request.DeviceModel);
-            clientHandle.putNominal(request.Bcat);
-            clientHandle.putNominal(request.DeviceGeoZip);
-            clientHandle.putNominal(request.UserYob);
-            clientHandle.putNominal(request.AppPublisherName);
-            clientHandle.putCategorical(request.DeviceConnectionType);
-            clientHandle.putNominal(request.DeviceGeoRegion);
-            clientHandle.putNominal(request.AppCat);
-            clientHandle.putNominal(request.DeviceMake);
-            clientHandle.putNominal(request.DeviceHxW);
-            clientHandle.putCategorical(request.UserGender);
-            clientHandle.putNominal(request.DeviceLanguage);
-            clientHandle.putNominal(request.ImpDisplayManager);
-            clientHandle.putNominal(request.ImpBannerBattr);
-            clientHandle.putNominal(request.DeviceGeoCountry);
-            clientHandle.putNominal(request.AppContentLanguage);
-            clientHandle.putCategorical(request.AppContentContext);
-            clientHandle.putBoolean(request.ImpBannerTopFrame ? (sbyte)1 : (sbyte)0);
-            clientHandle.putCategorical(request.DeviceType);
-            clientHandle.putBoolean(request.ImpInstl ? (sbyte)1 : (sbyte)0);
-            clientHandle.putNominal(request.AppPageCat);
-        }
-
-        private static List<BidRequest> BuildRequests()
-        {
-            return new List<BidRequest>
-            {
-                new BidRequest
-                {
-                    AppBundle = "com.example.app1",
-                    ImpBannerPos = 1,
-                    LocalTime = 18,
-                    DeviceOs = "android",
-                    DeviceGeoCity = "paris",
-                    DeviceModel = "pixel",
-                    Bcat = "IAB1",
-                    DeviceGeoZip = "75001",
-                    UserYob = "1990",
-                    AppPublisherName = "publisher-a",
-                    DeviceConnectionType = 2,
-                    DeviceGeoRegion = "idf",
-                    AppCat = "IAB1-2",
-                    DeviceMake = "google",
-                    DeviceHxW = "1080x1920",
-                    UserGender = 1,
-                    DeviceLanguage = "fr",
-                    ImpDisplayManager = "admob",
-                    ImpBannerBattr = "none",
-                    DeviceGeoCountry = "fr",
-                    AppContentLanguage = "fr",
-                    AppContentContext = 3,
-                    ImpBannerTopFrame = true,
-                    DeviceType = 1,
-                    ImpInstl = false,
-                    AppPageCat = "IAB9"
-                },
-                new BidRequest
-                {
-                    AppBundle = "com.example.app2",
-                    ImpBannerPos = 2,
-                    LocalTime = 9,
-                    DeviceOs = "ios",
-                    DeviceGeoCity = "lyon",
-                    DeviceModel = "iphone",
-                    Bcat = "IAB2",
-                    DeviceGeoZip = "69001",
-                    UserYob = "1988",
-                    AppPublisherName = "publisher-b",
-                    DeviceConnectionType = 1,
-                    DeviceGeoRegion = "ara",
-                    AppCat = "IAB2-3",
-                    DeviceMake = "apple",
-                    DeviceHxW = "1170x2532",
-                    UserGender = 2,
-                    DeviceLanguage = "en",
-                    ImpDisplayManager = "gma",
-                    ImpBannerBattr = "audio",
-                    DeviceGeoCountry = "fr",
-                    AppContentLanguage = "en",
-                    AppContentContext = 2,
-                    ImpBannerTopFrame = false,
-                    DeviceType = 4,
-                    ImpInstl = true,
-                    AppPageCat = "IAB12"
-                }
-            };
-        }
-
         private sealed class BidRequest
         {
             public string AppBundle { get; set; } = string.Empty;

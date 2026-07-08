@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <AssemblyName>example1</AssemblyName>
+    <OutputPath>../bin/line-item/</OutputPath>
+    <RootNamespace>ai.ubiquity.samples</RootNamespace>
+    <StartupObject>ai.ubiquity.samples.lineitem.Example1</StartupObject>
+
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../common/apiUtil.cs" />
+    <Compile Include="./example1.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="UbiquityMlClient" Version="[1.0.1, )"/>
+    <PackageReference Include="Polly" Version="8.4.2" />
+  </ItemGroup>
+</Project>

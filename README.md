@@ -54,6 +54,7 @@ Specific instructions for programming languages are available:
 - [Java 8 and above](java/README.md)
 - [Go 1.2 and above](go/README.md)
 - [Python 3.5 and above](python/README.md)
+- [C#](csharp/README.md)
 
 If your programming language is not in the list, please fill in a [request](https://github.com/idaaas/ubiquity-mlclient/issues/new).
 

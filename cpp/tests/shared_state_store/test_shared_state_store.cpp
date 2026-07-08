@@ -286,7 +286,7 @@ static inline int poll_message()
     }
 
     // Print full diagnostics before asserting
-    fprintf(stderr, "ones: %zu, zeros: %zu, duplicates: %zu\n", ones, zeros, duplicates);
+    //fprintf(stderr, "ones: %zu, zeros: %zu, duplicates: %zu\n", ones, zeros, duplicates);
 
     // Now assert
     ubiquity_test_assert_equal(QUANTITY_OF_MESSAGES_TO_RECEIVE, ones);

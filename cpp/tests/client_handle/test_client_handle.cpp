@@ -899,11 +899,6 @@ int test_creative_balance(void)
 					"message", creative_was_selected, &check
 					);
 	}
-	// Debug: print counts
-	fprintf(stderr, "\nCreative ID counts:\n");
-	for (int64_t i = 0; i < TESTED_CREATIVE_COUNT; ++i) {
-		fprintf(stderr, "Creative %ld: %ld\n", i, counts[i]);
-	}
 	fflush(stderr);
 
     // Verify that creative balancing works within a 5% margin.

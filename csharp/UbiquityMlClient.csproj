@@ -5,7 +5,7 @@
     <RootNamespace>UbiquityMlClient</RootNamespace>
 
     <PackageId>UbiquityMlClient</PackageId>
-    <Version>0.9.3</Version>
+    <Version>1.0.1</Version>
     <Authors>IDAaaS</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/idaaas/ubiquity-mlclient</RepositoryUrl>
@@ -15,7 +15,7 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <NoWarn>NU5128</NoWarn>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,12 +24,8 @@
 
   <ItemGroup>
     <None Include="$(OutputPath)UbiquityMlClient.dll"
-        Pack="true"
-        PackagePath="lib/netstandard2.0/" />
-
-    <None Include="$(OutputPath)UbiquityMlClient.dll"
           Pack="true"
-          PackagePath="runtimes/any/lib/$(TargetFramework)/" />
+          PackagePath="lib/$(TargetFramework)/" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,7 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

@@ -72,13 +72,13 @@ build:
   END
   RUN sed -i "s/#ghashit/$HASH/g" build/src/libubiquity_client_static.a
   RUN sed -i "s/#ghashit/$EARTHLY_GIT_SHORT_HASH/g" build/src/libubiquity_client_static.a
-  RUN --no-cache build/tests/connection/test_connection
-  RUN --no-cache build/tests/node_client/test_node_client
-  RUN --no-cache build/tests/synchronizer/test_synchronizer
-  RUN --no-cache build/tests/shared_state_store/test_shared_state_store
-  RUN --no-cache build/tests/cluster_client/test_cluster_client
-  RUN --no-cache build/tests/client_handle/test_client_handle
-  RUN --no-cache build/tests/load_balancer/test_load_balancer
+  RUN build/tests/connection/test_connection
+  RUN build/tests/node_client/test_node_client
+  RUN build/tests/synchronizer/test_synchronizer
+  RUN build/tests/shared_state_store/test_shared_state_store
+  RUN build/tests/cluster_client/test_cluster_client
+  RUN build/tests/client_handle/test_client_handle
+  RUN build/tests/load_balancer/test_load_balancer
   SAVE ARTIFACT build/src/libubiquity_client_static.a
   SAVE ARTIFACT include/ubiquity_client/Ubiquity.hpp
 

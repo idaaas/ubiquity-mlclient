@@ -25,6 +25,7 @@ namespace ai.ubiquity.samples.lineitem
             string modelId = apiUtil.CreateLineItemModel(BuildLineItemModelSchema(clusterId));
 
             Ubiquity.setCredentials(apiToken);
+            Ubiquity.setDefaultLogLevel(Ubiquity.LOG_OFF);
             int statusCode;
             ClientHandle? clientHandle = null;
 
@@ -96,7 +97,8 @@ namespace ai.ubiquity.samples.lineitem
                     if (price > adversaryPrice)
                     {
                         long completedQueryId = clientHandle.getQueryId();
-                        if (feedbackByQueryId.TryGetValue(completedQueryId, out Feedback completedFeedback))
+                        Feedback? completedFeedback;
+                        if (feedbackByQueryId.TryGetValue(completedQueryId, out completedFeedback))
                         {
                             clientHandle.train(modelId, completedQueryId, 0);
                             if (completedFeedback.Level1)
@@ -136,10 +138,19 @@ namespace ai.ubiquity.samples.lineitem
                         {
                             "cluster_id": "{{clusterId}}",
                             "name": "lineitem/Example1",
-                            "feedback_delays": [
-                                65,
-                                130,
-                                196
+                            "feedbacks": [
+                                {
+                                    "name": "imp",
+                                    "max_delay": 65
+                                },
+                                {
+                                    "name": "view",
+                                    "max_delay": 130
+                                },
+                                {
+                                    "name": "click",
+                                    "max_delay": 196
+                                }
                             ],
                             "features": [
                                 {

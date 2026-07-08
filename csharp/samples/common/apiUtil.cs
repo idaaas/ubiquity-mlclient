@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using Polly;
 
 namespace ai.ubiquity.samples.common
 {
@@ -11,12 +12,28 @@ namespace ai.ubiquity.samples.common
     {
         private const string BaseUrl = "https://api.ubiquity.ai/v1";
         private readonly HttpClient _client;
+        private readonly Policy<HttpResponseMessage> _retryPolicy;
 
         public ApiUtil(string apiToken)
         {
-            _client = new HttpClient();
+            _client = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(10)
+            };
             _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiToken);
+
+            _retryPolicy = Policy<HttpResponseMessage>
+                .Handle<TimeoutException>()
+                .Or<TaskCanceledException>()
+                .Or<HttpRequestException>(ex =>
+                    ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
+                    ex.Message.Contains("A task was canceled", StringComparison.OrdinalIgnoreCase))
+                .OrResult(response => (int)response.StatusCode >= 500)
+                .WaitAndRetry(6, _ => TimeSpan.FromSeconds(1), onRetry: (outcome, timespan, retryAttempt, context) =>
+                {
+                    Console.WriteLine($"Request failed on attempt {retryAttempt}/6; retrying in {timespan.TotalSeconds:0} second(s)...");
+                });
         }
 
         public string CreateLineItemModel(string lineItemBody)
@@ -35,10 +52,12 @@ namespace ai.ubiquity.samples.common
         {
             Console.WriteLine($"Deleting a model with id={modelId}...");
 
-            using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, $"{BaseUrl}/models/{modelId}");
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            using HttpResponseMessage response = _client.Send(request);
+            using HttpResponseMessage response = _retryPolicy.Execute(() =>
+            {
+                using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, $"{BaseUrl}/models/{modelId}");
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                return _client.Send(request);
+            });
             string responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             if ((int)response.StatusCode != 202)
             {
@@ -65,13 +84,15 @@ namespace ai.ubiquity.samples.common
 
         private string CreateModel(string endpoint, string modelBody)
         {
-            using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            using HttpResponseMessage response = _retryPolicy.Execute(() =>
             {
-                Content = new StringContent(modelBody, Encoding.UTF8, "application/json")
-            };
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            using HttpResponseMessage response = _client.Send(request);
+                using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = new StringContent(modelBody, Encoding.UTF8, "application/json")
+                };
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                return _client.Send(request);
+            });
             string responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             if ((int)response.StatusCode != 202)
             {
@@ -109,10 +130,12 @@ namespace ai.ubiquity.samples.common
 
         private Operation GetOperation(string operationId)
         {
-            using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/operations/{operationId}");
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            using HttpResponseMessage response = _client.Send(request);
+            using HttpResponseMessage response = _retryPolicy.Execute(() =>
+            {
+                using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/operations/{operationId}");
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                return _client.Send(request);
+            });
             string responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             response.EnsureSuccessStatusCode();
 

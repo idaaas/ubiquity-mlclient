@@ -8,8 +8,8 @@
   public const short NO_BID = 0;
   public const short BID = 1;
   
-  public const int CONSERVATIVE_MODE = 0;
-  public const int AGGRESSIVE_MODE = 1;
+  public const int WIN_RATE_PRESERVATION = 0;
+  public const int EXPECTED_SURPLUS_MAXIMIZATION = 1;
 
   public const int SUCCESS = 1;
   public const int NO_DATA = 2;
@@ -34,7 +34,7 @@
   public const int INVALID_HANDLE = 0x14;
   public const int UNAUTHORIZED = 0x15;
   public const int INTERNAL_API_ERROR = 0x16;
-  public const int NO_MEMORY = 0x17;
+  public const int OUT_OF_MEMORY = 0x17;
   public const int CONNECTION_TIMEOUT = 0x18;
 
   public const int APP_BID_SHADING = 0;

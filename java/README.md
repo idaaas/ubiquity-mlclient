@@ -28,7 +28,7 @@ and the following in repositories section:
   <dependency>
     <groupId>com.idaaas.ubuntu-22-java-17</groupId>
     <artifactId>ubiquity-mlclient</artifactId>
-    <version>v0.7.0</version>
+    <version>v1.0.1</version>
   </dependency>
 
   <!-- other dependencies -->

@@ -36,13 +36,14 @@ bindings:
   RUN cmake --build build --parallel $(nproc) --target mlclient
   RUN dotnet build UbiquityMlClient.csproj -c Release
   RUN dotnet pack UbiquityMlClient.csproj -c Release --no-build -o nupkgs
-  SAVE ARTIFACT nupkgs/*
+  SAVE ARTIFACT nupkgs
 
 examples-build:
   FROM +dotnet-image
-  COPY +bindings/* Ubiquity/
+  COPY +bindings/ .
   COPY samples .
-  RUN dotnet build Samples.csproj -c Release
+  RUN dotnet build line-item/LineItem.csproj -c Release
+  RUN dotnet build bid-shading/BidShading.csproj -c Release
   SAVE ARTIFACT bin
 
 examples:

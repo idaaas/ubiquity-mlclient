@@ -2,7 +2,7 @@
 
 ## Built package
 
-You can download python package with **pip** for a direct use [here](https://github.com/idaaas/ubiquity-python-mlclient/tree/ubuntu-22-v0.7.4).  
+You can download python package with **pip** for a direct use [here](https://github.com/idaaas/ubiquity-python-mlclient/tree/ubuntu-22-v1.0.1).  
 Select the appropriate **tag** corresponding to your **os version** and read the repo **README** for installation instructions.
 
 ## Build
