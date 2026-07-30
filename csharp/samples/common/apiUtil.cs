@@ -48,6 +48,12 @@ namespace ai.ubiquity.samples.common
             return CreateModel($"{BaseUrl}/models/bid-shading", bidShadingBody);
         }
 
+        public string CreateBinaryClassificationModel(string binaryClassificationBody)
+        {
+            Console.WriteLine("Creating a binary-classification model...");
+            return CreateModel($"{BaseUrl}/models/binary-classification", binaryClassificationBody);
+        }
+
         public void DeleteModel(string modelId)
         {
             Console.WriteLine($"Deleting a model with id={modelId}...");

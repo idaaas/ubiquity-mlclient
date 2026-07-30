@@ -17,7 +17,7 @@ public class Example1 {
 
   public static void main(String[] args) throws Exception {
     if (args.length < 2)
-      throw new RuntimeException("You need to provide API token and cluster ID to run the LineItemExample");
+      throw new RuntimeException("You need to provide API token and cluster ID to run the probability estimator Example");
     final String apiToken = args[0];
     final String clusterId = args[1];
     final int numQueries = args.length < 3 ? 500000 : Integer.parseInt(args[2]);
@@ -53,14 +53,14 @@ public class Example1 {
         continue;
       nextSendNanoTime = nextSendNanoTime + paceInNanos;
 
-      // 4.1 prepare a line item query
+      // 4.1 prepare a probability estimator query
       long queryId = rand.nextLong();
-      // read a bid request with its feedback from the dataset file
+      // read a request with its feedback from the dataset file
       BidRequest request = dataIterator.next();
       Feedback feedback = feedbackIterator.next();
       // read the feedback for all the levels and store it in a temp map
       feedbackHashMap.put(queryId, feedback);
-      // prepare a line item query using this bid request
+      // prepare a query using this request
       clientHandle.startProbability();
       // fill in the features as specified in the model schema in config.json
       clientHandle.putNominal(request.getAppBundle());
@@ -136,10 +136,16 @@ public class Example1 {
   private final static String modelSchema = """
       {
         "cluster_id": "%s",
-        "name": "lineitem/Example1",
-        "feedback_delays": [
-          65,
-          130
+        "name": "probabilityestimator/Example1",
+        "feedbacks": [
+          {
+            "name": "level_0",
+            "max_delay": 65
+          },
+          {
+            "name": "level_1",
+            "max_delay": 130
+          }
         ],
         "features": [
           {

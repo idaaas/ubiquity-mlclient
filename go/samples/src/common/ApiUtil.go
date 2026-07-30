@@ -28,6 +28,12 @@ func CreateActionRateModel(apiToken string, actionRateBody string) string {
 	return createModel(apiToken, actionRateEndpoint, actionRateBody)
 }
 
+func CreateBinaryClassificationModel(apiToken string, binaryClassificationBody string) string {
+	fmt.Println("Creating a binary-classification model...")
+	binaryClassificationEndpoint := "https://api.ubiquity.ai/v1/models/binary-classification"
+	return createModel(apiToken, binaryClassificationEndpoint, binaryClassificationBody)
+}
+
 type ModelResponseBody struct {
 	Operation_id string
 }

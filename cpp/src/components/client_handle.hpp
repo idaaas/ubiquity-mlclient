@@ -63,6 +63,10 @@ void client_handle_start_action_rate(
         const int32_t exposure_count
         ) noexcept;
 
+void client_handle_start_binary_classification(
+        client_handle_t *const client_handle
+        ) noexcept;
+
 /*
  * PREDICTION QUERY AND FEEDBACK
  */
@@ -143,6 +147,11 @@ int32_t client_handle_get_prediction_type(
 int8_t client_handle_get_bid_status(
         client_handle_t *const client_handle
         ) noexcept;
+
+bool client_handle_is_classified(
+        client_handle_t *const client_handle
+        ) noexcept;
+
 /*
  * SETTERS
  */

@@ -70,10 +70,19 @@ static const std::string getActionRate(const std::string &clusterId)
 {
     std::string body = R"({"cluster_id":")" + clusterId + R"(",
           "name": "code-example action-rate",
-          "feedback_delays": [
-            65,
-            130,
-            196
+          "feedbacks": [
+            {
+               "name": "imp",
+               "max_delay": 65
+            },
+            {
+                "name": "view",
+                "max_delay": 130
+            },
+            {
+                "name": "install",
+                "max_delay": 196
+            }
           ],
           "bid_ratio": 0.1,
     )";

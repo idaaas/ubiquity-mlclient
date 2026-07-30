@@ -182,11 +182,20 @@ func getLineItemBody(clusterId string) string {
             {
               "cluster_id": "` + clusterId + `",
               "name": "code-example line-item",
-              "feedback_delays": [
-                65,
-            		130,
-            		196
-              ],
+			  "feedbacks": [
+				{
+				   "name": "imp",
+				   "max_delay": 65
+				},
+				{
+				   "name": "view",
+				   "max_delay": 130
+				},
+				{
+				   "name": "install",
+				   "max_delay": 196
+				}
+			   ],
               "features": [
                 {
                   "name": "app.bundle",

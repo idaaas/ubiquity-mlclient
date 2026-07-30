@@ -39,6 +39,10 @@ int8_t Ubiquity::ClientHandle::getBidStatus(void) noexcept {
     return client_handle_get_bid_status(reinterpret_cast<client_handle_t *>(this->pimpl));
 }
 
+bool Ubiquity::ClientHandle::isClassified(void) noexcept {
+    return client_handle_is_classified(reinterpret_cast<client_handle_t *>(this->pimpl));
+}
+
 int32_t Ubiquity::ClientHandle::getPredictionType(void) noexcept {
     return client_handle_get_prediction_type(reinterpret_cast<client_handle_t *>(this->pimpl));
 }
@@ -85,6 +89,10 @@ void Ubiquity::ClientHandle::startActionRate(const float bidPrice, const float b
 
 void Ubiquity::ClientHandle::startProbability(void) noexcept {
     return client_handle_start_probability(reinterpret_cast<client_handle_t *>(this->pimpl));
+}
+
+void Ubiquity::ClientHandle::startBinaryClassification(void) noexcept {
+    return client_handle_start_binary_classification(reinterpret_cast<client_handle_t *>(this->pimpl));
 }
 
 Ubiquity::StatusCode Ubiquity::ClientHandle::predict(const char *modelId, const int64_t queryId) noexcept {

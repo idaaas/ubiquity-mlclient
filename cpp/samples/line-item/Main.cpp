@@ -70,11 +70,20 @@ static const std::string getLineItem(const std::string &clusterId)
 {
     std::string body = R"({"cluster_id":")" + clusterId + R"(",
           "name": "code-example line-item",
-          "feedback_delays": [
-            65,
-            130,
-            196
-          ],
+          "feedbacks": [
+             {
+                "name": "imp",
+                "max_delay": 65
+             },
+             {
+                "name": "view",
+                "max_delay": 130
+             },
+             {
+                "name": "install",
+                "max_delay": 196
+             }
+            ],
     )";
     body += R"("features": [)";
     for (size_t index = 0; index < bidRequestStructure.size(); index += 2) {

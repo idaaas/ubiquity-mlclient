@@ -19,7 +19,7 @@ func main() {
 
 func example1() int {
 	if len(os.Args) < 3 {
-		fmt.Println("You need to provide API token and cluster ID to run the LineItemExample")
+		fmt.Println("You need to provide API token and cluster ID to run the probability estimator example")
 		return 1
 	}
 	apiToken := os.Args[1]
@@ -57,13 +57,13 @@ func example1() int {
 
 	// unzip datasets
 	const feedbackPath string = "./datasets/feedback.csv"
-	const bidRequestPath string = "./datasets/features.csv"
+	const requestPath string = "./datasets/features.csv"
 
-	common.Unzip(bidRequestPath+".gz", bidRequestPath)
+	common.Unzip(requestPath+".gz", requestPath)
 	common.Unzip(feedbackPath+".gz", feedbackPath)
 
 	// load BidRequest data and Feedback data from files
-	bidRequests := common.LoadBidRequests(bidRequestPath)
+	requests := common.LoadBidRequests(requestPath)
 	feedbacks := common.LoadFeedbacks(feedbackPath)
 	feedbackHashMap := make(map[int64]common.Feedback)
 
@@ -80,14 +80,14 @@ func example1() int {
 		}
 		nextSendNanoTime = nextSendNanoTime.Add(pace)
 
-		// 4.1 prepare a line item query
+		// 4.1 prepare a probability estimator query
 		queryId := rand.Int63()
-		// read a bid request with its feedback from the dataset file
-		request := bidRequests[count]
+		// read a request with its feedback from the dataset file
+		request := requests[count]
 		feedback := feedbacks[count]
 		// read the feedback for all the levels and store it in a temp map
 		feedbackHashMap[queryId] = feedback
-		// prepare a line item query using this bid request
+		// prepare a probability estimator query using this request
 		clientHandle.StartProbability()
 		// fill in the features as specified in the model schema in config.json
 		clientHandle.PutNominal(request.AppBundle)
@@ -134,7 +134,6 @@ func example1() int {
 		}
 
 		// 4.4 read the response data
-
 		conversionProbability := clientHandle.GetProbability()
 
 		// 4.5 Sending back feedback (when applicable)
@@ -161,10 +160,16 @@ func getProbaEstimatorBody(clusterId string) string {
             {
               "cluster_id": "` + clusterId + `",
               "name": "code-example probability-estimator",
-              "feedback_delays": [
-                65,
-            		130
-              ],
+			  "feedbacks": [
+				{
+					"name": "level_0",
+					"max_delay": 65
+				},
+				{
+					"name": "level_1",
+					"max_delay": 130
+				}
+			  ],
               "features": [
                 {
                   "name": "app.bundle",

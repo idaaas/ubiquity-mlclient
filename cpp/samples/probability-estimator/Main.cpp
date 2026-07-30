@@ -18,18 +18,18 @@ const char* apiToken;
 
 void sigHandler(int s) {
     std::cout << "Caught signal " << s << std::endl;
-    // 5. close the handle and the whole client
+    // close the handle and the whole client
     clientHandle.close();
     Ubiquity::closeClient();
-    // 6. wait for the last feedback sent to be processed by the cluster then delete the models
-    std::cout << "Waiting 10 seconds for the last feedback sent to be processed by the cluster.........." << std::endl;
+    // wait for the last feedback sent to be processed by the cluster then delete the models
+    std::cout << "Waiting 10 seconds for the last feedback sent to be processed by the cluster..." << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(10));
     Common::deleteModel(modelId, apiToken);
     exit(1);
 }
 
-// List of types corresponding to the structure of a bid request and used by the CSV parser to fill that kind of structure.
-std::vector<std::string> bidRequestStructure = {
+// List of types corresponding to the structure of a request and used by the CSV parser to fill that kind of structure.
+std::vector<std::string> requestStructure = {
     "appBundle", "nominal",
     "impBannerPos", "categorical",
     "localTime", "categorical",
@@ -65,22 +65,28 @@ std::vector<std::string> feedbackStructure = {
     "level2", "boolean",
 };
 
-// Returns the JSON body to use during the API call to create the line-item model.
+// Returns the JSON body to use during the API call to create the probability estimator model.
 static const std::string getProbabilityEstimator(const std::string &clusterId)
 {
     std::string body = R"({"cluster_id":")" + clusterId + R"(",
           "name": "code-example probability-estimator",
-          "feedback_delays": [
-            65,
-            130
-          ],
+          "feedbacks": [
+            {
+                "name": "level_0",
+                "max_delay": 65
+            },
+            {
+                "name": "level_1",
+                "max_delay": 130
+            }
+        ],
     )";
     body += R"("features": [)";
-    for (size_t index = 0; index < bidRequestStructure.size(); index += 2) {
+    for (size_t index = 0; index < requestStructure.size(); index += 2) {
         if (index != 0) {
             body += ",\n";
         }
-        body += R"({"name": ")" + bidRequestStructure[index] + R"(","type": ")" + bidRequestStructure[index + 1] + "\"}";
+        body += R"({"name": ")" + requestStructure[index] + R"(","type": ")" + requestStructure[index + 1] + "\"}";
     }
     body += R"(]
         }
@@ -88,19 +94,19 @@ static const std::string getProbabilityEstimator(const std::string &clusterId)
     return body;
 }
 
-// Example program for line-item prediction.
+// Example program for probability estimator prediction.
 int main(const int argc, const char **argv) {
 
     signal (SIGINT,sigHandler);
 
     if (argc < 2) {
-        std::cout << "Error : You need to provide an API token and a cluster ID to run the line-item example." << std::endl;
+        std::cout << "Error : You need to provide an API token and a cluster ID to run the probability estimator example." << std::endl;
         return 1;
     }
     apiToken = argv[1];
     const auto clusterId = argv[2];
     if (argc < 3) {
-        std::cout << "You need to provide API token and cluster ID to run the LineItemExample" << std::endl;
+        std::cout << "You need to provide API token and cluster ID to run the probability estimator example" << std::endl;
         return 1;
     }
     const size_t numQueries = argc >= 4 ? std::stoi(argv[3]) : 500000;
@@ -127,10 +133,10 @@ int main(const int argc, const char **argv) {
     // 3. Prepare data and feedback streams
 
     // Unzip datasets.
-    const auto bidRequestPath = "./datasets/features.csv";
+    const auto requestPath = "./datasets/features.csv";
     const auto feedbackPath = "./datasets/feedback.csv";
-    if(std::system((std::string("gzip -d ") + bidRequestPath + ".gz 2>&1").c_str())) {
-      std::cout << "Error unzipping " << bidRequestPath << std::endl;
+    if(std::system((std::string("gzip -d ") + requestPath + ".gz 2>&1").c_str())) {
+      std::cout << "Error unzipping " << requestPath << std::endl;
       return 1;
     }
     if(std::system((std::string("gzip -d ") + feedbackPath + ".gz 2>&1").c_str())) {
@@ -142,8 +148,8 @@ int main(const int argc, const char **argv) {
     std::mt19937_64 randgen;
     randgen.seed(std::random_device{}());
 
-    // Load bid request data and feedback data from CSV files.
-    auto bidRequests = Common::loadDataFromCsvFile(bidRequestPath, bidRequestStructure);
+    // Load request data and feedback data from CSV files.
+    auto requests = Common::loadDataFromCsvFile(requestPath, requestStructure);
     auto feedbacks = Common::loadDataFromCsvFile(feedbackPath, feedbackStructure);
 
     // This map will serve to retrieve a feedback to send for a corresponding query ID.
@@ -164,13 +170,13 @@ int main(const int argc, const char **argv) {
         }
         nextSendTime = nextSendTime + pace;
 
-        // 4.1 prepare a line item query
+        // 4.1 prepare a probability estimator query
         int64_t queryId = randgen();
-        // read a bid request from the dataset file
-        auto &request = bidRequests[count];
+        // read a request from the dataset file
+        auto &request = requests[count];
         // read the feedback for all the levels from the dataset file and store it in a temp map
         feedbackHashMap[queryId] = feedbacks[count];
-        // prepare a line item query using this bid request
+        // prepare a probability estimator query using this request
         clientHandle.startProbability();
 
         // fill in the features as specified in the model schema

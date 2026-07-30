@@ -20,9 +20,15 @@ model_schema = """
 {{
     "cluster_id": "{id}",
     "name": "probabilityEstimator/Example1",
-    "feedback_delays": [
-    65,
-    130
+    "feedbacks": [
+    {{
+        "name": "level_0",
+        "max_delay": 65
+    }},
+    {{
+        "name": "level_1",
+        "max_delay": 130
+    }}
     ],
     "features": [
     {{
@@ -148,15 +154,15 @@ def main(api_token, cluster_id, num_queries):
 
         # 3. Prepare data and feedback streams
         feedback_path = "./datasets/feedback.csv"
-        bid_request_path = "./datasets/features.csv"
+        request_path = "./datasets/features.csv"
 
-        u.unzip(f"{bid_request_path}.gz", bid_request_path)
+        u.unzip(f"{request_path}.gz", request_path)
         u.unzip(f"{feedback_path}.gz", feedback_path)
 
 
         next_send_time = time.time_ns()
 
-        bid_requests = d.load_bid_requests(bid_request_path)
+        requests = d.load_requests(request_path)
         feedbacks = d.load_feedbacks(feedback_path)
         feedback_hash_map = {}
 
@@ -170,9 +176,9 @@ def main(api_token, cluster_id, num_queries):
                 continue
             next_send_time += PACE_IN_NANOS
 
-            # 4.1 Prepare a line item query
+            # 4.1 Prepare a probability estimator query
             query_id = random.randint(1, 1e9)
-            request = bid_requests[count%len(bid_requests)]
+            request = requests[count%len(requests)]
             feedback = feedbacks[count%len(feedbacks)]
 
             feedback_hash_map[query_id] = feedback
@@ -228,7 +234,7 @@ def main(api_token, cluster_id, num_queries):
             feedback = feedback_hash_map[query_id]
 
             # 4.5.1 send a positive feedback of level 0 to the cluster to execute the query.
-		        # After this call, you cannot cancel the query
+		    # After this call, you cannot cancel the query
             client_handle.train(model_id, query_id, 0)  # Notify execution
             # 4.5.2 send a positive feedback of level 1 only when it is positive
             if feedback.level1:
@@ -247,7 +253,6 @@ def main(api_token, cluster_id, num_queries):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 3:
-        raise RuntimeError("You need to provide API token and cluster ID to run the LineItemExample")
+        raise RuntimeError("You need to provide API token and cluster ID to run the Probabily estimator example")
     numQueries = 500000 if len(sys.argv) < 4 else int(sys.argv[3])
     main(sys.argv[1], sys.argv[2], numQueries)
-

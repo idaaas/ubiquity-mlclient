@@ -22,6 +22,11 @@ class ApiUtil:
         endpoint = f"{self.base_url}/models/action-rate"
         return self._create_model(endpoint, action_rate_body)
 
+    def create_binary_classification(self, binary_classification_body):
+        print("Creating a binary-classification model...")
+        endpoint = f"{self.base_url}/models/binary-classification"
+        return self._create_model(endpoint, binary_classification_body)
+
     def _create_model(self, endpoint, model_body):
         headers = {
             "accept": "application/json",

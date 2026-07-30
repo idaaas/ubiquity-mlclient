@@ -42,6 +42,7 @@ const APP_BID_SHADING int = 0
 const APP_PROBABILITY int = 1
 const APP_LINE_ITEM int = 2
 const APP_ACTION_RATE int = 3
+const APP_BINARY_CLASSIFICATION int = 4
 const APP_UNDEFINED int = 9999
 
 const LOG_OFF int = 0

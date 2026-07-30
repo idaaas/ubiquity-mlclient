@@ -56,6 +56,7 @@
   public final static int APP_PROBABILITY = 1;
   public final static int APP_LINE_ITEM = 2;
   public final static int APP_ACTION_RATE = 3;
+  public final static int APP_BINARY_CLASSIFICATION = 4;
   public final static int APP_UNDEFINED = 9999;
 
     public final static int LOG_OFF = 0;

@@ -32,6 +32,12 @@ public class ApiUtil {
         return createModel(lineItemEndpoint, lineItemBody);
     }
 
+    public String createBinaryClassificationModel(String binaryClassificationBody) throws IOException {
+        System.out.println("Creating a binary classification model...");
+        String binaryClassificationEndpoint = "https://api.ubiquity.ai/v1/models/binary-classification";
+        return createModel(binaryClassificationEndpoint, binaryClassificationBody);
+    }
+
     private String createModel(String endpoint, String modelBody) throws IOException {
         MediaType mediaType = MediaType.parse("application/json");
         RequestBody requestBody = RequestBody.create(modelBody, mediaType);

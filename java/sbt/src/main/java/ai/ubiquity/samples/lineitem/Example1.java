@@ -152,10 +152,19 @@ public class Example1 {
       {
         "cluster_id": "%s",
         "name": "lineitem/Example1",
-        "feedback_delays": [
-          65,
-          130,
-          196
+        "feedbacks": [
+          {
+            "name": "imp",
+            "max_delay": 65
+          },
+          {
+            "name": "view",
+            "max_delay": 130
+          },
+          {
+            "name": "install",
+            "max_delay": 196
+          }
         ],
         "features": [
           {

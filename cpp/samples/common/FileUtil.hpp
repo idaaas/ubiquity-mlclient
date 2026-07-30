@@ -78,4 +78,4 @@ std::vector<CsvDataMap> loadDataFromCsvFile(
     return resultVector;
 }
 
-};
+}

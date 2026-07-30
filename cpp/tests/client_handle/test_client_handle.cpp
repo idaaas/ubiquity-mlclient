@@ -21,6 +21,7 @@
 #define APPLICATION_TYPE_PROBABILITY 1
 #define APPLICATION_TYPE_LINE_ITEM 2
 #define APPLICATION_TYPE_ACTION_RATE 3
+#define APPLICATION_TYPE_BINARY_CLASSIFICATION 4
 
 #define BUFFER_MESSAGE 0
 #define BUFFER_FEATURES 2
@@ -184,6 +185,11 @@ typedef struct __attribute__((packed)) {
 
 typedef struct __attribute__((packed)) {
     message_application_t _;
+    int32_t is_classified;
+} message_prediction_binary_classification_t;
+
+typedef struct __attribute__((packed)) {
+    message_application_t _;
     uint32_t feedback_delay;
 } message_query_t;
 
@@ -215,6 +221,8 @@ typedef struct __attribute__((packed)) {
     int32_t exposure_count;
 } message_query_action_rate_t;
 
+typedef message_query_t message_query_binary_classification_t;
+
 typedef struct __attribute__((packed)) {
     message_application_t _;
     uint32_t feedback_delay;
@@ -241,6 +249,7 @@ typedef union {
     message_prediction_probability_t probability_prediction;
     message_prediction_line_item_t line_item_prediction;
     message_prediction_action_rate_t action_rate_prediction;
+    message_prediction_binary_classification_t binary_classification_prediction;
     message_query_t query;
     message_query_with_creatives_t creative_query;
     message_query_bid_shading_t bid_shading_query;
@@ -253,7 +262,6 @@ typedef union {
 
 int test_create_delete(void)
 {
-
     // Expects a new handle to be created, increasing use count of the cluster client.
     client_handle_t *client_handle = client_handle_create(
             &s_cluster_client,
@@ -332,7 +340,27 @@ static inline void load_feedback_list(
     }
 }
 
-int test_predict(void)
+// Creates a fresh client handle and asserts the count was incremented and creation succeeded.
+// NOTE: the ubiquity_test_* macros return an int. So this helper must return int.
+int setup_client_handle(client_handle_t **out_client_handle)
+{
+        client_handle_t *client_handle = client_handle_create(
+                &s_cluster_client,
+                s_store,
+                s_cluster_id
+                );
+        ubiquity_test_expect("increment_use_count");
+        ubiquity_test_done_expecting();
+        ubiquity_test_assert_equal_string(
+                "SUCCESS",
+                client_handle_get_status_string(client_handle)
+                );
+        *out_client_handle = client_handle;
+        return 0;
+}
+
+// A probability query sent for a model configured for bid shading must be rejected with INVALID_APP_FOR_MODEL.
+int test_predict_invalid_app_for_model(void)
 {
     // Constants.
     const uint64_t model_id = 1;
@@ -353,82 +381,123 @@ int test_predict(void)
         NULL, 0,
     };
 
-    // Variables.
-    status_code_t status_code;
-    message_buffer_t message;
-
-    // Expects a new handle to be created, increasing use count of the cluster client.
-    client_handle_t *client_handle = client_handle_create(
-            &s_cluster_client,
-            s_store,
-            s_cluster_id
-            );
-    ubiquity_test_expect("increment_use_count");
-    ubiquity_test_done_expecting();
-    ubiquity_test_assert_equal_string(
-            "SUCCESS",
-            client_handle_get_status_string(client_handle)
-            );
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
 
     // Set model information.
-    model_info_initialize(
-            s_model_info,
-            model_id
-            );
-    model_info_set_application_id(
-            s_model_info,
-            APPLICATION_TYPE_BID_SHADING
-            );
-    load_feature_type_array(
-            s_model_info,
-            feature_type_array_1
-            );
-    load_feedback_list(
-            s_model_info,
-            feedback_list_1
-            );
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_BID_SHADING);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
 
-    // Prepare query.
+    // Prepare probability estimation query.
     char encoded_model_id[14];
     base_32C_encode(encoded_model_id, &model_id);
+
     client_handle_start_probability(client_handle);
     client_handle_put_boolean(client_handle, 1);
 
-    // Send prediction query.
-    status_code = client_handle_predict(
+    status_code_t status_code = client_handle_predict(
             client_handle,
             encoded_model_id,
             query_id
             );
-    ubiquity_test_expect("store_get_model_info",
-        "model_id" , model_id);
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
     ubiquity_test_done_expecting();
 
-    // App APPLICATION_TYPE_PROBABILITY should be invalid for model's app APPLICATION_TYPE_BID_SHADING.
     ubiquity_test_assert_equal(STATUS_CODE_INVALID_APP_FOR_MODEL, status_code);
     ubiquity_test_done_expecting();
 
-    // Try again with application ID 1.
-    s_model_info->application_id = APPLICATION_TYPE_PROBABILITY;
+    return 0;
+}
+
+// A query whose feature types don't match the model's schema must be rejected with MISMATCHED_FEATURE_TYPE.
+int test_predict_mismatched_feature_type(void)
+{
+    // Constants.
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const feature_type_t feature_type_array_1[] = {
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NONE
+    };
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
+        NULL, 0,
+    };
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+
+    // Set model information.
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_PROBABILITY);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
+
+    // Prepare probability estimation query.
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
 
     client_handle_start_probability(client_handle);
     client_handle_put_numeric(client_handle, 1);
 
-    status_code = client_handle_predict(
+    client_handle_predict(
             client_handle,
             encoded_model_id,
             query_id
             );
-    ubiquity_test_expect("store_get_model_info",
-        "model_id" , model_id);        
-    // Feature types are not matching.
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
     ubiquity_test_assert_equal_string(
             "MISMATCHED_FEATURE_TYPE",
             client_handle_get_status_string(client_handle)
             );
     ubiquity_test_done_expecting();
 
-    // Try again with matching feature types.
+    return 0;
+}
+
+int test_predict_probability_success(void)
+{
+    // Constants.
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const feature_type_t feature_type_array_1[] = {
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NONE
+    };
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
+        NULL, 0,
+    };
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+
+    // Set model information.
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_PROBABILITY);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
+
+    // Prepare probability estimation query.
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
     client_handle_start_probability(client_handle);
     client_handle_put_numeric(client_handle, 0.1);
     client_handle_put_nominal(client_handle, "hey");
@@ -439,19 +508,18 @@ int test_predict(void)
     client_handle_put_boolean(client_handle, 0);
     client_handle_put_categorical(client_handle, 8);
 
-    status_code = client_handle_predict(
+    client_handle_predict(
             client_handle,
             encoded_model_id,
             query_id
             );
-    ubiquity_test_expect("store_get_model_info",
-        "model_id" , model_id);
-    // This time the sending should be successful.
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
     ubiquity_test_assert_equal_string(
             "SUCCESS",
             client_handle_get_status_string(client_handle)
             );
 
+    message_buffer_t message;
     // Message header for type probability.
     message.common.version = SERIALIZATION_VERSION;
     message.common.type = MESSAGE_TYPE_QUERY;
@@ -464,27 +532,20 @@ int test_predict(void)
 
     // Buffer containing the features.
     buffer_clear(BUFFER_FEATURES);
-    buffer_push_f32(BUFFER_FEATURES, 0.1); // numeric
-    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30); // nominal "hey" through xxh3
-    buffer_push_u8(BUFFER_FEATURES, 1); // boolean
-    buffer_push_u8(BUFFER_FEATURES, 7); // categorical
-    buffer_push_u16(BUFFER_FEATURES, 0); // padding
-    buffer_push_f32(BUFFER_FEATURES, 0.3); // numeric
-    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30); // nominal "hey" through xxh3
-    buffer_push_u8(BUFFER_FEATURES, 0); // boolean
-    buffer_push_u8(BUFFER_FEATURES, 8); // categorical
+    buffer_push_f32(BUFFER_FEATURES, 0.1);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 1);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 7);                 // categorical
+    buffer_push_u16(BUFFER_FEATURES, 0);                // padding
+    buffer_push_f32(BUFFER_FEATURES, 0.3);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 0);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 8);                 // categorical
 
     // Buffer containing the whole message with header and features.
     buffer_clear(BUFFER_MESSAGE);
-    buffer_push_mem(
-            BUFFER_MESSAGE,
-            &message,
-            sizeof(message_query_probability_t)
-            );
-    buffer_push_buffer(
-            BUFFER_MESSAGE,
-            BUFFER_FEATURES
-            );
+    buffer_push_mem(BUFFER_MESSAGE, &message, sizeof(message_query_probability_t));
+    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_FEATURES);
 
     // Check that a message with the right content is passed along the right compatible_node_set.
     ubiquity_test_expect("shared_send_message_with_rendezvous",
@@ -495,18 +556,53 @@ int test_predict(void)
             );
     ubiquity_test_done_expecting();
 
-    const float bid_price = 0.123;
-    const float bid_floor = 0.456;
+    return 0;
+}
+
+int test_predict_bid_shading_success(void)
+{
+    // Constants.
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const feature_type_t feature_type_array_1[] = {
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NONE
+    };
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
+        NULL, 0,
+    };
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+
+    // Set model information.
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_BID_SHADING);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
+
+    // Prepare bid shading query.
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+    const float bid_price = 0.123f;
+    const float bid_floor = 0.456f;
     const int32_t optimization_mode = 1;
 
-    // Same for bid shading.
-    s_model_info->application_id = APPLICATION_TYPE_BID_SHADING;
     client_handle_start_bid_shading(
             client_handle,
             bid_price,
             bid_floor,
             optimization_mode
             );
+
     client_handle_put_numeric(client_handle, 0.1);
     client_handle_put_nominal(client_handle, "hey");
     client_handle_put_boolean(client_handle, 1);
@@ -515,36 +611,48 @@ int test_predict(void)
     client_handle_put_nominal(client_handle, "hey");
     client_handle_put_boolean(client_handle, 0);
     client_handle_put_categorical(client_handle, 8);
-
-    status_code = client_handle_predict(
+ 
+    client_handle_predict(
             client_handle,
             encoded_model_id,
             query_id
             );
-    ubiquity_test_expect("store_get_model_info",
-        "model_id" , model_id);            
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
     ubiquity_test_assert_equal_string(
             "SUCCESS",
             client_handle_get_status_string(client_handle)
             );
-
-    // Set values specific to bid shading.
+ 
+    message_buffer_t message;
+    // Message header for type Bid shading.
+    message.common.version = SERIALIZATION_VERSION;
+    message.common.type = MESSAGE_TYPE_QUERY;
+    message.common.reserved = 0;
     message.application.application_id = APPLICATION_TYPE_BID_SHADING;
+    message.application.feedback_level_or_features_length = 0x16;
+    message.application.model_id = model_id;
+    message.application.query_id = query_id ^ model_id;
+    message.query.feedback_delay = 0x3333;
     message.bid_shading_query.bid_floor = bid_floor;
     message.bid_shading_query.bid_price = bid_price;
     message.bid_shading_query.optimization_mode = optimization_mode;
 
+    // Buffer containing the features.
+    buffer_clear(BUFFER_FEATURES);
+    buffer_push_f32(BUFFER_FEATURES, 0.1);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 1);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 7);                 // categorical
+    buffer_push_u16(BUFFER_FEATURES, 0);                // padding
+    buffer_push_f32(BUFFER_FEATURES, 0.3);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 0);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 8);                 // categorical
+
     // Buffer containing the whole message with header and features.
     buffer_clear(BUFFER_MESSAGE);
-    buffer_push_mem(
-            BUFFER_MESSAGE,
-            &message,
-            sizeof(message_query_bid_shading_t)
-            );
-    buffer_push_buffer(
-            BUFFER_MESSAGE,
-            BUFFER_FEATURES
-            );
+    buffer_push_mem(BUFFER_MESSAGE, &message, sizeof(message_query_bid_shading_t));
+    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_FEATURES);
 
     // Check that a message with the right content is passed along the right compatible_node_set.
     ubiquity_test_expect("shared_send_message_with_rendezvous",
@@ -555,10 +663,47 @@ int test_predict(void)
             );
     ubiquity_test_done_expecting();
 
-    // Same for line item.
-    const float max_cpm = 0.789;
+    return 0;
+}
+
+// A line item query with no creatives must be rejected.
+int test_predict_line_item_missing_creatives(void)
+{
+    // Constants.
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const feature_type_t feature_type_array_1[] = {
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NONE
+    };
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
+        NULL, 0,
+    };
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+
+    // Set model information.
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_LINE_ITEM);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
+
+    // Prepare line item query.
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+    const float max_cpm = 0.789f;
+    const float bid_floor = 0.456f;
     const int32_t exposure_count = 0x4488;
-    s_model_info->application_id = APPLICATION_TYPE_LINE_ITEM;
+
     client_handle_start_line_item(
             client_handle,
             max_cpm,
@@ -574,29 +719,65 @@ int test_predict(void)
     client_handle_put_nominal(client_handle, "hey");
     client_handle_put_boolean(client_handle, 0);
     client_handle_put_categorical(client_handle, 8);
-
-    status_code = client_handle_predict(
+ 
+    client_handle_predict(
             client_handle,
             encoded_model_id,
             query_id
             );
-    ubiquity_test_expect("store_get_model_info",
-        "model_id" , model_id);
-    // Should fail because no creative was put.
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
     ubiquity_test_assert_equal_string(
             "MISSING_CREATIVES",
             client_handle_get_status_string(client_handle)
             );
+ 
+    return 0;
+}
 
-    // Again with creative.
+int test_predict_line_item_success(void)
+{
+    // Constants.
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const feature_type_t feature_type_array_1[] = {
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NONE
+    };
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
+        NULL, 0,
+    };
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+
+    // Set model information.
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_LINE_ITEM);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
+
+    // Prepare line item query.
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+    const float max_cpm = 0.789f;
+    const float bid_floor = 0.456f;
+    const int32_t exposure_count = 0x4488;
     const int64_t creative_id = 0x777;
+
     client_handle_start_line_item(
             client_handle,
             max_cpm,
             bid_floor,
             exposure_count
             );
-
     client_handle_put_creative(client_handle, creative_id);
 
     client_handle_put_numeric(client_handle, 0.1);
@@ -607,53 +788,55 @@ int test_predict(void)
     client_handle_put_nominal(client_handle, "hey");
     client_handle_put_boolean(client_handle, 0);
     client_handle_put_categorical(client_handle, 8);
-
-    status_code = client_handle_predict(
+ 
+    client_handle_predict(
             client_handle,
             encoded_model_id,
             query_id
             );
-    ubiquity_test_expect("store_get_model_info",
-        "model_id" , model_id);
-    // This time the sending should be successful.
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
     ubiquity_test_assert_equal_string(
             "SUCCESS",
             client_handle_get_status_string(client_handle)
             );
-
-    // Set values specific to line item.
+ 
+    message_buffer_t message;
+    // Message header for type line item.
+    message.common.version = SERIALIZATION_VERSION;
+    message.common.type = MESSAGE_TYPE_QUERY;
+    message.common.reserved = 0;
     message.application.application_id = APPLICATION_TYPE_LINE_ITEM;
+    message.application.feedback_level_or_features_length = 0x16;
+    message.application.model_id = model_id;
+    message.application.query_id = query_id ^ model_id;
+    message.query.feedback_delay = 0x3333; 
     message.line_item_query.max_cpm = max_cpm;
     message.line_item_query.bid_floor = bid_floor;
     message.line_item_query.exposure_count = exposure_count;
+    message.creative_query.num_creative = 1;
+
+    // Buffer containing the features.
+    buffer_clear(BUFFER_FEATURES);
+    buffer_push_f32(BUFFER_FEATURES, 0.1);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 1);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 7);                 // categorical
+    buffer_push_u16(BUFFER_FEATURES, 0);                // padding
+    buffer_push_f32(BUFFER_FEATURES, 0.3);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 0);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 8);                 // categorical
 
     // Buffer containing creatives.
     buffer_clear(BUFFER_CREATIVES);
-    buffer_push_i64(
-            BUFFER_CREATIVES,
-            creative_id
-            );
-    message.creative_query.num_creative = 1;
+    buffer_push_i64(BUFFER_CREATIVES, creative_id);
 
-    // Buffer containing the whole message with header and features.
+    // Buffer containing the whole message with header and features. 
     buffer_clear(BUFFER_MESSAGE);
-    buffer_push_mem(
-            BUFFER_MESSAGE,
-            &message,
-            sizeof(message_query_line_item_t)
-            );
-    buffer_push_buffer(
-            BUFFER_MESSAGE,
-            BUFFER_FEATURES
-            );
-    buffer_align(
-            BUFFER_MESSAGE,
-            8
-            );
-    buffer_push_buffer(
-            BUFFER_MESSAGE,
-            BUFFER_CREATIVES
-            );
+    buffer_push_mem(BUFFER_MESSAGE, &message, sizeof(message_query_line_item_t));
+    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_FEATURES);
+    buffer_align(BUFFER_MESSAGE, 8);
+    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_CREATIVES);
 
     // Check that a message with the right content is passed along the right compatible_node_set.
     ubiquity_test_expect("shared_send_message_with_rendezvous",
@@ -664,15 +847,53 @@ int test_predict(void)
             );
     ubiquity_test_done_expecting();
 
-    // Again for action rate.
-    s_model_info->application_id = APPLICATION_TYPE_ACTION_RATE;
+    return 0;
+}
+
+int test_predict_action_rate_success(void)
+{
+    // Constants.
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const feature_type_t feature_type_array_1[] = {
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NONE
+    };
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
+        NULL, 0,
+    };
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+
+    // Set model information.
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_ACTION_RATE);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
+
+    // Prepare an action rate query.
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+    const float bid_price = 0.123f;
+    const float bid_floor = 0.456f;
+    const int32_t exposure_count = 0x4488;
+    const int64_t creative_id = 0x777;
+
     client_handle_start_action_rate(
             client_handle,
             bid_price,
             bid_floor,
             exposure_count
             );
-
     client_handle_put_creative(client_handle, creative_id);
 
     client_handle_put_numeric(client_handle, 0.1);
@@ -684,43 +905,47 @@ int test_predict(void)
     client_handle_put_boolean(client_handle, 0);
     client_handle_put_categorical(client_handle, 8);
 
-    status_code = client_handle_predict(
+    client_handle_predict(
             client_handle,
             encoded_model_id,
             query_id
             );
-    ubiquity_test_expect("store_get_model_info",
-        "model_id" , model_id);            
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
     ubiquity_test_assert_equal_string(
             "SUCCESS",
             client_handle_get_status_string(client_handle)
             );
 
-    // Set values specific to action rate.
+    message_buffer_t message;
+    message.common.version = SERIALIZATION_VERSION;
+    message.common.type = MESSAGE_TYPE_QUERY;
+    message.common.reserved = 0;
     message.application.application_id = APPLICATION_TYPE_ACTION_RATE;
+    message.application.feedback_level_or_features_length = 0x16;
+    message.application.model_id = model_id;
+    message.application.query_id = query_id ^ model_id;
+    message.query.feedback_delay = 0x3333;
     message.action_rate_query.bid_price = bid_price;
     message.action_rate_query.bid_floor = bid_floor;
     message.action_rate_query.exposure_count = exposure_count;
+ 
+    // Buffer containing the features.
+    buffer_clear(BUFFER_FEATURES);
+    buffer_push_f32(BUFFER_FEATURES, 0.1);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 1);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 7);                 // categorical
+    buffer_push_u16(BUFFER_FEATURES, 0);                // padding
+    buffer_push_f32(BUFFER_FEATURES, 0.3);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 0);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 8);                 // categorical
 
-    // Buffer containing the whole message with header and features.
     buffer_clear(BUFFER_MESSAGE);
-    buffer_push_mem(
-            BUFFER_MESSAGE,
-            &message,
-            sizeof(message_query_action_rate_t)
-            );
-    buffer_push_buffer(
-            BUFFER_MESSAGE,
-            BUFFER_FEATURES
-            );
-    buffer_align(
-            BUFFER_MESSAGE,
-            8
-            );
-    buffer_push_buffer(
-            BUFFER_MESSAGE,
-            BUFFER_CREATIVES
-            );
+    buffer_push_mem(BUFFER_MESSAGE, &message, sizeof(message_query_action_rate_t));
+    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_FEATURES);
+    buffer_align(BUFFER_MESSAGE, 8);
+    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_CREATIVES);
 
     // Check that a message with the right content is passed along the right compatible_node_set.
     ubiquity_test_expect("shared_send_message_with_rendezvous",
@@ -730,6 +955,101 @@ int test_predict(void)
             "message", buffer_size(BUFFER_MESSAGE), buffer_content(BUFFER_MESSAGE)
             );
     ubiquity_test_done_expecting();
+
+    return 0;
+}
+
+int test_predict_binary_classification_success(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const feature_type_t feature_type_array_1[] = {
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NONE
+    };
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
+        NULL, 0,
+    };
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+
+    // Set model information.
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_BINARY_CLASSIFICATION);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
+
+    // Prepare binary classification query.
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    client_handle_start_binary_classification(client_handle);
+    client_handle_put_numeric(client_handle, 0.1);
+    client_handle_put_nominal(client_handle, "hey");
+    client_handle_put_boolean(client_handle, 1);
+    client_handle_put_categorical(client_handle, 7);
+    client_handle_put_numeric(client_handle, 0.3);
+    client_handle_put_nominal(client_handle, "hey");
+    client_handle_put_boolean(client_handle, 0);
+    client_handle_put_categorical(client_handle, 8);
+
+    client_handle_predict(
+            client_handle,
+            encoded_model_id,
+            query_id
+            );
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
+    ubiquity_test_assert_equal_string(
+            "SUCCESS",
+            client_handle_get_status_string(client_handle)
+            );
+
+    message_buffer_t message;
+    // Message header for type binary classification.
+    message.common.version = SERIALIZATION_VERSION;
+    message.common.type = MESSAGE_TYPE_QUERY;
+    message.common.reserved = 0;
+    message.application.application_id = APPLICATION_TYPE_BINARY_CLASSIFICATION;
+    message.application.feedback_level_or_features_length = 0x16;
+    message.application.model_id = model_id;
+    message.application.query_id = query_id ^ model_id;
+    message.query.feedback_delay = 0x3333;
+
+    // Buffer containing the features.
+    buffer_clear(BUFFER_FEATURES);
+    buffer_push_f32(BUFFER_FEATURES, 0.1);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 1);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 7);                 // categorical
+    buffer_push_u16(BUFFER_FEATURES, 0);                // padding
+    buffer_push_f32(BUFFER_FEATURES, 0.3);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 0);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 8);                 // categorical
+
+    // Buffer containing the whole message with header and features.
+    buffer_clear(BUFFER_MESSAGE);
+    buffer_push_mem(BUFFER_MESSAGE, &message, sizeof(message_query_binary_classification_t));
+    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_FEATURES);
+
+    // Check that a message with the right content is passed along the right compatible_node_set.
+    ubiquity_test_expect("shared_send_message_with_rendezvous",
+            "compatible_node_set", &s_model_info->compatible_node_set,
+            "balance_key", query_id ^ model_id,
+            "stream_id", STREAM_ID_PREDICTION,
+            "message", buffer_size(BUFFER_MESSAGE), buffer_content(BUFFER_MESSAGE)
+            );
+    ubiquity_test_done_expecting();
+
     return 0;
 }
 
@@ -807,7 +1127,6 @@ status_code_t send_a_line_item_query(
 
 int test_creative_balance(void)
 {
-    // Constants.
     const uint64_t model_id = 1;
     const uint64_t query_id = 123;
     const feature_type_t feature_type_array_1[] = {
@@ -840,34 +1159,22 @@ int test_creative_balance(void)
             );
 
     // Set model information.
-    model_info_initialize(
-            s_model_info,
-            model_id
-            );
-    model_info_set_application_id(
-            s_model_info,
-            APPLICATION_TYPE_LINE_ITEM
-            );
-    load_feature_type_array(
-            s_model_info,
-            feature_type_array_1
-            );
-    load_feedback_list(
-            s_model_info,
-            feedback_list_1
-            );
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_LINE_ITEM);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info,feedback_list_1);
 
-    // Prepare line item query.
+    // Prepare a line item query.
     char encoded_model_id[14];
     base_32C_encode(encoded_model_id, &model_id);
     const float max_cpm = 0.789;
     const float bid_floor = 0.456;
     const int32_t exposure_count = 0x4488;
-	ubiquity_prng_t prng;
-	ubiquity_prng_seed(&prng);
-	for (int i = 0; i < TESTED_CREATIVE_COUNT; ++i) {
-		creative_ids[i] = (int64_t) ubiquity_prng_generate(&prng);
-	}
+    ubiquity_prng_t prng;
+    ubiquity_prng_seed(&prng);
+    for (int i = 0; i < TESTED_CREATIVE_COUNT; ++i) {
+	creative_ids[i] = (int64_t) ubiquity_prng_generate(&prng);
+    }
 
     for (size_t cursor = 0; cursor < SENT_LINE_ITEM_QUERY; cursor++) {
         ubiquity_test_assert_equal(STATUS_CODE_SUCCESS, send_a_line_item_query(client_handle, encoded_model_id, query_id, max_cpm, bid_floor, exposure_count));
@@ -881,25 +1188,21 @@ int test_creative_balance(void)
                 );
     }
     
-	const size_t creative_offset = 72;
+    const size_t creative_offset = 72;
 
-	// Count occurences of every creative ID to later verify balance.
-	creative_check_t check = {
-			0,
-			creative_offset
-	};
+    // Count occurences of every creative ID to later verify balance.
+    creative_check_t check = {0, creative_offset};
 
     int64_t counts[TESTED_CREATIVE_COUNT];
-	for (int i = 0; i < TESTED_CREATIVE_COUNT; ++i) {
-			check.creative_id = creative_ids[i];
-			counts[i] = ubiquity_test_count_filtered_by_arguments("shared_send_message_with_rendezvous",
+    for (int i = 0; i < TESTED_CREATIVE_COUNT; ++i) {
+	check.creative_id = creative_ids[i];
+	counts[i] = ubiquity_test_count_filtered_by_arguments("shared_send_message_with_rendezvous",
 					"compatible_node_set", ubiquity_test_ignore, NULL,
 					"balance_key", ubiquity_test_ignore, NULL,
 					"stream_id", ubiquity_test_ignore, NULL,
 					"message", creative_was_selected, &check
 					);
 	}
-	fflush(stderr);
 
     // Verify that creative balancing works within a 5% margin.
     ubiquity_test_assert_almost_equal_array(
@@ -951,22 +1254,10 @@ int test_feedback(void)
             );
 
     // Set model information.
-    model_info_initialize(
-            s_model_info,
-            model_id
-            );
-    model_info_set_application_id(
-            s_model_info,
-            APPLICATION_TYPE_LINE_ITEM
-            );
-    load_feature_type_array(
-            s_model_info,
-            feature_type_array_1
-            );
-    load_feedback_list(
-            s_model_info,
-            feedback_list_1
-            );
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_LINE_ITEM);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
 
     // Send line item feedback.
     char encoded_model_id[14];
@@ -1115,22 +1406,10 @@ int test_cancel(void)
             );
 
     // Set model information.
-    model_info_initialize(
-            s_model_info,
-            model_id
-            );
-    model_info_set_application_id(
-            s_model_info,
-            APPLICATION_TYPE_LINE_ITEM
-            );
-    load_feature_type_array(
-            s_model_info,
-            feature_type_array_1
-            );
-    load_feedback_list(
-            s_model_info,
-            feedback_list_1
-            );
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_LINE_ITEM);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
 
     // Send line item feedback.
     char encoded_model_id[14];
@@ -1178,40 +1457,34 @@ int test_cancel(void)
     return 0;
 }
 
-int test_poll(void)
+// A poll on a handle with nothing pushed must report no data.
+int test_poll_no_data(void)
 {
-    message_buffer_t message;
-
-    // Ids.
-    const uint64_t model_id = 1;
-    char encoded_model_id[14];
-    base_32C_encode(encoded_model_id, &model_id);
-    const uint64_t query_id = 123;
-    int64_t creative_id;
-    float price;
-    float probability;
-
-    // Expects a new handle to be created, increasing use count of the cluster client.
-    client_handle_t *client_handle = client_handle_create(
-            &s_cluster_client,
-            s_store,
-            s_cluster_id
-            );
-    ubiquity_test_expect("increment_use_count");
-    ubiquity_test_done_expecting();
-    ubiquity_test_assert_equal_string(
-            "SUCCESS",
-            client_handle_get_status_string(client_handle)
-            );
-
-    // Poll. Expect status code no data.
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+ 
     ubiquity_test_assert_equal(
             STATUS_CODE_NO_DATA,
             client_handle_poll(client_handle)
             );
+ 
+    return 0;
+}
 
-    // Poll a probability message.
-    probability = 0.4f;
+int test_poll_probability_success(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const float probability = 0.4f;
+
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    // Expects a new handle to be created, increasing use count of the cluster client.
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+ 
+    message_buffer_t message;
     message.common.version = SERIALIZATION_VERSION;
     message.common.type = MESSAGE_TYPE_PREDICTION;
     message.common.reserved = 0;
@@ -1223,11 +1496,7 @@ int test_poll(void)
 
     // Buffer containing the whole message.
     buffer_clear(BUFFER_PREDICTION);
-    buffer_push_mem(
-            BUFFER_PREDICTION,
-            &message,
-            sizeof(message_prediction_probability_t)
-            );
+    buffer_push_mem(BUFFER_PREDICTION, &message, sizeof(message_prediction_probability_t));
 
     // Should succeed.
     ubiquity_test_assert_equal(
@@ -1249,9 +1518,62 @@ int test_poll(void)
             client_handle_get_probability(client_handle)
             );
 
-    // Again with a bid shading message.
-    price = 3.6f;
-    probability = 0.7f;
+    return 0;
+}
+
+// A bid shading prediction message pushed with the wrong buffer length must be ignored.
+int test_poll_bid_shading_invalid_size(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const float price = 3.6f;
+    const float probability = 0.7f;
+
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+ 
+    message_buffer_t message;
+    message.common.version = SERIALIZATION_VERSION;
+    message.common.type = MESSAGE_TYPE_PREDICTION;
+    message.common.reserved = 0;
+    message.application.application_id = APPLICATION_TYPE_BID_SHADING;
+    message.application.feedback_level_or_features_length = 0;
+    message.application.model_id = model_id;
+    message.application.query_id = query_id ^ model_id;
+    message.bid_shading_prediction.price = price;
+    message.bid_shading_prediction.probability = probability;
+ 
+    // Deliberately pushed with the wrong sizeof to simulate a malformed message.
+    buffer_clear(BUFFER_PREDICTION);
+    buffer_push_mem(BUFFER_PREDICTION, &message, sizeof(message_prediction_probability_t));
+ 
+    ubiquity_test_assert_equal(
+            STATUS_CODE_NO_DATA,
+            client_handle_poll(client_handle)
+            );
+ 
+    return 0;
+}
+
+int test_poll_bid_shading_success(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const float price = 3.6f;
+    const float probability = 0.7f;
+
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    // Expects a new handle to be created, increasing use count of the cluster client.
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+ 
+    message_buffer_t message;
+    message.common.version = SERIALIZATION_VERSION;
     message.common.type = MESSAGE_TYPE_PREDICTION;
     message.common.reserved = 0;
     message.application.application_id = APPLICATION_TYPE_BID_SHADING;
@@ -1261,25 +1583,11 @@ int test_poll(void)
     message.bid_shading_prediction.price = price;
     message.bid_shading_prediction.probability = probability;
 
-    // Message should be ignored because its size is invalid.
+    // Buffer containing the whole message.
     buffer_clear(BUFFER_PREDICTION);
-    buffer_push_mem(
-            BUFFER_PREDICTION,
-            &message,
-            sizeof(message_prediction_probability_t)
-            );
-    ubiquity_test_assert_equal(
-            STATUS_CODE_NO_DATA,
-            client_handle_poll(client_handle)
-            );
+    buffer_push_mem(BUFFER_PREDICTION, &message, sizeof(message_prediction_bid_shading_t));
 
     // Should succeed.
-    buffer_clear(BUFFER_PREDICTION);
-    buffer_push_mem(
-            BUFFER_PREDICTION,
-            &message,
-            sizeof(message_prediction_bid_shading_t)
-            );
     ubiquity_test_assert_equal(
             STATUS_CODE_SUCCESS,
             client_handle_poll(client_handle)
@@ -1295,18 +1603,30 @@ int test_poll(void)
             client_handle_get_query_id(client_handle)
             );
     ubiquity_test_assert_equal(
-            price,
-            client_handle_get_price(client_handle)
-            );
-    ubiquity_test_assert_equal(
             probability,
             client_handle_get_probability(client_handle)
             );
 
-    // Again with a line item message.
-    creative_id = 123;
-    price = 8.2f;
-    probability = 1.1f;
+    return 0;
+}
+ 
+int test_poll_line_item_success(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const int64_t creative_id = 123;
+    const float price = 8.2f;
+    const float probability = 1.1f;
+
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    // Expects a new handle to be created, increasing use count of the cluster client.
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+ 
+    message_buffer_t message;
+    message.common.version = SERIALIZATION_VERSION;
     message.common.type = MESSAGE_TYPE_PREDICTION;
     message.common.reserved = 0;
     message.application.application_id = APPLICATION_TYPE_LINE_ITEM;
@@ -1316,15 +1636,10 @@ int test_poll(void)
     message.line_item_prediction.creative_id = creative_id;
     message.line_item_prediction.price = price;
     message.line_item_prediction.probability = probability;
-
-    // Buffer containing the whole message.
+ 
     buffer_clear(BUFFER_PREDICTION);
-    buffer_push_mem(
-            BUFFER_PREDICTION,
-            &message,
-            sizeof(message_prediction_line_item_t)
-            );
-
+    buffer_push_mem(BUFFER_PREDICTION, &message, sizeof(message_prediction_line_item_t));
+ 
     // Should succeed.
     ubiquity_test_assert_equal(
             STATUS_CODE_SUCCESS,
@@ -1341,21 +1656,29 @@ int test_poll(void)
             client_handle_get_query_id(client_handle)
             );
     ubiquity_test_assert_equal(
-            creative_id,
-            client_handle_get_creative_id(client_handle)
-            );
-    ubiquity_test_assert_equal(
-            price,
-            client_handle_get_price(client_handle)
-            );
-    ubiquity_test_assert_equal(
             probability,
             client_handle_get_probability(client_handle)
             );
 
-    // Again with a action rate message.
-    creative_id = 323;
-    price = 2.9f;
+    return 0;
+}
+
+int test_poll_action_rate_success(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const int64_t creative_id = 323;
+    const float price = 2.9f;
+
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    // Expects a new handle to be created, increasing use count of the cluster client.
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+ 
+    message_buffer_t message;
+    message.common.version = SERIALIZATION_VERSION;
     message.common.type = MESSAGE_TYPE_PREDICTION;
     message.common.reserved = 0;
     message.application.application_id = APPLICATION_TYPE_ACTION_RATE;
@@ -1364,15 +1687,10 @@ int test_poll(void)
     message.application.query_id = query_id ^ model_id;
     message.action_rate_prediction.creative_id = creative_id;
     message.action_rate_prediction.price = price;
-
-    // Buffer containing the whole message.
+ 
     buffer_clear(BUFFER_PREDICTION);
-    buffer_push_mem(
-            BUFFER_PREDICTION,
-            &message,
-            sizeof(message_prediction_action_rate_t)
-            );
-
+    buffer_push_mem(BUFFER_PREDICTION, &message, sizeof(message_prediction_action_rate_t));
+ 
     // Should succeed.
     ubiquity_test_assert_equal(
             STATUS_CODE_SUCCESS,
@@ -1400,6 +1718,56 @@ int test_poll(void)
     return 0;
 }
 
+int test_poll_binary_classification_success(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const bool is_classified = true;
+
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    // Expects a new handle to be created, increasing use count of the cluster client.
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+ 
+    message_buffer_t message;
+    message.common.version = SERIALIZATION_VERSION;
+    message.common.type = MESSAGE_TYPE_PREDICTION;
+    message.common.reserved = 0;
+    message.application.application_id = APPLICATION_TYPE_BINARY_CLASSIFICATION;
+    message.application.feedback_level_or_features_length = 0;
+    message.application.model_id = model_id;
+    message.application.query_id = query_id ^ model_id;
+    message.binary_classification_prediction.is_classified = is_classified;
+
+    // Buffer containing the whole message.
+    buffer_clear(BUFFER_PREDICTION);
+    buffer_push_mem(BUFFER_PREDICTION, &message, sizeof(message_prediction_binary_classification_t));
+
+    // Should succeed.
+    ubiquity_test_assert_equal(
+            STATUS_CODE_SUCCESS,
+            client_handle_poll(client_handle)
+            );
+
+    // Polled values should equal message's values.
+    ubiquity_test_assert_equal_string(
+            encoded_model_id,
+            client_handle_get_model_id(client_handle)
+            );
+    ubiquity_test_assert_equal(
+            query_id,
+            client_handle_get_query_id(client_handle)
+            );
+    ubiquity_test_assert_equal(
+            is_classified,
+            client_handle_is_classified(client_handle)
+            );
+
+    return 0;
+}
+
 int main(void) {
     ubiquity_test_declare("store_get_model_info", 1,
             "model_id", "u64"
@@ -1418,11 +1786,24 @@ int main(void) {
 
     ubiquity_test_function_t test_list[] = {
         test_create_delete,
-        test_predict,
+        test_predict_invalid_app_for_model,
+        test_predict_mismatched_feature_type,
+        test_predict_probability_success,
+        test_predict_bid_shading_success,
+        test_predict_line_item_missing_creatives,
+        test_predict_line_item_success,
+        test_predict_action_rate_success,
+        test_predict_binary_classification_success,
         test_creative_balance, 
         test_feedback,
         test_cancel,
-        test_poll,
+        test_poll_no_data,
+        test_poll_probability_success,
+        test_poll_bid_shading_invalid_size,
+        test_poll_bid_shading_success,
+        test_poll_line_item_success,
+        test_poll_action_rate_success,
+        test_poll_binary_classification_success,
         0,
     };
     return ubiquity_test_all(test_list);
