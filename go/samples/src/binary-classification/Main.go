@@ -144,8 +144,6 @@ func getBinaryClassificationBody(clusterId string) string {
             {
               "cluster_id": "` + clusterId + `",
               "name": "code-example binary classification",
-          	  "false_positive_cost": 2.0,
-          	  "false_negative_cost": 1.0,			  
               "feedbacks": [
                 {
 					"name": "level_0",

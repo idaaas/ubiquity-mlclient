@@ -30,7 +30,7 @@ func CreateActionRateModel(apiToken string, actionRateBody string) string {
 
 func CreateBinaryClassificationModel(apiToken string, binaryClassificationBody string) string {
 	fmt.Println("Creating a binary-classification model...")
-	binaryClassificationEndpoint := "https://api.ubiquity.ai/v1/models/binary-classification"
+	binaryClassificationEndpoint := "https://api.ubiquity.ai/v1/models/binary-classifier"
 	return createModel(apiToken, binaryClassificationEndpoint, binaryClassificationBody)
 }
 

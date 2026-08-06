@@ -34,7 +34,7 @@ public class ApiUtil {
 
     public String createBinaryClassificationModel(String binaryClassificationBody) throws IOException {
         System.out.println("Creating a binary classification model...");
-        String binaryClassificationEndpoint = "https://api.ubiquity.ai/v1/models/binary-classification";
+        String binaryClassificationEndpoint = "https://api.ubiquity.ai/v1/models/binary-classifier";
         return createModel(binaryClassificationEndpoint, binaryClassificationBody);
     }
 

@@ -50,8 +50,8 @@ namespace ai.ubiquity.samples.common
 
         public string CreateBinaryClassificationModel(string binaryClassificationBody)
         {
-            Console.WriteLine("Creating a binary-classification model...");
-            return CreateModel($"{BaseUrl}/models/binary-classification", binaryClassificationBody);
+            Console.WriteLine("Creating a binary-classifier model...");
+            return CreateModel($"{BaseUrl}/models/binary-classifier", binaryClassificationBody);
         }
 
         public void DeleteModel(string modelId)

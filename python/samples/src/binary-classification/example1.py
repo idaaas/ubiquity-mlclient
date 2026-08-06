@@ -20,8 +20,6 @@ model_schema = """
 {{
     "cluster_id": "{id}",
     "name": "binary-classification/Example1",
-    "false_positive_cost": 2.0,
-    "false_negative_cost": 1.0,
     "feedbacks": [
     {{
         "name": "level_0",
