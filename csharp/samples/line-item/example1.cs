@@ -11,128 +11,181 @@ namespace ai.ubiquity.samples.lineitem
         private const long PollTimeoutNanos = 200_000_000L;
         private const int ThroughputQps = 50;
 
-        public static void Main(string[] args)
+        public static int Main(string[] args)
         {
             if (args.Length < 2)
             {
-                throw new ArgumentException("Usage: ./line-item/example1 <API_TOKEN> <CLUSTER_ID> [NUM_QUERIES]");
+                Console.WriteLine("Usage: ./line-item/example1 <API_TOKEN> <CLUSTER_ID> [NUM_QUERIES]");
+                return 1;
             }
 
             string apiToken = args[0];
             string clusterId = args[1];
             int numQueries = args.Length < 3 ? 500000 : int.Parse(args[2]);
-            ApiUtil apiUtil = new ApiUtil(apiToken);
-            string modelId = apiUtil.CreateLineItemModel(BuildLineItemModelSchema(clusterId));
 
-            Ubiquity.setCredentials(apiToken);
-            Ubiquity.setDefaultLogLevel(Ubiquity.LOG_OFF);
-            int statusCode;
-            ClientHandle? clientHandle = null;
+            // 1. Create model via API
+            // This model uses a predefined feature engineering as an example
+            ApiUtil apiUtil = new ApiUtil(apiToken);
+            string modelId = apiUtil.CreateModel("line-item", BuildModelSchema(clusterId));
+            if (string.IsNullOrEmpty(modelId))
+                throw new ArgumentException("Failed to create model");
 
             try
             {
-                statusCode = Ubiquity.openClient(clusterId);
+                // 2. Create and connect a ubiquity-client
+                Ubiquity.setCredentials(apiToken);
+                Ubiquity.setDefaultLogLevel(Ubiquity.LOG_OFF);
+                int statusCode = Ubiquity.openClient(clusterId);
                 if (statusCode != Ubiquity.SUCCESS)
                 {
                     throw new InvalidOperationException($"Error during connection: {statusCode}");
                 }
 
-                clientHandle = Ubiquity.getClientHandle();
-
-                float maxCpm = 2.0f;
-                float adversaryPrice = maxCpm / 2.0f;
-                long creativeId = 1L;
-
-                Random random = new Random(123);
-                List<BidRequest> requests = BuildRequests();
-                List<Feedback> feedbacks = BuildFeedbacks();
-                Dictionary<long, Feedback> feedbackByQueryId = new Dictionary<long, Feedback>();
-
-                long paceNanos = 1_000_000_000L / ThroughputQps;
-                long nextSendNanoTime = GetTimeNanos();
-
-                int count = 0;
-                const int dumpPeriod = 1000;
-
-                while (count < numQueries)
+                ClientHandle? clientHandle = null;
+                try
                 {
-                    if (GetTimeNanos() < nextSendNanoTime)
+                    clientHandle = Ubiquity.getClientHandle();
+
+                    // 3. Prepare data
+                    float maxCpm = 2.0f;
+                    float adversaryPrice = maxCpm / 2.0f;
+                    long creativeId = 1L;
+                    Random random = new Random(123);
+                    List<BidRequest> requests = BuildRequests();
+                    List<Feedback> feedbacks = BuildFeedbacks();
+                    Dictionary<long, Feedback> feedbackByQueryId = new Dictionary<long, Feedback>();
+
+                    // useful for pacing the traffic sent to the ml cluster based on a fixed throughput
+                    long paceNanos = 1_000_000_000L / ThroughputQps;
+                    long nextSendNanoTime = GetTimeNanos();
+
+                    int count = 0;
+                    // how often to print progress in the console.
+                    const int dumpPeriod = 1000;
+
+                    // 4. Loop and send prediction queries with their associated feedbacks.
+                    while (count < numQueries)
                     {
-                        continue;
-                    }
-
-                    nextSendNanoTime += paceNanos;
-
-                    long queryId = random.NextInt64();
-                    BidRequest request = requests[count % requests.Count];
-                    Feedback feedback = feedbacks[count % feedbacks.Count];
-                    feedbackByQueryId[queryId] = feedback;
-
-                    clientHandle.startLineItem(maxCpm);
-                    clientHandle.putCreative(creativeId);
-                    FillFeatures(clientHandle, request);
-
-                    if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
-                    {
-                        count++;
-                    }
-
-                    long deadline = GetTimeNanos() + PollTimeoutNanos;
-                    do
-                    {
-                        statusCode = clientHandle.poll();
-                        Thread.Yield();
-                    }
-                    while (statusCode == Ubiquity.NO_DATA && GetTimeNanos() < deadline);
-
-                    if (statusCode != Ubiquity.SUCCESS)
-                    {
-                        continue;
-                    }
-
-                    float conversionProbability = clientHandle.getProbability();
-                    long selectedCreativeId = clientHandle.getCreativeId();
-                    float price = clientHandle.getPrice();
-
-                    if (price > adversaryPrice)
-                    {
-                        long completedQueryId = clientHandle.getQueryId();
-                        Feedback? completedFeedback;
-                        if (feedbackByQueryId.TryGetValue(completedQueryId, out completedFeedback))
+                        if (GetTimeNanos() < nextSendNanoTime)
                         {
-                            clientHandle.train(modelId, completedQueryId, 0);
-                            if (completedFeedback.Level1)
+                            continue;
+                        }
+
+                        nextSendNanoTime += paceNanos;
+
+                        // 4.1 prepare a line item query
+                        // simulate the request Id by generating a random long
+                        long queryId = random.NextInt64();
+                        BidRequest request = requests[count % requests.Count];
+                        Feedback feedback = feedbacks[count % feedbacks.Count];
+                        feedbackByQueryId[queryId] = feedback;
+
+                        clientHandle.startLineItem(maxCpm);
+                        // fill in the creatives (only one eligible in this example)
+                        clientHandle.putCreative(creativeId);
+
+                        // fill in the features as specified in the model schema
+                        clientHandle.putNominal(request.AppBundle);
+                        clientHandle.putCategorical(request.ImpBannerPos);
+                        clientHandle.putCategorical(request.LocalTime);
+                        clientHandle.putNominal(request.DeviceOs);
+                        clientHandle.putNominal(request.DeviceGeoCity);
+                        clientHandle.putNominal(request.DeviceModel);
+                        clientHandle.putNominal(request.Bcat);
+                        clientHandle.putNominal(request.DeviceGeoZip);
+                        clientHandle.putNominal(request.UserYob);
+                        clientHandle.putNominal(request.AppPublisherName);
+                        clientHandle.putCategorical(request.DeviceConnectionType);
+                        clientHandle.putNominal(request.DeviceGeoRegion);
+                        clientHandle.putNominal(request.AppCat);
+                        clientHandle.putNominal(request.DeviceMake);
+                        clientHandle.putNominal(request.DeviceHxW);
+                        clientHandle.putCategorical(request.UserGender);
+                        clientHandle.putNominal(request.DeviceLanguage);
+                        clientHandle.putNominal(request.ImpDisplayManager);
+                        clientHandle.putNominal(request.ImpBannerBattr);
+                        clientHandle.putNominal(request.DeviceGeoCountry);
+                        clientHandle.putNominal(request.AppContentLanguage);
+                        clientHandle.putCategorical(request.AppContentContext);
+                        clientHandle.putBoolean(request.ImpBannerTopFrame ? (sbyte)1 : (sbyte)0);
+                        clientHandle.putCategorical(request.DeviceType);
+                        clientHandle.putBoolean(request.ImpInstl ? (sbyte)1 : (sbyte)0);
+                        clientHandle.putNominal(request.AppPageCat);
+
+                        // 4.2. send the prediction request
+                        if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
+                        {
+                            count++;
+                        }
+
+                        // 4.3. wait to poll prediction response
+                        long deadline = GetTimeNanos() + PollTimeoutNanos;
+                        do
+                        {
+                            statusCode = clientHandle.poll();
+                            Thread.Yield();
+                        }
+                        while (statusCode == Ubiquity.NO_DATA && GetTimeNanos() < deadline);
+
+                        if (statusCode != Ubiquity.SUCCESS)
+                        {
+                            continue;
+                        }
+
+                        // 4.4. read the response data
+                        float conversionProbability = clientHandle.getProbability();
+                        long selectedCreativeId = clientHandle.getCreativeId();
+                        float price = clientHandle.getPrice();
+
+                        // 4.5 Sending back feedback (if when applicable)
+                        // no feedback should be sent to the cluster if the bid did not win the auction.
+                        // here we suppose that there is only one adversary in the auction, it bids flat with a predefined price.
+                        // if the bid price is larger than the adversary price, then bid price has won the auction, and feedback should be sent to the cluster.
+                        if (price > adversaryPrice)
+                        {
+                            long completedQueryId = clientHandle.getQueryId();
+                            Feedback? completedFeedback;
+                            if (feedbackByQueryId.TryGetValue(completedQueryId, out completedFeedback))
                             {
-                                clientHandle.train(modelId, completedQueryId, 1);
-                            }
-                            if (completedFeedback.Level2)
-                            {
-                                clientHandle.train(modelId, completedQueryId, 2);
+                                // 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
+                                clientHandle.train(modelId, completedQueryId, 0);
+                                // 4.5.2. Try to send feedback of level 1
+                                if (completedFeedback.Level1)
+                                {
+                                    clientHandle.train(modelId, completedQueryId, 1);
+                                }
+                                // 4.5.3. Try to send feedback of level 2
+                                if (completedFeedback.Level2)
+                                {
+                                    clientHandle.train(modelId, completedQueryId, 2);
+                                }
                             }
                         }
-                    }
 
-                    if (count % dumpPeriod == 0)
-                    {
-                        Console.WriteLine(
-                            $"Total queries = {count}, last response: predicted price = {price}, conversion probability = {conversionProbability:F7}, selected creative id = {selectedCreativeId}");
+                        if (count % dumpPeriod == 0)
+                        {
+                            Console.WriteLine(
+                                $"Total queries = {count}, last response: predicted price = {price}, conversion probability = {conversionProbability:F7}, selected creative id = {selectedCreativeId}");
+                        }
                     }
+                }
+                finally
+                {
+                    // close the handle and the whole client
+                    clientHandle?.close();
+                    Ubiquity.closeClient();
                 }
             }
             finally
             {
-                if (clientHandle is not null)
-                {
-                    clientHandle.close();
-                }
-                Ubiquity.closeClient();
-
-                Thread.Sleep(TimeSpan.FromSeconds(196));
+                // wait for the last feedback sent to be processed by the cluster then delete the models
+                Thread.Sleep(TimeSpan.FromSeconds(10));
                 apiUtil.DeleteModel(modelId);
             }
-        }
+        return 0;
+    }
 
-        private static string BuildLineItemModelSchema(string clusterId)
+        private static string BuildModelSchema(string clusterId)
         {
             return $$"""
                         {
@@ -281,36 +334,6 @@ namespace ai.ubiquity.samples.lineitem
         private static long GetTimeNanos()
         {
             return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1_000_000L;
-        }
-
-        private static void FillFeatures(ClientHandle clientHandle, BidRequest request)
-        {
-            clientHandle.putNominal(request.AppBundle);
-            clientHandle.putCategorical(request.ImpBannerPos);
-            clientHandle.putCategorical(request.LocalTime);
-            clientHandle.putNominal(request.DeviceOs);
-            clientHandle.putNominal(request.DeviceGeoCity);
-            clientHandle.putNominal(request.DeviceModel);
-            clientHandle.putNominal(request.Bcat);
-            clientHandle.putNominal(request.DeviceGeoZip);
-            clientHandle.putNominal(request.UserYob);
-            clientHandle.putNominal(request.AppPublisherName);
-            clientHandle.putCategorical(request.DeviceConnectionType);
-            clientHandle.putNominal(request.DeviceGeoRegion);
-            clientHandle.putNominal(request.AppCat);
-            clientHandle.putNominal(request.DeviceMake);
-            clientHandle.putNominal(request.DeviceHxW);
-            clientHandle.putCategorical(request.UserGender);
-            clientHandle.putNominal(request.DeviceLanguage);
-            clientHandle.putNominal(request.ImpDisplayManager);
-            clientHandle.putNominal(request.ImpBannerBattr);
-            clientHandle.putNominal(request.DeviceGeoCountry);
-            clientHandle.putNominal(request.AppContentLanguage);
-            clientHandle.putCategorical(request.AppContentContext);
-            clientHandle.putBoolean(request.ImpBannerTopFrame ? (sbyte)1 : (sbyte)0);
-            clientHandle.putCategorical(request.DeviceType);
-            clientHandle.putBoolean(request.ImpInstl ? (sbyte)1 : (sbyte)0);
-            clientHandle.putNominal(request.AppPageCat);
         }
 
         private static List<BidRequest> BuildRequests()

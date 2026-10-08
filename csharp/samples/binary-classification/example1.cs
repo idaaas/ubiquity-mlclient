@@ -11,103 +11,149 @@ namespace ai.ubiquity.samples.binaryclassification
         private const long PollTimeoutNanos = 200_000_000L;
         private const int ThroughputQps = 50;
 
-        public static void Main(string[] args)
+        public static int Main(string[] args)
         {
             if (args.Length < 2)
             {
-                throw new ArgumentException("Usage: ./binary-classification/example1 <API_TOKEN> <CLUSTER_ID> [NUM_QUERIES]");
+                 Console.WriteLine("Usage: ./binary-classification/example1 <API_TOKEN> <CLUSTER_ID> [NUM_QUERIES]");
+                 return 1;
             }
 
             string apiToken = args[0];
             string clusterId = args[1];
             int numQueries = args.Length < 3 ? 500000 : int.Parse(args[2]);
 
-            // Create model with the API token and cluster ID, and get the model ID
+            // 1. Create model via API
             // This model uses a predefined feature engineering as an example
             ApiUtil apiUtil = new ApiUtil(apiToken);
-            string modelId = apiUtil.CreateBinaryClassificationModel(BuildBinaryClassificationModelSchema(clusterId));
-
-            Ubiquity.setCredentials(apiToken);
-            Ubiquity.setDefaultLogLevel(Ubiquity.LOG_OFF);
+            string modelId = apiUtil.CreateModel("binary-classification", BuildModelSchema(clusterId));
+            if (string.IsNullOrEmpty(modelId))
+                throw new ArgumentException("Failed to create model");
 
             try
             {
+                // 2. Create and connect a ubiquity-client
+                Ubiquity.setCredentials(apiToken);
+                Ubiquity.setDefaultLogLevel(Ubiquity.LOG_OFF);
                 int statusCode = Ubiquity.openClient(clusterId);
                 if (statusCode != Ubiquity.SUCCESS)
                 {
-                    throw new InvalidOperationException($"Error during connection: {statusCode}");
+                    Console.WriteLine($"Error during connection: {statusCode}");
+                    return 1;               
                 }
 
-                var clientHandle = Ubiquity.getClientHandle();
-
-                Random random = new Random(123);
-                List<BidRequest> requests = BuildRequests();
-
-                long paceNanos = 1_000_000_000L / ThroughputQps;
-                long nextSendNanoTime = GetTimeNanos();
-
-                int count = 0;
-                const int dumpPeriod = 1000;
-
-                while (count < numQueries)
+                ClientHandle? clientHandle = null;
+                try
                 {
-                    if (GetTimeNanos() < nextSendNanoTime)
+                    clientHandle = Ubiquity.getClientHandle();
+
+                    // 3. Prepare data
+                    Random random = new Random(123);
+                    List<BidRequest> requests = BuildRequests();
+
+                    // useful for pacing the traffic sent to the ml cluster based on a fixed throughput
+                    long paceNanos = 1_000_000_000L / ThroughputQps;
+                    long nextSendNanoTime = GetTimeNanos();
+                    int count = 0;
+
+                    // How often to print progress in the console.
+                    const int dumpPeriod = 1000;
+
+                    // 4. Loop and send prediction queries with their level_0 feedbacks.
+                    while (count < numQueries)
                     {
-                        continue;
+                        if (GetTimeNanos() < nextSendNanoTime)
+                        {
+                            continue;
+                        }
+
+                        nextSendNanoTime += paceNanos;
+
+                        // 4.1 prepare a classification query
+                        // simulate the request Id by generating a random long
+                        long queryId = random.NextInt64();
+                        BidRequest request = requests[count % requests.Count];
+
+                        clientHandle.startBinaryClassification();
+                        // fill in the features as specified in the model schema
+                        clientHandle.putNominal(request.AppBundle);
+                        clientHandle.putCategorical(request.ImpBannerPos);
+                        clientHandle.putCategorical(request.LocalTime);
+                        clientHandle.putNominal(request.DeviceOs);
+                        clientHandle.putNominal(request.DeviceGeoCity);
+                        clientHandle.putNominal(request.DeviceModel);
+                        clientHandle.putNominal(request.Bcat);
+                        clientHandle.putNominal(request.DeviceGeoZip);
+                        clientHandle.putNominal(request.UserYob);
+                        clientHandle.putNominal(request.AppPublisherName);
+                        clientHandle.putCategorical(request.DeviceConnectionType);
+                        clientHandle.putNominal(request.DeviceGeoRegion);
+                        clientHandle.putNominal(request.AppCat);
+                        clientHandle.putNominal(request.DeviceMake);
+                        clientHandle.putNominal(request.DeviceHxW);
+                        clientHandle.putCategorical(request.UserGender);
+                        clientHandle.putNominal(request.DeviceLanguage);
+                        clientHandle.putNominal(request.ImpDisplayManager);
+                        clientHandle.putNominal(request.ImpBannerBattr);
+                        clientHandle.putNominal(request.DeviceGeoCountry);
+                        clientHandle.putNominal(request.AppContentLanguage);
+                        clientHandle.putCategorical(request.AppContentContext);
+                        clientHandle.putBoolean(request.ImpBannerTopFrame ? (sbyte)1 : (sbyte)0);
+                        clientHandle.putCategorical(request.DeviceType);
+                        clientHandle.putBoolean(request.ImpInstl ? (sbyte)1 : (sbyte)0);
+                        clientHandle.putNominal(request.AppPageCat);
+
+                        // 4.2. send the prediction request
+                        if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
+                        {
+                            count++;
+                        }
+
+                        // 4.3. wait to poll prediction response
+                        long deadline = GetTimeNanos() + PollTimeoutNanos;
+                        do
+                        {
+                            statusCode = clientHandle.poll();
+                            Thread.Yield();
+                        }
+                        while (statusCode == Ubiquity.NO_DATA && GetTimeNanos() < deadline);
+
+                        if (statusCode != Ubiquity.SUCCESS)
+                        {
+                            continue;
+                        }
+
+                        // 4.4. read the response data
+                        bool response = clientHandle.isClassified();
+
+                        // 4.5. Sending back a positive feedback of level_0 to the cluster to execute the query.
+                        // After calling the feedback level 0, no cancellation is allowed
+                        long completedQueryId = clientHandle.getQueryId();
+                        clientHandle.train(modelId, completedQueryId, 0);
+
+                        if (count % dumpPeriod == 0)
+                        {
+                            Console.WriteLine($"Total queries = {count}, last response: classification response = {response}");
+                        }
                     }
-
-                    nextSendNanoTime += paceNanos;
-
-                    // simulate the request Id by generating a random long
-                    long queryId = random.NextInt64();
-                    BidRequest request = requests[count % requests.Count];
-
-                    clientHandle.startBinaryClassification();
-                    FillFeatures(clientHandle, request);
-
-                    if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
-                    {
-                        count++;
-                    }
-
-                    long deadline = GetTimeNanos() + PollTimeoutNanos;
-                    do
-                    {
-                        statusCode = clientHandle.poll();
-                        Thread.Yield();
-                    }
-                    while (statusCode == Ubiquity.NO_DATA && GetTimeNanos() < deadline);
-
-                    if (statusCode != Ubiquity.SUCCESS)
-                    {
-                        continue;
-                    }
-
-                    bool response = clientHandle.isClassified();
-                    long completedQueryId = clientHandle.getQueryId();
-                    clientHandle.train(modelId, completedQueryId, 0);
-
-                    if (count % dumpPeriod == 0)
-                    {
-                        Console.WriteLine(
-                            $"Total queries = {count}, last response: classification response = {response}");
-                    }
+                }
+                finally
+                {
+                    // close the handle and the whole client
+                    clientHandle?.close();
+                    Ubiquity.closeClient();
                 }
             }
             finally
             {
-                if (clientHandle is not null)
-                {
-                    clientHandle.close();
-                }
-                Ubiquity.closeClient();
-
-                Thread.Sleep(TimeSpan.FromSeconds(196));
-                apiUtil.DeleteModel(modelId);
+                 // wait for the last feedback sent to be processed by the cluster then delete the models
+                 Thread.Sleep(TimeSpan.FromSeconds(10));
+                 apiUtil.DeleteModel(modelId);
             }
-        }
+            return 0;
+    }
 
-        private static string BuildBinaryClassificationModelSchema(string clusterId)
+        private static string BuildModelSchema(string clusterId)
         {
             return $$"""
                         {
@@ -234,36 +280,6 @@ namespace ai.ubiquity.samples.binaryclassification
             return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1_000_000L;
         }
 
-        private static void FillFeatures(ClientHandle clientHandle, BidRequest request)
-        {
-            clientHandle.putNominal(request.AppBundle);
-            clientHandle.putCategorical(request.ImpBannerPos);
-            clientHandle.putCategorical(request.LocalTime);
-            clientHandle.putNominal(request.DeviceOs);
-            clientHandle.putNominal(request.DeviceGeoCity);
-            clientHandle.putNominal(request.DeviceModel);
-            clientHandle.putNominal(request.Bcat);
-            clientHandle.putNominal(request.DeviceGeoZip);
-            clientHandle.putNominal(request.UserYob);
-            clientHandle.putNominal(request.AppPublisherName);
-            clientHandle.putCategorical(request.DeviceConnectionType);
-            clientHandle.putNominal(request.DeviceGeoRegion);
-            clientHandle.putNominal(request.AppCat);
-            clientHandle.putNominal(request.DeviceMake);
-            clientHandle.putNominal(request.DeviceHxW);
-            clientHandle.putCategorical(request.UserGender);
-            clientHandle.putNominal(request.DeviceLanguage);
-            clientHandle.putNominal(request.ImpDisplayManager);
-            clientHandle.putNominal(request.ImpBannerBattr);
-            clientHandle.putNominal(request.DeviceGeoCountry);
-            clientHandle.putNominal(request.AppContentLanguage);
-            clientHandle.putCategorical(request.AppContentContext);
-            clientHandle.putBoolean(request.ImpBannerTopFrame ? (sbyte)1 : (sbyte)0);
-            clientHandle.putCategorical(request.DeviceType);
-            clientHandle.putBoolean(request.ImpInstl ? (sbyte)1 : (sbyte)0);
-            clientHandle.putNominal(request.AppPageCat);
-        }
-
         private static List<BidRequest> BuildRequests()
         {
             return new List<BidRequest>
@@ -358,6 +374,5 @@ namespace ai.ubiquity.samples.binaryclassification
             public bool ImpInstl { get; set; }
             public string AppPageCat { get; set; } = string.Empty;
         }
-
     }
 }

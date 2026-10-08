@@ -24,113 +24,123 @@ public class Example1 {
 
     // 1. Create your models via API
     ApiUtil apiUtil = new ApiUtil(apiToken);
-    String modelId = apiUtil.createProbabilityEstimator(modelSchema.formatted(clusterId));
+    String modelId = apiUtil.createModel("probability-estimator", modelSchema.formatted(clusterId));
 
-    // 2. Create and connect a ubiquity-client
-    Ubiquity.setCredentials(apiToken);
-    int statusCode = Ubiquity.openClient(clusterId);
-    if (Ubiquity.SUCCESS != statusCode)
-      throw new RuntimeException("Error during connection : " + statusCode);
-    ClientHandle clientHandle = Ubiquity.getClientHandle();
+    try {
+        // 2. Create and connect a ubiquity-client
+        Ubiquity.setCredentials(apiToken);
+        int statusCode = Ubiquity.openClient(clusterId);
+        if (Ubiquity.SUCCESS != statusCode)
+          throw new RuntimeException("Error during connection : " + statusCode);
 
-    // 3. Prepare data and feedback streams
-    Random rand = new Random(123); // to generate query ids
-    // use cycle iterators in order to loop infinitely over the data
-    Iterator<BidRequest> dataIterator = CycleIterator.bidRequestIterator("/client/datasets/features.csv.gz");
-    Iterator<Feedback> feedbackIterator = CycleIterator.feedbackIterator("/client/datasets/feedback.csv.gz");
-    HashMap<Long, Feedback> feedbackHashMap = new HashMap<>();
+        ClientHandle clientHandle = null;
+        try {
+            clientHandle = Ubiquity.getClientHandle();
 
-    // The next lines of code are useful for pacing the traffic sent to the ml
-    // cluster based on a fixed throughput
-    final long paceInNanos = Duration.ofSeconds(1).toNanos() / THROUGHPUT_IN_QPS;
-    long nextSendNanoTime = System.nanoTime();
+            // 3. Prepare data and feedback streams
+            Random rand = new Random(123); // to generate query ids
+            // use cycle iterators in order to loop infinitely over the data
+            Iterator<BidRequest> dataIterator = CycleIterator.bidRequestIterator("/client/datasets/features.csv.gz");
+            Iterator<Feedback> feedbackIterator = CycleIterator.feedbackIterator("/client/datasets/feedback.csv.gz");
+            HashMap<Long, Feedback> feedbackHashMap = new HashMap<>();
 
-    // 4. Loop and send prediction queries with their associated feedbacks
-    final int dumpPeriod = 1000;
-    int count = 0;
-    while (count < numQueries) {
-      if (System.nanoTime() < nextSendNanoTime)
-        continue;
-      nextSendNanoTime = nextSendNanoTime + paceInNanos;
+            // The next lines of code are useful for pacing the traffic sent to the ml
+            // cluster based on a fixed throughput
+            final long paceInNanos = Duration.ofSeconds(1).toNanos() / THROUGHPUT_IN_QPS;
+            long nextSendNanoTime = System.nanoTime();
 
-      // 4.1 prepare a probability estimator query
-      long queryId = rand.nextLong();
-      // read a request with its feedback from the dataset file
-      BidRequest request = dataIterator.next();
-      Feedback feedback = feedbackIterator.next();
-      // read the feedback for all the levels and store it in a temp map
-      feedbackHashMap.put(queryId, feedback);
-      // prepare a query using this request
-      clientHandle.startProbability();
-      // fill in the features as specified in the model schema in config.json
-      clientHandle.putNominal(request.getAppBundle());
-      clientHandle.putCategorical(request.getImpBannerPos());
-      clientHandle.putCategorical(request.getLocalTime());
-      clientHandle.putNominal(request.getDeviceOs());
-      clientHandle.putNominal(request.getDeviceGeoCity());
-      clientHandle.putNominal(request.getDeviceModel());
-      clientHandle.putNominal(request.getBcat());
-      clientHandle.putNominal(request.getDeviceGeoZip());
-      clientHandle.putNominal(request.getUserYob());
-      clientHandle.putNominal(request.getAppPublisherName());
-      clientHandle.putCategorical(request.getDeviceConnectionType());
-      clientHandle.putNominal(request.getDeviceGeoRegion());
-      clientHandle.putNominal(request.getAppCat());
-      clientHandle.putNominal(request.getDeviceMake());
-      clientHandle.putNominal(request.getDeviceHxW());
-      clientHandle.putCategorical(request.getUserGender());
-      clientHandle.putNominal(request.getDeviceLanguage());
-      clientHandle.putNominal(request.getImpDisplayManager());
-      clientHandle.putNominal(request.getImpBannerBattr());
-      clientHandle.putNominal(request.getDeviceGeoCountry());
-      clientHandle.putNominal(request.getAppContentLanguage());
-      clientHandle.putCategorical(request.getAppContentContext());
-      clientHandle.putBoolean(request.getImpBannerTopFrame() ? (byte) 1 : (byte) 0);
-      clientHandle.putCategorical(request.getDeviceType());
-      clientHandle.putBoolean(request.getImpInstl() ? (byte) 1 : (byte) 0);
-      clientHandle.putNominal(request.getAppPageCat());
+            // 4. Loop and send prediction queries with their associated feedbacks
+            final int dumpPeriod = 1000;
+            int count = 0;
+            while (count < numQueries) {
+              if (System.nanoTime() < nextSendNanoTime)
+                continue;
+              nextSendNanoTime = nextSendNanoTime + paceInNanos;
 
-      // 4.2. send the prediction request
-      if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
-        count++;
+              // 4.1 prepare a probability estimator query
+              long queryId = rand.nextLong();
+              // read a request with its feedback from the dataset file
+              BidRequest request = dataIterator.next();
+              Feedback feedback = feedbackIterator.next();
+              // read the feedback for all the levels and store it in a temp map
+              feedbackHashMap.put(queryId, feedback);
+              // prepare a query using this request
+              clientHandle.startProbability();
+              // fill in the features as specified in the model schema in config.json
+              clientHandle.putNominal(request.getAppBundle());
+              clientHandle.putCategorical(request.getImpBannerPos());
+              clientHandle.putCategorical(request.getLocalTime());
+              clientHandle.putNominal(request.getDeviceOs());
+              clientHandle.putNominal(request.getDeviceGeoCity());
+              clientHandle.putNominal(request.getDeviceModel());
+              clientHandle.putNominal(request.getBcat());
+              clientHandle.putNominal(request.getDeviceGeoZip());
+              clientHandle.putNominal(request.getUserYob());
+              clientHandle.putNominal(request.getAppPublisherName());
+              clientHandle.putCategorical(request.getDeviceConnectionType());
+              clientHandle.putNominal(request.getDeviceGeoRegion());
+              clientHandle.putNominal(request.getAppCat());
+              clientHandle.putNominal(request.getDeviceMake());
+              clientHandle.putNominal(request.getDeviceHxW());
+              clientHandle.putCategorical(request.getUserGender());
+              clientHandle.putNominal(request.getDeviceLanguage());
+              clientHandle.putNominal(request.getImpDisplayManager());
+              clientHandle.putNominal(request.getImpBannerBattr());
+              clientHandle.putNominal(request.getDeviceGeoCountry());
+              clientHandle.putNominal(request.getAppContentLanguage());
+              clientHandle.putCategorical(request.getAppContentContext());
+              clientHandle.putBoolean(request.getImpBannerTopFrame() ? (byte) 1 : (byte) 0);
+              clientHandle.putCategorical(request.getDeviceType());
+              clientHandle.putBoolean(request.getImpInstl() ? (byte) 1 : (byte) 0);
+              clientHandle.putNominal(request.getAppPageCat());
 
-      // 4.3. wait to poll prediction response and validate its QueryId
-      long deadline = System.nanoTime() + POLL_TIMEOUT;
-      do {
-        statusCode = clientHandle.poll();
-        Thread.yield();
-      } while (statusCode == Ubiquity.NO_DATA && System.nanoTime() < deadline);
-      if (statusCode != Ubiquity.SUCCESS)
-        continue;
+              // 4.2. send the prediction request
+              if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
+                count++;
 
-      // 4.4 read the response data
-      float conversionProbability = clientHandle.getProbability();
+              // 4.3. wait to poll prediction response and validate its QueryId
+              long deadline = System.nanoTime() + POLL_TIMEOUT;
+              do {
+                statusCode = clientHandle.poll();
+                Thread.yield();
+              } while (statusCode == Ubiquity.NO_DATA && System.nanoTime() < deadline);
+              if (statusCode != Ubiquity.SUCCESS)
+                continue;
 
-      if (count % dumpPeriod == 0) {
-        System.out.printf(
-            "Total queries = %d, last response: conversion probability = %.7f\n",
-            count, conversionProbability);
-      }
+              // 4.4 read the response data
+              float conversionProbability = clientHandle.getProbability();
 
-      // 4.5 send a positive feedback to the cluster.
-      queryId = clientHandle.getQueryId();
-      feedback = feedbackHashMap.get(queryId);
-      // 4.5.1 validate the query with a level 0 feedback
-      // After calling the feedback level 0, no cancellation is allowed
-      clientHandle.train(modelId, queryId, 0);
+              if (count % dumpPeriod == 0) {
+                System.out.printf(
+                    "Total queries = %d, last response: conversion probability = %.7f\n",
+                    count, conversionProbability);
+              }
 
-      // 4.5.2 send a positive feedback of level 1 only when it is positive
-      if (feedback.getLevel1()) {
-        clientHandle.train(modelId, queryId, 1);
-      }
+              // 4.5 send a positive feedback to the cluster.
+              queryId = clientHandle.getQueryId();
+              feedback = feedbackHashMap.get(queryId);
+              // 4.5.1 validate the query with a level 0 feedback
+              // After calling the feedback level 0, no cancellation is allowed
+              clientHandle.train(modelId, queryId, 0);
+
+              // 4.5.2 send a positive feedback of level 1 only when it is positive
+              if (feedback.getLevel1()) {
+                clientHandle.train(modelId, queryId, 1);
+              }
+            }
+         }
+         finally {
+           if (clientHandle != null)
+             clientHandle.close();
+           Ubiquity.closeClient();
+         }
     }
-    clientHandle.close();
-    Ubiquity.closeClient();
-
-    // 5. wait for the last feedbacks sent to be processed by the cluster then
-    // delete the models
-    Thread.sleep(10000);
-    apiUtil.deleteModel(modelId);
+    finally {
+      // wait for the last feedbacks sent to be processed by the cluster then
+      // delete the models
+      Thread.sleep(10000);
+      apiUtil.deleteModel(modelId);
+    }
   }
 
   private final static String modelSchema = """

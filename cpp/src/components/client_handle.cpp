@@ -22,9 +22,10 @@
 static constexpr bool app_uses_creatives[APPLICATION_TYPE_COUNT] = {
     false, // bid shading
     false, // probability
-    true, // line item
-    true, // action rate
+    true,  // line item
+    true,  // action rate
     false, // binary classification
+    false, // regression
 };
 
 typedef struct cluster_client_s cluster_client_t;
@@ -100,6 +101,11 @@ typedef struct message_prediction_binary_classification_s {
     int32_t is_classified;
 } __attribute__((packed)) message_prediction_binary_classification_t;
 
+typedef struct message_prediction_regression_s {
+    message_application_t _;
+    int64_t prediction;
+} __attribute__((packed)) message_prediction_regression_t;
+
 typedef struct message_query_s { 
     message_application_t _;
     uint32_t feedback_delay;
@@ -135,6 +141,8 @@ typedef struct message_query_action_rate_s {
 
 typedef message_query_t message_query_binary_classification_t;
 
+typedef message_query_t message_query_regression_t;
+
 typedef struct message_feedback_s { 
     message_application_t _;
     uint32_t feedback_delay;
@@ -162,6 +170,7 @@ typedef union message_buffer_u {
     message_prediction_line_item_t line_item_prediction;
     message_prediction_action_rate_t action_rate_prediction;
     message_prediction_binary_classification_t binary_classification_prediction;
+    message_prediction_regression_t regression_prediction;
     message_query_t query;
     message_query_with_creatives_t creative_query;
     message_query_bid_shading_t bid_shading_query;
@@ -299,6 +308,7 @@ static const size_t feature_list_offset_by_application_type[] = {
     sizeof(message_query_line_item_t),
     sizeof(message_query_action_rate_t),
     sizeof(message_query_binary_classification_t),
+    sizeof(message_query_regression_t),
 };
 
 model_info_t *client_handle_get_model_info(
@@ -412,6 +422,19 @@ void client_handle_start_binary_classification(
             APPLICATION_TYPE_BINARY_CLASSIFICATION
             );
     LOG_DEBUG_1(client_handle->logger, "event=start_query handle={:x} application=binary_classification",
+            client_handle->id
+            );
+}
+
+void client_handle_start_regression(
+        client_handle_t *const client_handle
+        ) noexcept
+{
+    client_handle_prepare_prediction_query(
+            client_handle,
+            APPLICATION_TYPE_REGRESSION
+            );
+    LOG_DEBUG_1(client_handle->logger, "event=start_query handle={:x} application=regression",
             client_handle->id
             );
 }
@@ -743,6 +766,7 @@ status_code_t client_handle_poll(
         sizeof(message_prediction_line_item_t),
         sizeof(message_prediction_action_rate_t),
         sizeof(message_prediction_binary_classification_t),
+        sizeof(message_prediction_regression_t),
     };
 
     client_handle->error_origin = error_origin_t::POLL;
@@ -970,6 +994,8 @@ float client_handle_get_price(
             return client_handle->message.action_rate_prediction.price;
         case APPLICATION_TYPE_BINARY_CLASSIFICATION:
             break;
+        case APPLICATION_TYPE_REGRESSION:
+            break;
         case APPLICATION_TYPE_UNDEFINED:
             break;
     }
@@ -990,6 +1016,8 @@ float client_handle_get_probability(
         case APPLICATION_TYPE_ACTION_RATE:
             break;
         case APPLICATION_TYPE_BINARY_CLASSIFICATION:
+            break;
+        case APPLICATION_TYPE_REGRESSION:
             break;
         case APPLICATION_TYPE_UNDEFINED:
             break;
@@ -1031,6 +1059,18 @@ bool client_handle_is_classified(
   return 0;
 }
 
+int64_t client_handle_get_prediction(
+        client_handle_t *const client_handle
+        ) noexcept
+{
+  switch(client_handle->message.application.application_id) {
+    case APPLICATION_TYPE_REGRESSION:
+        return client_handle->message.regression_prediction.prediction;
+    default:
+        break;
+  }
+  return 0;
+}
 
 /*
  * DIAGNOSTIC
@@ -1046,6 +1086,7 @@ const char *client_handle_get_diagnostic_string(
         "LINE_ITEM",
         "ACTION_RATE",
         "BINARY_CLASSIFICATION",
+        "REGRESSION",
     };
     static const char *starter_function_name[APPLICATION_TYPE_COUNT]{
         "start_bid_shading",
@@ -1053,6 +1094,7 @@ const char *client_handle_get_diagnostic_string(
         "start_line_item",
         "start_action_rate",
         "start_binary_classification",
+        "start_regression",
     };
     static const char *feature_type_strings[]{
         "NUMERIC",

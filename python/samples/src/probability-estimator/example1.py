@@ -143,7 +143,7 @@ def main(api_token, cluster_id, num_queries):
     
     # 1. Create model via API
     api_util = apiUtils.ApiUtil(api_token)
-    model_id = api_util.create_probability_estimator(model_schema.format(id=cluster_id))
+    model_id = api_util.create_model("probability-estimator", model_schema.format(id=cluster_id))
 
     try:
         # 2. Connect a ubiquity-client

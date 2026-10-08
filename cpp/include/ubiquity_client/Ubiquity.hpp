@@ -44,6 +44,7 @@ namespace Ubiquity {
         static constexpr ApplicationType APP_LINE_ITEM = 2;
         static constexpr ApplicationType APP_ACTION_RATE = 3;
         static constexpr ApplicationType APP_BINARY_CLASSIFICATION = 4;
+        static constexpr ApplicationType APP_REGRESSION = 5;
         static constexpr ApplicationType APP_UNDEFINED = 9999;
 
         static constexpr int32_t LOG_OFF = 0;
@@ -98,6 +99,7 @@ namespace Ubiquity {
                 float getProbability(void) noexcept;
                 int8_t getBidStatus(void) noexcept;
                 bool isClassified(void) noexcept;
+                int64_t getPrediction(void) noexcept;
                 int32_t poll(void) noexcept;
                 void idle(void) noexcept;
                 int32_t predict(const char *modelId, const int64_t queryId) noexcept;
@@ -111,6 +113,7 @@ namespace Ubiquity {
                 void startActionRate(const float bidPrice, const float bidFloor=0.01F, const int32_t exposureCount=0) noexcept;
                 void startProbability(void) noexcept;
                 void startBinaryClassification(void) noexcept;
+                void startRegression(void) noexcept;
                 int32_t train(const char *modelId, int64_t queryId, const uint16_t feedbackLevel) noexcept;
                 int32_t cancel(const char *modelId, int64_t queryId) noexcept;
                 const char *getDiagnosticString() noexcept;

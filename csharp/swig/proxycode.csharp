@@ -42,6 +42,7 @@
   public const int APP_LINE_ITEM = 2;
   public const int APP_ACTION_RATE = 3;
   public const int APP_BINARY_CLASSIFICATION = 4;
+  public const int APP_REGRESSION = 5;
   public const int APP_UNDEFINED = 9999;
 
   public const int LOG_OFF = 0;

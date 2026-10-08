@@ -34,8 +34,7 @@ func example1() int {
 	}
 
 	// 1. Create your models via API
-	var schema string = getBinaryClassificationBody(clusterId)
-	var modelId string = common.CreateBinaryClassificationModel(apiToken, schema)
+    var modelId string = common.CreateModel("binary-classification", buildModelSchema(clusterId), apiToken)
 	if modelId == "" {
 		return 1
 	}
@@ -123,7 +122,7 @@ func example1() int {
 		}
 
 		// 4.4 read the response data
-		predictionResponse := clientHandle.GetClassification()
+		predictionResponse := clientHandle.isClassified()
 
 		// 4.5 Sending back a positive feedback of level 0 to the cluster to execute the query.
 		// After calling the feedback level 0, no cancellation is allowed
@@ -139,7 +138,7 @@ func example1() int {
 	return 0
 }
 
-func getBinaryClassificationBody(clusterId string) string {
+func buildModelSchema(clusterId string) string {
 	return `
             {
               "cluster_id": "` + clusterId + `",

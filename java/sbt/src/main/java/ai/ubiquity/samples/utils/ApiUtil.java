@@ -14,31 +14,9 @@ public class ApiUtil {
         this.client = new OkHttpClient();
     }
 
-    public String createProbabilityEstimator(String probabilityEstimatorBody) throws IOException {
-        System.out.println("Creating a probability-estimator model...");
-        String probabilityEstimatorEndpoint = "https://api.ubiquity.ai/v1/models/probability-estimator";
-        return createModel(probabilityEstimatorEndpoint, probabilityEstimatorBody);
-    }
-
-    public String createActionRateModel(String actionRateBody) throws IOException {
-      System.out.println("Creating a action-rate model...");
-      String actionRateEndpoint = "https://api.ubiquity.ai/v1/models/action-rate";
-      return createModel(actionRateEndpoint, actionRateBody);
-  }
-
-    public String createLineItemModel(String lineItemBody) throws IOException {
-        System.out.println("Creating a line-item model...");
-        String lineItemEndpoint = "https://api.ubiquity.ai/v1/models/line-item";
-        return createModel(lineItemEndpoint, lineItemBody);
-    }
-
-    public String createBinaryClassificationModel(String binaryClassificationBody) throws IOException {
-        System.out.println("Creating a binary classification model...");
-        String binaryClassificationEndpoint = "https://api.ubiquity.ai/v1/models/binary-classifier";
-        return createModel(binaryClassificationEndpoint, binaryClassificationBody);
-    }
-
-    private String createModel(String endpoint, String modelBody) throws IOException {
+  public String createModel(String modelType, String modelBody) throws IOException {
+        System.out.println("Creating a " + modelType + " model..............");
+        String endpoint = "https://api.ubiquity.ai/v1/models/" + modelType;
         MediaType mediaType = MediaType.parse("application/json");
         RequestBody requestBody = RequestBody.create(modelBody, mediaType);
         Request request = new Request.Builder()
@@ -46,7 +24,7 @@ public class ApiUtil {
           .post(requestBody)
           .addHeader("accept", "application/json")
           .addHeader("content-type", "application/json")
-          .addHeader("authorization", "Bearer " + apiToken)
+          .addHeader("authorization", "Bearer " + this.apiToken)
           .build();
 
         String respBody;
@@ -64,7 +42,7 @@ public class ApiUtil {
         String modelId = operation.getString("resource_id");
         System.out.printf("Model created successfully, generated modelId=%s%n", modelId);
         return modelId;
-    }
+  }
 
     public void deleteModel(String modelId) throws IOException {
         System.out.printf("Deleting a model with id=%s...%n", modelId);

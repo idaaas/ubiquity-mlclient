@@ -10,29 +10,7 @@ import (
 	"time"
 )
 
-func CreateProbabilityEstimatorModel(apiToken string, probaEstimatorBody string) string {
-	fmt.Println("Creating a probability-estimator model...")
-	probaEstimatorEndpoint := "https://api.ubiquity.ai/v1/models/probability-estimator"
-	return createModel(apiToken, probaEstimatorEndpoint, probaEstimatorBody)
-}
-
-func CreateLineItemModel(apiToken string, lineItemBody string) string {
-	fmt.Println("Creating a line-item model...")
-	lineItemEndpoint := "https://api.ubiquity.ai/v1/models/line-item"
-	return createModel(apiToken, lineItemEndpoint, lineItemBody)
-}
-
-func CreateActionRateModel(apiToken string, actionRateBody string) string {
-	fmt.Println("Creating a action-rate model...")
-	actionRateEndpoint := "https://api.ubiquity.ai/v1/models/action-rate"
-	return createModel(apiToken, actionRateEndpoint, actionRateBody)
-}
-
-func CreateBinaryClassificationModel(apiToken string, binaryClassificationBody string) string {
-	fmt.Println("Creating a binary-classification model...")
-	binaryClassificationEndpoint := "https://api.ubiquity.ai/v1/models/binary-classifier"
-	return createModel(apiToken, binaryClassificationEndpoint, binaryClassificationBody)
-}
+const baseURL = "https://api.ubiquity.ai/v1"
 
 type ModelResponseBody struct {
 	Operation_id string
@@ -43,7 +21,10 @@ type Operation struct {
 	Resource_id string
 }
 
-func createModel(apiToken string, endpoint string, modelBody string) string {
+func CreateModel(modelType string, modelBody string, apiToken string) string {
+	fmt.Println("Creating a", modelType, "model..............")
+	
+	endpoint := fmt.Sprintf("%s/models/%s", baseURL, modelType)
 	req, err := http.NewRequest("POST", endpoint, strings.NewReader(modelBody))
 	if err != nil {
 		fmt.Println(err)
@@ -76,12 +57,12 @@ func createModel(apiToken string, endpoint string, modelBody string) string {
 		return ""
 	}
 
-	operation := getOperation(apiToken, responseBody.Operation_id)
+	operation := GetOperation(apiToken, responseBody.Operation_id)
 	if operation == nil {
 		return ""
 	}
 	for operation.Status == "pending" || operation.Status == "running" {
-		operation = getOperation(apiToken, responseBody.Operation_id)
+		operation = GetOperation(apiToken, responseBody.Operation_id)
 		time.Sleep(time.Second)
 	}
 	if operation.Status != "succeeded" {
@@ -95,7 +76,9 @@ func createModel(apiToken string, endpoint string, modelBody string) string {
 
 func DeleteModel(apiToken string, modelId string) string {
 	fmt.Println("Deleting a model with id=", modelId)
-	req, err := http.NewRequest("DELETE", "https://api.ubiquity.ai/v1/models/"+modelId, nil)
+	
+	endpoint := fmt.Sprintf("%s/models/%d", baseURL, modelId)
+	req, err := http.NewRequest("DELETE", endpoint, nil)
 	if err != nil {
 		fmt.Println(err)
 		return ""
@@ -126,12 +109,12 @@ func DeleteModel(apiToken string, modelId string) string {
 		return ""
 	}
 
-	operation := getOperation(apiToken, responseBody.Operation_id)
+	operation := GetOperation(apiToken, responseBody.Operation_id)
 	if operation == nil {
 		return ""
 	}
 	for operation.Status == "pending" || operation.Status == "running" {
-		operation = getOperation(apiToken, responseBody.Operation_id)
+		operation = GetOperation(apiToken, responseBody.Operation_id)
 		time.Sleep(time.Second)
 	}
 	if operation.Status != "succeeded" {
@@ -142,8 +125,10 @@ func DeleteModel(apiToken string, modelId string) string {
 	return operation.Resource_id
 }
 
-func getOperation(apiToken string, operationId string) *Operation {
-	req, err := http.NewRequest("GET", "https://api.ubiquity.ai/v1/operations/"+operationId, nil)
+func GetOperation(apiToken string, operationId string) *Operation {
+	
+	endpoint := fmt.Sprintf("%s/operations/%d", baseURL, operationId)
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		fmt.Println("Failed to create request to retrieve operation. Error : ", err)
 		return nil

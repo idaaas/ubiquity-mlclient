@@ -117,7 +117,7 @@ namespace ai.ubiquity.samples.bidshading
             // Create model with the API token and cluster ID, and get the model ID
             // This model uses a predefined feature engineering as an example
             ApiUtil apiUtil = new ApiUtil(apiToken);
-            string modelId = apiUtil.CreateBidShadingModel(BuildBidShadingModelSchema(clusterId));
+            string modelId = apiUtil.CreateModel("bid-shading", BuildModelSchema(clusterId));
 
             if (string.IsNullOrEmpty(modelId))
                 return 1;
@@ -134,9 +134,10 @@ namespace ai.ubiquity.samples.bidshading
                     return 1;
                 }
 
+                ClientHandle? predictClient = null;
                 try
                 {
-                    var predictClient = Ubiquity.getClientHandle();
+                    predictClient = Ubiquity.getClientHandle();
                     // simulate the request Id by generating a random long
                     var rng = Random.Shared;
                     var queryId = rng.NextInt64();
@@ -218,8 +219,6 @@ namespace ai.ubiquity.samples.bidshading
                         status = predictClient.predict(modelId, queryId);
                     }while(status != Ubiquity.SUCCESS);
 
-                    predictClient.close();
-
                     // Create a channel to receive the prediction response for this query
                     var channelId = ComputeChannelId(modelId, queryId);
                     var channel = Channel.CreateBounded<PredictionResponse>(1);
@@ -237,6 +236,7 @@ namespace ai.ubiquity.samples.bidshading
                 }
                 finally
                 {
+                    predictClient?.close();
                     Ubiquity.closeClient();
                 }
             }
@@ -248,7 +248,7 @@ namespace ai.ubiquity.samples.bidshading
             return 0;
         }
 
-        private static string BuildBidShadingModelSchema(string clusterId)
+        private static string BuildModelSchema(string clusterId)
         {
             return $$"""
                         {

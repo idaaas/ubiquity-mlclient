@@ -7,27 +7,10 @@ class ApiUtil:
         self.api_token = api_token
         self.base_url = "https://api.ubiquity.ai/v1"
 
-    def create_probability_estimator(self, probability_estimator_body):
-        print("Creating a probability-estimator model...")
-        endpoint = f"{self.base_url}/models/probability-estimator"
-        return self._create_model(endpoint, probability_estimator_body)
 
-    def create_line_item_model(self, line_item_body):
-        print("Creating a line-item model...")
-        endpoint = f"{self.base_url}/models/line-item"
-        return self._create_model(endpoint, line_item_body)
-    
-    def create_action_rate_model(self, action_rate_body):
-        print("Creating a action-rate model...")
-        endpoint = f"{self.base_url}/models/action-rate"
-        return self._create_model(endpoint, action_rate_body)
-
-    def create_binary_classification(self, binary_classification_body):
-        print("Creating a binary-classifier model...")
-        endpoint = f"{self.base_url}/models/binary-classifier"
-        return self._create_model(endpoint, binary_classification_body)
-
-    def _create_model(self, endpoint, model_body):
+    def create_model(self, model_type, model_body):
+        print(f"Creating a {model_type} model..............")
+        endpoint = f"{self.base_url}/models/{model_type}"
         headers = {
             "accept": "application/json",
             "content-type": "application/json",

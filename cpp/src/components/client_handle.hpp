@@ -67,6 +67,10 @@ void client_handle_start_binary_classification(
         client_handle_t *const client_handle
         ) noexcept;
 
+void client_handle_start_regression(
+        client_handle_t *const client_handle
+        ) noexcept;
+
 /*
  * PREDICTION QUERY AND FEEDBACK
  */
@@ -149,6 +153,10 @@ int8_t client_handle_get_bid_status(
         ) noexcept;
 
 bool client_handle_is_classified(
+        client_handle_t *const client_handle
+        ) noexcept;
+
+int64_t client_handle_get_prediction(
         client_handle_t *const client_handle
         ) noexcept;
 

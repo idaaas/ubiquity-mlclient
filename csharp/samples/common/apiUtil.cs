@@ -36,23 +36,38 @@ namespace ai.ubiquity.samples.common
                 });
         }
 
-        public string CreateLineItemModel(string lineItemBody)
+        public string CreateModel(string modelType, string modelBody)
         {
-            Console.WriteLine("Creating a line-item model...");
-            return CreateModel($"{BaseUrl}/models/line-item", lineItemBody);
-        }
+            Console.WriteLine($"Creating a {modelType} model..............");
+            string endpoint = $"{BaseUrl}/models/{modelType}";
+            using HttpResponseMessage response = _retryPolicy.Execute(() =>
+            {
+                using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = new StringContent(modelBody, Encoding.UTF8, "application/json")
+                };
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                return _client.Send(request);
+            });
+            string responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            if ((int)response.StatusCode != 202)
+            {
+                throw new InvalidOperationException($"Create model request returned {(int)response.StatusCode} error code");
+            }
 
-        public string CreateBidShadingModel(string bidShadingBody)
-        {
-            Console.WriteLine("Creating a bid-shading model...");
-            return CreateModel($"{BaseUrl}/models/bid-shading", bidShadingBody);
-        }
+            using JsonDocument json = JsonDocument.Parse(responseBody);
+            string operationId = json.RootElement.GetProperty("operation_id").GetString()
+                ?? throw new InvalidOperationException("Create model response does not contain operation_id");
 
-        public string CreateBinaryClassificationModel(string binaryClassificationBody)
-        {
-            Console.WriteLine("Creating a binary-classifier model...");
-            return CreateModel($"{BaseUrl}/models/binary-classifier", binaryClassificationBody);
-        }
+            Operation? operation = WaitOperation(operationId);
+            if (operation is null || string.IsNullOrWhiteSpace(operation.ResourceId))
+            {
+                throw new InvalidOperationException("Model creation operation did not succeed");
+            }
+
+            Console.WriteLine($"Model created successfully, generated modelId={operation.ResourceId}");
+            return operation.ResourceId;
+        } 
 
         public void DeleteModel(string modelId)
         {
@@ -86,37 +101,6 @@ namespace ai.ubiquity.samples.common
         public void Dispose()
         {
             _client.Dispose();
-        }
-
-        private string CreateModel(string endpoint, string modelBody)
-        {
-            using HttpResponseMessage response = _retryPolicy.Execute(() =>
-            {
-                using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, endpoint)
-                {
-                    Content = new StringContent(modelBody, Encoding.UTF8, "application/json")
-                };
-                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                return _client.Send(request);
-            });
-            string responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-            if ((int)response.StatusCode != 202)
-            {
-                throw new InvalidOperationException($"Create model request returned {(int)response.StatusCode} error code");
-            }
-
-            using JsonDocument json = JsonDocument.Parse(responseBody);
-            string operationId = json.RootElement.GetProperty("operation_id").GetString()
-                ?? throw new InvalidOperationException("Create model response does not contain operation_id");
-
-            Operation? operation = WaitOperation(operationId);
-            if (operation is null || string.IsNullOrWhiteSpace(operation.ResourceId))
-            {
-                throw new InvalidOperationException("Model creation operation did not succeed");
-            }
-
-            Console.WriteLine($"Model created successfully, generated modelId={operation.ResourceId}");
-            return operation.ResourceId;
         }
 
         private Operation? WaitOperation(string operationId)

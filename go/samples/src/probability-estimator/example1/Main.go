@@ -34,8 +34,7 @@ func example1() int {
 	}
 
 	// 1. Create your models via API
-	var probaEstimatorSchema string = getProbaEstimatorBody(clusterId)
-	var modelId string = common.CreateProbabilityEstimatorModel(apiToken, probaEstimatorSchema)
+    var modelId string = common.CreateModel("probability-estimator", buildModelSchema(clusterId), apiToken)
 	if modelId == "" {
 		return 1
 	}
@@ -155,7 +154,7 @@ func example1() int {
 	return 0
 }
 
-func getProbaEstimatorBody(clusterId string) string {
+func buildModelSchema(clusterId string) string {
 	return `
             {
               "cluster_id": "` + clusterId + `",
