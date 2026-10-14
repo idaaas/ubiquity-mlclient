@@ -70,9 +70,8 @@ func example1() int {
 	feedbacks := common.LoadFeedbacks(feedbackPath)
 	feedbackHashMap := make(map[int64]common.Feedback)
 
-	const THROUGHPUT_IN_QPS = 50
-
 	// The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
+	const THROUGHPUT_IN_QPS = 50
 	pace := time.Second / THROUGHPUT_IN_QPS
 	nextSendNanoTime := time.Now()
 
@@ -132,7 +131,7 @@ func example1() int {
 		// 4.3. wait to poll prediction response and validate its QueryId
 		deadline := time.Now().Add(POLL_TIMEOUT)
 		statusCode = clientHandle.Poll()
-		for statusCode == Ubiquity.NO_DATA && time.Now().After(deadline) {
+		for statusCode == Ubiquity.NO_DATA && time.Now().Before(deadline) {
 			runtime.Gosched()
 			statusCode = clientHandle.Poll()
 		}

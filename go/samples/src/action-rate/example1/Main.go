@@ -71,7 +71,8 @@ func example1() int {
 	feedbackHashMap := make(map[int64]common.Feedback)
 
 	// The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
-	pace := time.Second / 300
+	const THROUGHPUT_IN_QPS = 300
+	pace := time.Second / THROUGHPUT_IN_QPS
 	nextSendNanoTime := time.Now()
 
 	// 4. Loop and send prediction queries with their associated feedbacks
@@ -83,14 +84,14 @@ func example1() int {
 		}
 		nextSendNanoTime = nextSendNanoTime.Add(pace)
 
-		// 4.1 prepare a line item query
+		// 4.1 prepare an action rate query
 		queryId := rand.Int63()
 		// read a bid request with its feedback from the dataset file
 		request := bidRequests[count]
 		feedback := feedbacks[count]
 		// read the feedback for all the levels and store it in a temp map
 		feedbackHashMap[queryId] = feedback
-		// prepare a line item query using this bid request
+
 		clientHandle.StartActionRate(bidPrice)
 		// fill in the creatives (only one eligible in this example)
 		clientHandle.PutCreative(creativeId)
@@ -130,7 +131,7 @@ func example1() int {
 		// 4.3. wait to poll prediction response and validate its QueryId
 		deadline := time.Now().Add(POLL_TIMEOUT)
 		statusCode = clientHandle.Poll()
-		for statusCode == Ubiquity.NO_DATA && time.Now().After(deadline) {
+		for statusCode == Ubiquity.NO_DATA && time.Now().Before(deadline) {
 			runtime.Gosched()
 			statusCode = clientHandle.Poll()
 		}

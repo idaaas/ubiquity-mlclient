@@ -21,6 +21,9 @@
   public final static short NO_BID = 0;
   public final static short BID = 1;
 
+  public final static short NO_SEND = 0;
+  public final static short SEND = 1;
+
   public final static int WIN_RATE_PRESERVATION = 0;
   public final static int EXPECTED_SURPLUS_MAXIMIZATION = 1;
 
@@ -58,6 +61,7 @@
   public final static int APP_ACTION_RATE = 3;
   public final static int APP_BINARY_CLASSIFICATION = 4;
   public final static int APP_REGRESSION = 5;
+  public final static int APP_TRAFFIC_SHAPING = 6;
   public final static int APP_UNDEFINED = 9999;
 
     public final static int LOG_OFF = 0;

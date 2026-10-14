@@ -60,7 +60,7 @@ class Feedback:
         )
 
 
-def load_bid_requests(file_name: str) -> List[BidRequest]:
+def load_requests(file_name: str) -> List[BidRequest]:
     if not os.path.exists(file_name):
         raise FileNotFoundError(f"File {file_name} not found.")
 

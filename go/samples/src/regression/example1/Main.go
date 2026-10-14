@@ -58,8 +58,10 @@ func example1() int {
 	common.Unzip(requestPath+".gz", requestPath)
 	// load Requests from file
 	requests := common.LoadBidRequests(requestPath)
+
 	// The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
-	pace := time.Second / 300
+	const THROUGHPUT_IN_QPS = 300
+	pace := time.Second / THROUGHPUT_IN_QPS
 	nextSendNanoTime := time.Now()
 
 	// 4. Loop and send prediction queries with their level_0 feedbacks
@@ -113,7 +115,7 @@ func example1() int {
 		// 4.3. wait to poll prediction response and validate its QueryId
 		deadline := time.Now().Add(POLL_TIMEOUT)
 		statusCode = clientHandle.Poll()
-		for statusCode == Ubiquity.NO_DATA && time.Now().After(deadline) {
+		for statusCode == Ubiquity.NO_DATA && time.Now().Before(deadline) {
 			runtime.Gosched()
 			statusCode = clientHandle.Poll()
 		}

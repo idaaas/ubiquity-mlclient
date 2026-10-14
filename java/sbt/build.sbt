@@ -21,7 +21,7 @@ assembly / assemblyOption ~= {
 // shading spurious dependencies
 ThisBuild / assemblyShadeRules := Seq(
   ShadeRule
-    .keep("ai.ubiquity.samples.*", "ai.ubiquity.samples.utils.*", "ai.ubiquity.samples.lineitem.*", "ai.ubiquity.samples.actionrate.*", "ai.ubiquity.samples.probabilityestimator.*", "ai.ubiquity.samples.binaryclassification.*", "ai.ubiquity.samples.regression.*")
+    .keep("ai.ubiquity.samples.*", "ai.ubiquity.samples.utils.*", "ai.ubiquity.samples.lineitem.*", "ai.ubiquity.samples.actionrate.*", "ai.ubiquity.samples.probabilityestimator.*", "ai.ubiquity.samples.binaryclassification.*", "ai.ubiquity.samples.regression.*", "ai.ubiquity.samples.trafficshaping.*")
     .inProject
 )
 

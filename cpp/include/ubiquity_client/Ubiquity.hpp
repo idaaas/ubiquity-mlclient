@@ -45,6 +45,7 @@ namespace Ubiquity {
         static constexpr ApplicationType APP_ACTION_RATE = 3;
         static constexpr ApplicationType APP_BINARY_CLASSIFICATION = 4;
         static constexpr ApplicationType APP_REGRESSION = 5;
+        static constexpr ApplicationType APP_TRAFFIC_SHAPING = 6;
         static constexpr ApplicationType APP_UNDEFINED = 9999;
 
         static constexpr int32_t LOG_OFF = 0;
@@ -78,6 +79,9 @@ namespace Ubiquity {
         static constexpr int8_t BID = 1;
         static constexpr int8_t NO_BID = 0;
 
+        static constexpr int8_t SEND = 1;
+        static constexpr int8_t NO_SEND = 0;
+
         static constexpr int32_t WIN_RATE_PRESERVATION = 0;
         static constexpr int32_t EXPECTED_SURPLUS_MAXIMIZATION = 1;
 
@@ -100,6 +104,7 @@ namespace Ubiquity {
                 int8_t getBidStatus(void) noexcept;
                 bool isClassified(void) noexcept;
                 int64_t getPrediction(void) noexcept;
+                int8_t getAction(void) noexcept;
                 int32_t poll(void) noexcept;
                 void idle(void) noexcept;
                 int32_t predict(const char *modelId, const int64_t queryId) noexcept;
@@ -114,6 +119,7 @@ namespace Ubiquity {
                 void startProbability(void) noexcept;
                 void startBinaryClassification(void) noexcept;
                 void startRegression(void) noexcept;
+                void startTrafficShaping(void) noexcept;
                 int32_t train(const char *modelId, int64_t queryId, const uint16_t feedbackLevel) noexcept;
                 int32_t cancel(const char *modelId, int64_t queryId) noexcept;
                 const char *getDiagnosticString() noexcept;

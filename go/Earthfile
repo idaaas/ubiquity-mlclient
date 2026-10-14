@@ -41,7 +41,8 @@ examples-build:
   RUN apt-get install --no-install-recommends -qq g++ > /dev/null
   COPY +bindings/* Ubiquity/
   COPY samples .
-  RUN SUBDIRS=$(find ./src -maxdepth 2 -mindepth 2 -type d -printf '%P\n') && \
+  RUN set -eu; \
+      SUBDIRS=$(find ./src -maxdepth 2 -mindepth 2 -type d -printf '%P\n') && \
       for dir in $SUBDIRS; \
       do \
         echo 'building '$dir' ...'; \

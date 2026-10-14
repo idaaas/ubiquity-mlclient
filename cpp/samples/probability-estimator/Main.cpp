@@ -13,12 +13,13 @@
 
 // For how long should the `poll` method be called before considering there's nothing to poll for ?
 constexpr const int64_t POLL_TIMEOUT_MS = 200;
-Ubiquity::ClientHandle clientHandle;
-const char* modelId;
-const char* apiToken;
+// How often to print progress in the console.
+constexpr size_t DUMP_PERIOD = 1000;
+constexpr size_t DEFAULT_NUM_QUERIES = 500000;
+// The throughput of prediction requests to ml cluster
+constexpr int THROUGHPUT_IN_QPS = 300;
+
 std::atomic<bool> g_interrupted{false};
-bool clientOpened = false;
-bool modelCreated = false;
 
 void sigHandler(int) {
     // set a flag
@@ -94,19 +95,21 @@ static const std::string buildModelSchema(const std::string &clusterId)
 // Example program for probability estimator prediction.
 int main(const int argc, const char **argv) {
 
-    signal (SIGINT,sigHandler);
+    signal(SIGINT, sigHandler);
+    signal(SIGTERM, sigHandler);
 
-    if (argc < 2) {
-        std::cout << "Error : You need to provide an API token and a cluster ID to run the probability estimator example." << std::endl;
-        return 1;
-    }
-    apiToken = argv[1];
-    const auto clusterId = argv[2];
     if (argc < 3) {
-        std::cout << "You need to provide API token and cluster ID to run the probability estimator example" << std::endl;
+        std::cout << "Error : You need to provide an API token and a cluster ID to run the example." << std::endl;
         return 1;
     }
-    const size_t numQueries = argc >= 4 ? std::stoi(argv[3]) : 500000;
+    const char* apiToken = argv[1];
+    const auto clusterId = argv[2];
+    const size_t numQueries = argc >= 4 ? std::stoi(argv[3]) : DEFAULT_NUM_QUERIES;
+
+    Ubiquity::ClientHandle clientHandle;
+    std::string modelIdString; // outside the try to remain accessible in the catch
+    bool clientOpened = false;
+    bool modelCreated = false;
 
     // Single cleanup routine used on every exit path.
     auto cleanup = [&]() {
@@ -117,17 +120,17 @@ int main(const int argc, const char **argv) {
         if (modelCreated) {
             std::cout << "Waiting 10 seconds for the last feedback to be processed..." << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(10));
-            Common::deleteModel(modelId, apiToken);
+            Common::deleteModel(modelIdString.c_str(), apiToken);
         }
     };
 
     try {
         // 1. Create your models via API
-        const auto modelIdString = Common::createModel("probability-estimator", buildModelSchema(clusterId), apiToken);
+        modelIdString = Common::createModel("probability-estimator", buildModelSchema(clusterId), apiToken);
         if (modelIdString.empty()) {
             throw std::runtime_error("Failed to create model");
         }
-        modelId = modelIdString.c_str();
+        const char* modelId = modelIdString.c_str();
         modelCreated = true;
 
         // 2. Create and connect a ubiquity-client
@@ -136,8 +139,9 @@ int main(const int argc, const char **argv) {
         if (Ubiquity::SUCCESS != statusCode) {
             throw std::runtime_error(std::string("Error during connection: ") + Ubiquity::getStatusString(statusCode));
         }
-        clientHandle = Ubiquity::getClientHandle();
         clientOpened = true;
+
+        clientHandle = Ubiquity::getClientHandle();
 
         // 3. Prepare data and feedback streams
         // Unzip datasets.
@@ -150,23 +154,23 @@ int main(const int argc, const char **argv) {
             throw std::runtime_error(std::string("Error unzipping ") + feedbackPath);
         }
 
-        // Random generator
-        std::mt19937_64 randgen;
-        randgen.seed(std::random_device{}());
-
         // Load request data and feedback data from CSV files.
         auto requests = Common::loadDataFromCsvFile(requestPath, requestStructure);
         auto feedbacks = Common::loadDataFromCsvFile(feedbackPath, feedbackStructure);
+        if (requests.empty() || feedbacks.empty()) {
+            throw std::runtime_error("Empty dataset");
+        }
 
         // This map will serve to retrieve a feedback to send for a corresponding query ID.
         std::unordered_map<int64_t, Common::CsvDataMap> feedbackHashMap{};
 
-        // The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
-        const auto pace = std::chrono::microseconds(3333); // 300 query / second
+        // Pace the traffic sent to the ml cluster based on a fixed throughput
+        const auto pace = std::chrono::nanoseconds(std::chrono::seconds(1)) / THROUGHPUT_IN_QPS;
         auto nextSendTime = std::chrono::high_resolution_clock::now();
 
-        // How often to print progress in the console.
-        const size_t dumpPeriod = 1000;
+        // Random generator
+        std::mt19937_64 randgen;
+        randgen.seed(std::random_device{}());
 
         // 4. Loop and send prediction queries with their associated feedbacks.
         size_t count = 0;
@@ -244,7 +248,7 @@ int main(const int argc, const char **argv) {
                 clientHandle.train(modelId, queryId, 1);
             }
 
-            if (count % dumpPeriod == 0) {
+            if (count % DUMP_PERIOD == 0) {
                 std::cout << "Total queries = " << count << ", last response: conversion probability = " << std::setprecision(7) << conversionProbability << std::endl;
             }
         }

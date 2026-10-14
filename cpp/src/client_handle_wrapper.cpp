@@ -47,6 +47,10 @@ int64_t Ubiquity::ClientHandle::getPrediction(void) noexcept {
     return client_handle_get_prediction(reinterpret_cast<client_handle_t *>(this->pimpl));
 }
 
+int8_t Ubiquity::ClientHandle::getAction(void) noexcept {
+        return client_handle_get_action(reinterpret_cast<client_handle_t *>(this->pimpl));
+}
+
 int32_t Ubiquity::ClientHandle::getPredictionType(void) noexcept {
     return client_handle_get_prediction_type(reinterpret_cast<client_handle_t *>(this->pimpl));
 }
@@ -101,6 +105,10 @@ void Ubiquity::ClientHandle::startBinaryClassification(void) noexcept {
 
 void Ubiquity::ClientHandle::startRegression(void) noexcept {
     return client_handle_start_regression(reinterpret_cast<client_handle_t *>(this->pimpl));
+}
+
+void Ubiquity::ClientHandle::startTrafficShaping(void) noexcept {
+    return client_handle_start_traffic_shaping(reinterpret_cast<client_handle_t *>(this->pimpl));
 }
 
 Ubiquity::StatusCode Ubiquity::ClientHandle::predict(const char *modelId, const int64_t queryId) noexcept {

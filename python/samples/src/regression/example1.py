@@ -1,20 +1,16 @@
 import time
 import random
-import itertools
-from datetime import datetime, timedelta
-import json
+import sys
 
-import requests
 from Ubiquity import Ubiquity
 from src.utils import apiUtils
 from src.utils import unzip as u
 from src.utils import data as d
 
 # Constants
-POLL_TIMEOUT = 0.2  # seconds
+POLL_TIMEOUT_NANOS = 200000000  # nanoseconds
 THROUGHPUT_IN_QPS = 300
 PACE_IN_NANOS = int(1e9 / THROUGHPUT_IN_QPS)
-
 
 model_schema = """
 {{
@@ -134,18 +130,46 @@ model_schema = """
     ]
 }}"""
 
+def cleanup(client_handle, client_opened, api_util, model_id):
+    """Single cleanup routine used on every exit path.
+    Order of cleanup : client, wait for the last feedbacks, delete the model.
+    """
+    # 1. Close the client
+    try:
+        if client_handle is not None:
+            client_handle.close()
+        if client_opened:
+            Ubiquity.closeClient()
+    except Exception as e:
+        print(f"Couldn't close client : {e}", file=sys.stderr)
+
+    # 2. Wait for feedbacks to be processed and delete the model (only if it was created)
+    if api_util is not None and model_id:
+        try:
+            print(f"Waiting 10 seconds for the last feedback to be processed...")
+            time.sleep(10)
+            api_util.delete_model(model_id)
+        except Exception as e:
+            print(f"Couldn't delete created model : {e}", file=sys.stderr)
 
 def main(api_token, cluster_id, num_queries):
-    
-    # 1. Create model via API
-    api_util = apiUtils.ApiUtil(api_token)
-    model_id = api_util.create_model("regression", model_schema.format(id=cluster_id))
-
+    api_util = None
+    model_id = None
+    client_opened = False
+    client_handle = None
     try:
+        # 1. Create model via API
+        api_util = apiUtils.ApiUtil(api_token)
+        model_id = api_util.create_model("regression", model_schema.format(id=cluster_id))
+        if not model_id:
+            raise RuntimeError("Failed to create model")
+
         # 2. Connect a ubiquity-client
         Ubiquity.setCredentials(api_token)
         if Ubiquity.openClient(cluster_id) != Ubiquity.SUCCESS:
             raise RuntimeError("Error during connection")
+        client_opened = True
+
         client_handle = Ubiquity.getClientHandle()
 
         # 3. Prepare data streams
@@ -154,17 +178,18 @@ def main(api_token, cluster_id, num_queries):
         requests = d.load_requests(request_path)
 
         # 4. Loop and send prediction queries with their level_0 feedbacks
-        next_send_time = time.time_ns()
+        next_send_time = time.monotonic_ns()
         dump_period = 500
         count = 0
         while count < num_queries:
-            if time.time_ns() < next_send_time:
+            if time.monotonic_ns() < next_send_time:
                 continue
             next_send_time += PACE_IN_NANOS
 
             # 4.1 Prepare a regression query
             query_id = random.randint(1, 1e9)
             request = requests[count%len(requests)]
+
             client_handle.startRegression()
             # Add features
             client_handle.putNominal(request.app_bundle)
@@ -199,9 +224,9 @@ def main(api_token, cluster_id, num_queries):
                 count += 1
 
             # 4.3 Poll prediction response and validate its QueryId", flush=True
-            deadline = time.time_ns() + 200000000 # POLL_TIMEOUT
+            deadline = time.monotonic_ns() + POLL_TIMEOUT_NANOS
             status_code = Ubiquity.NO_DATA
-            while time.time_ns() < deadline:
+            while time.monotonic_ns() < deadline:
                 status_code = client_handle.poll()
                 if status_code != Ubiquity.NO_DATA:
                     break
@@ -219,14 +244,10 @@ def main(api_token, cluster_id, num_queries):
                 print(f"Total queries = {count}, last response: prediction response = {prediction_response}", flush=True)
 
     finally:
-        # 5. Wait for feedbacks to be processed and delete the models
-        time.sleep(10)
-        api_util.delete_model(model_id)
-        client_handle.close()
-        Ubiquity.closeClient()
+         # 5. Single cleanup path on every exit (success, failure)
+         cleanup(client_handle, client_opened, api_util, model_id)
 
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) < 3:
         raise RuntimeError("You need to provide API token and cluster ID to run the regression example")
     numQueries = 500000 if len(sys.argv) < 4 else int(sys.argv[3])

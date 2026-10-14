@@ -23,6 +23,7 @@
 #define APPLICATION_TYPE_ACTION_RATE 3
 #define APPLICATION_TYPE_BINARY_CLASSIFICATION 4
 #define APPLICATION_TYPE_REGRESSION 5
+#define APPLICATION_TYPE_TRAFFIC_SHAPING 6
 
 #define BUFFER_MESSAGE 0
 #define BUFFER_FEATURES 2
@@ -196,6 +197,11 @@ typedef struct __attribute__((packed)) {
 
 typedef struct __attribute__((packed)) {
     message_application_t _;
+    float action;
+} message_prediction_traffic_shaping_t;
+
+typedef struct __attribute__((packed)) {
+    message_application_t _;
     uint32_t feedback_delay;
 } message_query_t;
 
@@ -231,6 +237,8 @@ typedef message_query_t message_query_binary_classification_t;
 
 typedef message_query_t message_query_regression_t;
 
+typedef message_query_t message_query_traffic_shaping_t;
+
 typedef struct __attribute__((packed)) {
     message_application_t _;
     uint32_t feedback_delay;
@@ -259,6 +267,7 @@ typedef union {
     message_prediction_action_rate_t action_rate_prediction;
     message_prediction_binary_classification_t binary_classification_prediction;
     message_prediction_regression_t regression_prediction;
+    message_prediction_traffic_shaping_t traffic_shaping_prediction;
     message_query_t query;
     message_query_with_creatives_t creative_query;
     message_query_bid_shading_t bid_shading_query;
@@ -1156,6 +1165,101 @@ int test_predict_regression_success(void)
     return 0;
 }
 
+int test_predict_traffic_shaping_success(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const feature_type_t feature_type_array_1[] = {
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NUMERIC,
+        FEATURE_TYPE_NOMINAL,
+        FEATURE_TYPE_BOOLEAN,
+        FEATURE_TYPE_CATEGORICAL,
+        FEATURE_TYPE_NONE
+    };
+    feedback_t feedback_list_1[] = {
+        "first_feedback", 0x3333,
+        NULL, 0,
+    };
+
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+
+    // Set model information.
+    model_info_initialize(s_model_info, model_id);
+    model_info_set_application_id(s_model_info, APPLICATION_TYPE_TRAFFIC_SHAPING);
+    load_feature_type_array(s_model_info, feature_type_array_1);
+    load_feedback_list(s_model_info, feedback_list_1);
+
+    // Prepare query.
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    client_handle_start_traffic_shaping(client_handle);
+    client_handle_put_numeric(client_handle, 0.1);
+    client_handle_put_nominal(client_handle, "hey");
+    client_handle_put_boolean(client_handle, 1);
+    client_handle_put_categorical(client_handle, 7);
+    client_handle_put_numeric(client_handle, 0.3);
+    client_handle_put_nominal(client_handle, "hey");
+    client_handle_put_boolean(client_handle, 0);
+    client_handle_put_categorical(client_handle, 8);
+
+    client_handle_predict(
+            client_handle,
+            encoded_model_id,
+            query_id
+            );
+    ubiquity_test_expect("store_get_model_info", "model_id", model_id);
+    ubiquity_test_assert_equal_string(
+            "SUCCESS",
+            client_handle_get_status_string(client_handle)
+            );
+
+    message_buffer_t message;
+    // Message header for type traffic_shaping.
+    message.common.version = SERIALIZATION_VERSION;
+    message.common.type = MESSAGE_TYPE_QUERY;
+    message.common.reserved = 0;
+    message.application.application_id = APPLICATION_TYPE_TRAFFIC_SHAPING;
+    message.application.feedback_level_or_features_length = 0x16;
+    message.application.model_id = model_id;
+    message.application.query_id = query_id ^ model_id;
+    message.query.feedback_delay = 0x3333;
+
+    // Buffer containing the features.
+    buffer_clear(BUFFER_FEATURES);
+    buffer_push_f32(BUFFER_FEATURES, 0.1);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 1);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 7);                 // categorical
+    buffer_push_u16(BUFFER_FEATURES, 0);                // padding
+    buffer_push_f32(BUFFER_FEATURES, 0.3);              // numeric
+    buffer_push_u32(BUFFER_FEATURES, 0x1d10fa30);       // nominal "hey" through xxh3
+    buffer_push_u8(BUFFER_FEATURES, 0);                 // boolean
+    buffer_push_u8(BUFFER_FEATURES, 8);                 // categorical
+
+    // Buffer containing the whole message with header and features.
+    buffer_clear(BUFFER_MESSAGE);
+    buffer_push_mem(BUFFER_MESSAGE, &message, sizeof(message_query_traffic_shaping_t));
+    buffer_push_buffer(BUFFER_MESSAGE, BUFFER_FEATURES);
+
+    // Check that a message with the right content is passed along the right compatible_node_set.
+    ubiquity_test_expect("shared_send_message_with_rendezvous",
+            "compatible_node_set", &s_model_info->compatible_node_set,
+            "balance_key", query_id ^ model_id,
+            "stream_id", STREAM_ID_PREDICTION,
+            "message", buffer_size(BUFFER_MESSAGE), buffer_content(BUFFER_MESSAGE)
+            );
+    ubiquity_test_done_expecting();
+
+    return 0;
+}
+
+
 typedef struct {
     int64_t creative_id;
     size_t creative_offset;
@@ -1921,6 +2025,56 @@ int test_poll_regression_success(void)
     return 0;
 }
 
+int test_poll_traffic_shaping_success(void)
+{
+    const uint64_t model_id = 1;
+    const uint64_t query_id = 123;
+    const float action = ACTION_SEND;
+
+    char encoded_model_id[14];
+    base_32C_encode(encoded_model_id, &model_id);
+
+    // Expects a new handle to be created, increasing use count of the cluster client.
+    client_handle_t *client_handle = NULL;
+    if (setup_client_handle(&client_handle) != 0) return 1;
+ 
+    message_buffer_t message;
+    message.common.version = SERIALIZATION_VERSION;
+    message.common.type = MESSAGE_TYPE_PREDICTION;
+    message.common.reserved = 0;
+    message.application.application_id = APPLICATION_TYPE_TRAFFIC_SHAPING;
+    message.application.feedback_level_or_features_length = 0;
+    message.application.model_id = model_id;
+    message.application.query_id = query_id ^ model_id;
+    message.traffic_shaping_prediction.action = ACTION_SEND;
+
+    // Buffer containing the whole message.
+    buffer_clear(BUFFER_PREDICTION);
+    buffer_push_mem(BUFFER_PREDICTION, &message, sizeof(message_prediction_traffic_shaping_t));
+
+    // Should succeed.
+    ubiquity_test_assert_equal(
+            STATUS_CODE_SUCCESS,
+            client_handle_poll(client_handle)
+            );
+
+    // Polled values should equal message's values.
+    ubiquity_test_assert_equal_string(
+            encoded_model_id,
+            client_handle_get_model_id(client_handle)
+            );
+    ubiquity_test_assert_equal(
+            query_id,
+            client_handle_get_query_id(client_handle)
+            );
+    ubiquity_test_assert_equal(
+            action,
+            client_handle_get_action(client_handle)
+            );
+
+    return 0;
+}
+
 int main(void) {
     ubiquity_test_declare("store_get_model_info", 1,
             "model_id", "u64"
@@ -1929,6 +2083,7 @@ int main(void) {
     ubiquity_test_declare("shared_send_message_with_rendezvous", 4,
             "compatible_node_set", "pointer",
             "balance_key", "i64",
+  
             "stream_id", "i32",
             "message", "buffer"
             );
@@ -1948,6 +2103,7 @@ int main(void) {
         test_predict_action_rate_success,
         test_predict_binary_classification_success,
         test_predict_regression_success,
+        test_predict_traffic_shaping_success,
         test_creative_balance, 
         test_feedback,
         test_cancel,
@@ -1959,6 +2115,7 @@ int main(void) {
         test_poll_action_rate_success,
         test_poll_binary_classification_success,
         test_poll_regression_success,
+        test_poll_traffic_shaping_success,
         0,
     };
     return ubiquity_test_all(test_list);

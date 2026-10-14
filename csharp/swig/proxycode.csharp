@@ -8,6 +8,9 @@
   public const short NO_BID = 0;
   public const short BID = 1;
   
+  public const short NO_SEND = 0;
+  public const short SEND = 1;
+
   public const int WIN_RATE_PRESERVATION = 0;
   public const int EXPECTED_SURPLUS_MAXIMIZATION = 1;
 
@@ -43,6 +46,7 @@
   public const int APP_ACTION_RATE = 3;
   public const int APP_BINARY_CLASSIFICATION = 4;
   public const int APP_REGRESSION = 5;
+  public const int APP_TRAFFIC_SHAPING = 6;
   public const int APP_UNDEFINED = 9999;
 
   public const int LOG_OFF = 0;

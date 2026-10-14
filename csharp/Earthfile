@@ -46,6 +46,7 @@ examples-build:
   RUN dotnet build bid-shading/BidShading.csproj -c Release
   RUN dotnet build binary-classification/BinaryClassification.csproj -c Release
   RUN dotnet build regression/Regression.csproj -c Release
+  RUN dotnet build traffic-shaping/TrafficShaping.csproj -c Release
   SAVE ARTIFACT bin
 
 examples:

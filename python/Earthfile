@@ -42,6 +42,20 @@ bindings:
   SAVE ARTIFACT build/output/Ubiquity.py Ubiquity/Ubiquity.py
   SAVE ARTIFACT build/_libUbiquityClientWrapper.so Ubiquity/_libUbiquityClientWrapper.so
 
+examples-build:
+  FROM +python-image
+  DO +PIP_INSTALL
+  COPY +bindings/ .
+  COPY samples .
+  RUN set -eu; \
+      SUBDIRS=$(find ./src -maxdepth 1 -mindepth 1 -type d -printf '%P\n') && \
+      for dir in $SUBDIRS; \
+      do \
+        echo 'building '$dir' ...'; \
+        python3 -m py_compile src/$dir/*.py; \
+      done
+  SAVE ARTIFACT src
+
 examples:
   ARG latest=false
   ARG imagePrefix
@@ -49,7 +63,7 @@ examples:
   FROM +python-image
   DO +PIP_INSTALL
   COPY +bindings/ .
-  COPY samples .
+  COPY +examples-build/src/ .
   WAIT
     COPY ../datasets/+files/ datasets
     ENTRYPOINT ["python3","-m"]

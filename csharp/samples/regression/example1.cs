@@ -10,6 +10,31 @@ namespace ai.ubiquity.samples.regression
     {
         private const long PollTimeoutNanos = 200_000_000L;
         private const int ThroughputQps = 50;
+        // How often to print progress in the console.
+        private const int DumpPeriod = 1000;
+        private const int DefaultNumQueries = 500_000;
+
+
+       // Single cleanup routine used on every exit path.
+        private static void Cleanup(ClientHandle? clientHandle, ApiUtil? apiUtil, string? modelId, bool clientOpened)
+        {
+            try
+            {
+                clientHandle?.close();
+                if (clientOpened)
+                    Ubiquity.closeClient();
+
+                if (apiUtil is not null && modelId is not null)
+                {
+                    Console.WriteLine("Waiting 10 seconds for the last feedback to be processed...");
+                    Thread.Sleep(10_000);
+                    apiUtil.DeleteModel(modelId);
+                }
+            } catch (Exception e)
+            {
+                Console.Error.WriteLine("Couldn't cleanup ressources : " + e.Message);
+            }
+        }
 
         public static int Main(string[] args)
         {
@@ -21,136 +46,129 @@ namespace ai.ubiquity.samples.regression
 
             string apiToken = args[0];
             string clusterId = args[1];
-            int numQueries = args.Length < 3 ? 500000 : int.Parse(args[2]);
+            int numQueries = args.Length < 3 ? DefaultNumQueries : int.Parse(args[2]);
 
-            // 1. Create model via API
-            // This model uses a predefined feature engineering as an example
-            ApiUtil apiUtil = new ApiUtil(apiToken);
-            string modelId = apiUtil.CreateModel("regression", BuildModelSchema(clusterId));
-            if (string.IsNullOrEmpty(modelId))
-                throw new ArgumentException("Failed to create model");
+            ApiUtil? apiUtil = null;
+            string? modelId = null;
+            bool clientOpened = false;
+            ClientHandle? clientHandle = null;
 
-            try
-            {
+            try {
+                // 1. Create model via API
+                // This model uses a predefined feature engineering as an example
+                apiUtil = new ApiUtil(apiToken);
+                modelId = apiUtil.CreateModel("regression", BuildModelSchema(clusterId));
+                if (string.IsNullOrEmpty(modelId))
+                    throw new ArgumentException("Failed to create model");
+
                 // 2. Create and connect a ubiquity-client
                 Ubiquity.setCredentials(apiToken);
                 Ubiquity.setDefaultLogLevel(Ubiquity.LOG_OFF);
                 int statusCode = Ubiquity.openClient(clusterId);
                 if (statusCode != Ubiquity.SUCCESS)
-                {
                     throw new InvalidOperationException($"Error during connection: {statusCode}");
-                }
+                clientOpened = true;
+                
+                clientHandle = Ubiquity.getClientHandle();
 
-                ClientHandle? clientHandle = null;
-                try
+                // 3. Prepare data
+                Random random = new Random(123);
+                List<BidRequest> requests = BuildRequests();
+
+                // useful for pacing the traffic sent to the ml cluster based on a fixed throughput
+                long paceNanos = 1_000_000_000L / ThroughputQps;
+                long nextSendNanoTime = GetTimeNanos();
+
+                // 4. Loop and send prediction queries with their level_0 feedbacks.
+                int count = 0;
+                while (count < numQueries)
                 {
-                    clientHandle = Ubiquity.getClientHandle();
-
-                    // 3. Prepare data
-                    Random random = new Random(123);
-                    List<BidRequest> requests = BuildRequests();
-
-                    // useful for pacing the traffic sent to the ml cluster based on a fixed throughput
-                    long paceNanos = 1_000_000_000L / ThroughputQps;
-                    long nextSendNanoTime = GetTimeNanos();
-                    int count = 0;
-
-                    // How often to print progress in the console.
-                    const int dumpPeriod = 1000;
-
-                    // 4. Loop and send prediction queries with their level_0 feedbacks.
-                    while (count < numQueries)
+                    if (GetTimeNanos() < nextSendNanoTime)
                     {
-                        if (GetTimeNanos() < nextSendNanoTime)
-                        {
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        nextSendNanoTime += paceNanos;
+                    nextSendNanoTime += paceNanos;
 
-                        // 4.1 prepare a regression query
-                        // simulate the request Id by generating a random long
-                        long queryId = random.NextInt64();
-                        BidRequest request = requests[count % requests.Count];
+                    // 4.1 prepare a regression query
+                    // simulate the request Id by generating a random long
+                    long queryId = random.NextInt64();
+                    BidRequest request = requests[count % requests.Count];
 
-                        clientHandle.startRegression();
-                        // fill in the features as specified in the model schema
-                        clientHandle.putNominal(request.AppBundle);
-                        clientHandle.putCategorical(request.ImpBannerPos);
-                        clientHandle.putCategorical(request.LocalTime);
-                        clientHandle.putNominal(request.DeviceOs);
-                        clientHandle.putNominal(request.DeviceGeoCity);
-                        clientHandle.putNominal(request.DeviceModel);
-                        clientHandle.putNominal(request.Bcat);
-                        clientHandle.putNominal(request.DeviceGeoZip);
-                        clientHandle.putNominal(request.UserYob);
-                        clientHandle.putNominal(request.AppPublisherName);
-                        clientHandle.putCategorical(request.DeviceConnectionType);
-                        clientHandle.putNominal(request.DeviceGeoRegion);
-                        clientHandle.putNominal(request.AppCat);
-                        clientHandle.putNominal(request.DeviceMake);
-                        clientHandle.putNominal(request.DeviceHxW);
-                        clientHandle.putCategorical(request.UserGender);
-                        clientHandle.putNominal(request.DeviceLanguage);
-                        clientHandle.putNominal(request.ImpDisplayManager);
-                        clientHandle.putNominal(request.ImpBannerBattr);
-                        clientHandle.putNominal(request.DeviceGeoCountry);
-                        clientHandle.putNominal(request.AppContentLanguage);
-                        clientHandle.putCategorical(request.AppContentContext);
-                        clientHandle.putBoolean(request.ImpBannerTopFrame ? (sbyte)1 : (sbyte)0);
-                        clientHandle.putCategorical(request.DeviceType);
-                        clientHandle.putBoolean(request.ImpInstl ? (sbyte)1 : (sbyte)0);
-                        clientHandle.putNominal(request.AppPageCat);
+                    clientHandle.startRegression();
 
-                        // 4.2. send the prediction request
-                        if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
-                        {
-                            count++;
-                        }
+                    // fill in the features as specified in the model schema
+                    clientHandle.putNominal(request.AppBundle);
+                    clientHandle.putCategorical(request.ImpBannerPos);
+                    clientHandle.putCategorical(request.LocalTime);
+                    clientHandle.putNominal(request.DeviceOs);
+                    clientHandle.putNominal(request.DeviceGeoCity);
+                    clientHandle.putNominal(request.DeviceModel);
+                    clientHandle.putNominal(request.Bcat);
+                    clientHandle.putNominal(request.DeviceGeoZip);
+                    clientHandle.putNominal(request.UserYob);
+                    clientHandle.putNominal(request.AppPublisherName);
+                    clientHandle.putCategorical(request.DeviceConnectionType);
+                    clientHandle.putNominal(request.DeviceGeoRegion);
+                    clientHandle.putNominal(request.AppCat);
+                    clientHandle.putNominal(request.DeviceMake);
+                    clientHandle.putNominal(request.DeviceHxW);
+                    clientHandle.putCategorical(request.UserGender);
+                    clientHandle.putNominal(request.DeviceLanguage);
+                    clientHandle.putNominal(request.ImpDisplayManager);
+                    clientHandle.putNominal(request.ImpBannerBattr);
+                    clientHandle.putNominal(request.DeviceGeoCountry);
+                    clientHandle.putNominal(request.AppContentLanguage);
+                    clientHandle.putCategorical(request.AppContentContext);
+                    clientHandle.putBoolean(request.ImpBannerTopFrame ? (sbyte)1 : (sbyte)0);
+                    clientHandle.putCategorical(request.DeviceType);
+                    clientHandle.putBoolean(request.ImpInstl ? (sbyte)1 : (sbyte)0);
+                    clientHandle.putNominal(request.AppPageCat);
 
-                        // 4.3. wait to poll prediction response
-                        long deadline = GetTimeNanos() + PollTimeoutNanos;
-                        do
-                        {
-                            statusCode = clientHandle.poll();
-                            Thread.Yield();
-                        }
-                        while (statusCode == Ubiquity.NO_DATA && GetTimeNanos() < deadline);
+                    // 4.2. send the prediction request
+                    if (clientHandle.predict(modelId, queryId) == Ubiquity.SUCCESS)
+                    {
+                        count++;
+                    }
 
-                        if (statusCode != Ubiquity.SUCCESS)
-                        {
-                            continue;
-                        }
+                    // 4.3. wait to poll prediction response
+                    long deadline = GetTimeNanos() + PollTimeoutNanos;
+                    do
+                    {
+                        statusCode = clientHandle.poll();
+                        Thread.Yield();
+                    }
+                    while (statusCode == Ubiquity.NO_DATA && GetTimeNanos() < deadline);
 
-                        // 4.4. read the response data
-                        long response = clientHandle.getPrediction();
+                    if (statusCode != Ubiquity.SUCCESS)
+                    {
+                        continue;
+                    }
 
-                        // 4.5. Sending back a positive feedback of level_0 to the cluster to execute the query.
-                        // After calling the feedback level 0, no cancellation is allowed
-                        long completedQueryId = clientHandle.getQueryId();
-                        clientHandle.train(modelId, completedQueryId, 0);
+                    // 4.4. read the response data
+                    long response = clientHandle.getPrediction();
 
-                        if (count % dumpPeriod == 0)
-                        {
-                            Console.WriteLine($"Total queries = {count}, last response: prediction response = {response}");
-                        }
+                    // 4.5. Sending back a positive feedback of level_0 to the cluster to execute the query.
+                    // After calling the feedback level 0, no cancellation is allowed
+                    long completedQueryId = clientHandle.getQueryId();
+                    clientHandle.train(modelId, completedQueryId, 0);
+
+                    if (count % DumpPeriod == 0)
+                    {
+                        Console.WriteLine($"Total queries = {count}, last response: prediction response = {response}");
                     }
                 }
-                finally
-                {
-                    // close the handle and the whole client
-                    clientHandle?.close();
-                    Ubiquity.closeClient();
-                }
-            }
-            finally
-            {
-                // wait for the last feedback sent to be processed by the cluster then delete the models
-                Thread.Sleep(TimeSpan.FromSeconds(10));
-                apiUtil.DeleteModel(modelId);
-            }
-        return 0;
-    }
+                return 0;
+        }
+        catch (Exception e) {
+        Console.Error.WriteLine("Fatal error: " + e.Message);
+        return 1;
+        }
+        finally {
+            // close the opened resources
+            Cleanup(clientHandle, apiUtil, modelId, clientOpened);
+        }
+        }
 
         private static string BuildModelSchema(string clusterId)
         {

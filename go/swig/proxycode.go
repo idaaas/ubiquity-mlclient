@@ -14,6 +14,9 @@ const NO_COMPATIBLE_NODE int = 4
 const NO_BID int8 = 0
 const BID int8 = 1
 
+const NO_SEND int8 = 0
+const SEND int8 = 1
+
 const WIN_RATE_PRESERVATION = 0
 const EXPECTED_SURPLUS_MAXIMIZATION = 1
 
@@ -44,6 +47,7 @@ const APP_LINE_ITEM int = 2
 const APP_ACTION_RATE int = 3
 const APP_BINARY_CLASSIFICATION int = 4
 const APP_REGRESSION int = 5
+const APP_TRAFFIC_SHAPING = 6
 const APP_UNDEFINED int = 9999
 
 const LOG_OFF int = 0

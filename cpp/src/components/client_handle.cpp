@@ -26,6 +26,7 @@ static constexpr bool app_uses_creatives[APPLICATION_TYPE_COUNT] = {
     true,  // action rate
     false, // binary classification
     false, // regression
+    false, // traffic shaping
 };
 
 typedef struct cluster_client_s cluster_client_t;
@@ -106,6 +107,11 @@ typedef struct message_prediction_regression_s {
     int64_t prediction;
 } __attribute__((packed)) message_prediction_regression_t;
 
+typedef struct message_prediction_traffic_shaping_s {
+    message_application_t _;
+    float action;
+} __attribute__((packed)) message_prediction_traffic_shaping_t;
+
 typedef struct message_query_s { 
     message_application_t _;
     uint32_t feedback_delay;
@@ -143,6 +149,8 @@ typedef message_query_t message_query_binary_classification_t;
 
 typedef message_query_t message_query_regression_t;
 
+typedef message_query_t message_query_traffic_shaping_t;
+
 typedef struct message_feedback_s { 
     message_application_t _;
     uint32_t feedback_delay;
@@ -171,6 +179,7 @@ typedef union message_buffer_u {
     message_prediction_action_rate_t action_rate_prediction;
     message_prediction_binary_classification_t binary_classification_prediction;
     message_prediction_regression_t regression_prediction;
+    message_prediction_traffic_shaping_t traffic_shaping_prediction;
     message_query_t query;
     message_query_with_creatives_t creative_query;
     message_query_bid_shading_t bid_shading_query;
@@ -309,6 +318,7 @@ static const size_t feature_list_offset_by_application_type[] = {
     sizeof(message_query_action_rate_t),
     sizeof(message_query_binary_classification_t),
     sizeof(message_query_regression_t),
+    sizeof(message_query_traffic_shaping_t),
 };
 
 model_info_t *client_handle_get_model_info(
@@ -435,6 +445,19 @@ void client_handle_start_regression(
             APPLICATION_TYPE_REGRESSION
             );
     LOG_DEBUG_1(client_handle->logger, "event=start_query handle={:x} application=regression",
+            client_handle->id
+            );
+}
+
+void client_handle_start_traffic_shaping(
+        client_handle_t *const client_handle
+        ) noexcept
+{
+    client_handle_prepare_prediction_query(
+            client_handle,
+            APPLICATION_TYPE_TRAFFIC_SHAPING
+            );
+    LOG_DEBUG_1(client_handle->logger, "event=start_query handle={:x} application=traffic_shaping",
             client_handle->id
             );
 }
@@ -767,6 +790,7 @@ status_code_t client_handle_poll(
         sizeof(message_prediction_action_rate_t),
         sizeof(message_prediction_binary_classification_t),
         sizeof(message_prediction_regression_t),
+        sizeof(message_prediction_traffic_shaping_t),
     };
 
     client_handle->error_origin = error_origin_t::POLL;
@@ -996,6 +1020,8 @@ float client_handle_get_price(
             break;
         case APPLICATION_TYPE_REGRESSION:
             break;
+        case APPLICATION_TYPE_TRAFFIC_SHAPING:
+            break;
         case APPLICATION_TYPE_UNDEFINED:
             break;
     }
@@ -1072,6 +1098,20 @@ int64_t client_handle_get_prediction(
   return 0;
 }
 
+int8_t client_handle_get_action(
+       client_handle_t *const client_handle
+        ) noexcept
+{
+  switch(client_handle->message.application.application_id) {
+    case APPLICATION_TYPE_TRAFFIC_SHAPING:
+        return client_handle->message.traffic_shaping_prediction.action == 0 ? ACTION_NO_SEND : ACTION_SEND;
+    default:
+        break;
+  }
+  return 0;
+}
+
+
 /*
  * DIAGNOSTIC
  */
@@ -1087,6 +1127,7 @@ const char *client_handle_get_diagnostic_string(
         "ACTION_RATE",
         "BINARY_CLASSIFICATION",
         "REGRESSION",
+        "TRAFFIC_SHAPING",
     };
     static const char *starter_function_name[APPLICATION_TYPE_COUNT]{
         "start_bid_shading",
@@ -1095,6 +1136,7 @@ const char *client_handle_get_diagnostic_string(
         "start_action_rate",
         "start_binary_classification",
         "start_regression",
+        "start_traffic_shaping",
     };
     static const char *feature_type_strings[]{
         "NUMERIC",

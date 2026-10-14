@@ -58,8 +58,10 @@ func example1() int {
 	common.Unzip(requestPath+".gz", requestPath)
 	// load Requests from file
 	requests := common.LoadBidRequests(requestPath)
+	
 	// The next lines of code are useful for pacing the traffic sent to the ml cluster based on a fixed throughput
-	pace := time.Second / 300
+	const THROUGHPUT_IN_QPS = 300
+	pace := time.Second / THROUGHPUT_IN_QPS
 	nextSendNanoTime := time.Now()
 
 	// 4. Loop and send prediction queries with their level_0 feedbacks
@@ -75,7 +77,7 @@ func example1() int {
 		queryId := rand.Int63()
 		// read a request from the dataset file
 		request := requests[count]
-		// prepare a binary classification query using this request
+		
 		clientHandle.StartBinaryClassification()
 		// fill in the features as specified in the model schema in config.json
 		clientHandle.PutNominal(request.AppBundle)
@@ -113,7 +115,7 @@ func example1() int {
 		// 4.3. wait to poll prediction response and validate its QueryId
 		deadline := time.Now().Add(POLL_TIMEOUT)
 		statusCode = clientHandle.Poll()
-		for statusCode == Ubiquity.NO_DATA && time.Now().After(deadline) {
+		for statusCode == Ubiquity.NO_DATA && time.Now().Before(deadline) {
 			runtime.Gosched()
 			statusCode = clientHandle.Poll()
 		}
@@ -122,7 +124,7 @@ func example1() int {
 		}
 
 		// 4.4 read the response data
-		predictionResponse := clientHandle.isClassified()
+		predictionResponse := clientHandle.IsClassified()
 
 		// 4.5 Sending back a positive feedback of level 0 to the cluster to execute the query.
 		// After calling the feedback level 0, no cancellation is allowed
