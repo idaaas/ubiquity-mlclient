@@ -42,7 +42,7 @@ public class Example1 {
       System.err.println("You need to provide API token and cluster ID to run the example");
       System.exit(2);
     }
-    final String apiToken;apiToken = args[0];
+    final String apiToken = args[0];
     final String clusterId = args[1];
     final int numQueries = args.length >= 3 ? Integer.parseInt(args[2]) : DEFAULT_NUM_QUERIES;
 
@@ -153,11 +153,11 @@ public class Example1 {
           feedback = feedbackHashMap.get(queryId);
           // 4.5.1 validate the query with a level 0 feedback
           // After calling the feedback level 0, no cancellation is allowed
-          clientHandle.train(modelId, queryId, 0);
+          clientHandle.train(modelId, queryId, "level_0");
 
           // 4.5.2 send a positive feedback of level 1 only when it is positive
           if (feedback.getLevel1()) {
-            clientHandle.train(modelId, queryId, 1);
+            clientHandle.train(modelId, queryId, "level_1");
           }
         }
     } 

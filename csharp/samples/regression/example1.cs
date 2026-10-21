@@ -151,7 +151,7 @@ namespace ai.ubiquity.samples.regression
                     // 4.5. Sending back a positive feedback of level_0 to the cluster to execute the query.
                     // After calling the feedback level 0, no cancellation is allowed
                     long completedQueryId = clientHandle.getQueryId();
-                    clientHandle.train(modelId, completedQueryId, 0);
+                    clientHandle.train(modelId, completedQueryId, "level_0");
 
                     if (count % DumpPeriod == 0)
                     {

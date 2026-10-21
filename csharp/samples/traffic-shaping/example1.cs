@@ -158,11 +158,11 @@ namespace ai.ubiquity.samples.trafficshaping
                         if (feedbackByQueryId.TryGetValue(completedQueryId, out completedFeedback))
                         {
                             // 4.5.1 send a positive feedback of level 0 to the cluster indicating that the DSP participated in an auction.
-                            clientHandle.train(modelId, completedQueryId, 0);
+                            clientHandle.train(modelId, completedQueryId, "bid");
                             // 4.5.2. Try to send feedback of level 1 indicating that the DSP won the auction.
                             if (completedFeedback.Level1)
                             {
-                                clientHandle.train(modelId, completedQueryId, 1);
+                                clientHandle.train(modelId, completedQueryId, "win");
                             }
                         }
 

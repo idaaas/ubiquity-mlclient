@@ -170,16 +170,16 @@ namespace ai.ubiquity.samples.lineitem
                         if (feedbackByQueryId.TryGetValue(completedQueryId, out completedFeedback))
                         {
                             // 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that the auction has been won, incurring an impression.
-                            clientHandle.train(modelId, completedQueryId, 0);
+                            clientHandle.train(modelId, completedQueryId, "imp");
                             // 4.5.2. Try to send feedback of level 1
                             if (completedFeedback.Level1)
                             {
-                                clientHandle.train(modelId, completedQueryId, 1);
+                                clientHandle.train(modelId, completedQueryId, "view");
                             }
                             // 4.5.3. Try to send feedback of level 2
                             if (completedFeedback.Level2)
                             {
-                                clientHandle.train(modelId, completedQueryId, 2);
+                                clientHandle.train(modelId, completedQueryId, "click");
                             }
                         }
                     }

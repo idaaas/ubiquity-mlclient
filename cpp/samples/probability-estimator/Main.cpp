@@ -242,10 +242,10 @@ int main(const int argc, const char **argv) {
 
             // 4.5.1 send a positive feedback of level 0 to the cluster to execute the query.
             // After this call, you cannot cancel the query
-            clientHandle.train(modelId, queryId, 0);
+            clientHandle.train(modelId, queryId, "level_0");
             // 4.5.2. Try to send feedback of level 1
             if (feedback["level1"].boolean) {
-                clientHandle.train(modelId, queryId, 1);
+                clientHandle.train(modelId, queryId, "level_1");
             }
 
             if (count % DUMP_PERIOD == 0) {

@@ -257,10 +257,10 @@ def main(api_token, cluster_id, num_queries):
 
             # 4.5.1 send a positive feedback of level 0 to the cluster to execute the query.
 		    # After this call, you cannot cancel the query
-            client_handle.train(model_id, query_id, 0)  # Notify execution
+            client_handle.train(model_id, query_id, "level_0")  # Notify execution
             # 4.5.2 send a positive feedback of level 1 only when it is positive
             if feedback.level1:
-                client_handle.train(model_id, query_id, 1)
+                client_handle.train(model_id, query_id, "level_1")
 
             if count % dump_period == 0:
                 print(f"Total queries = {count}, last response: conversion probability = {conversion_probability:.7f}", flush=True)

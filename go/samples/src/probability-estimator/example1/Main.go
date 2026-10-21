@@ -139,10 +139,10 @@ func example1() int {
 		// 4.5 Sending back feedback (when applicable)
 		// 4.5.1 send a positive feedback of level 0 to the cluster to execute the query.
 		// After this call, you cannot cancel the query
-		clientHandle.Train(modelId, queryId, 0)
+		clientHandle.Train(modelId, queryId, "level_0")
 		// 4.5.2 send a positive feedback of level 1 only when it is positive
 		if feedback.Level1 {
-			clientHandle.Train(modelId, queryId, 1)
+			clientHandle.Train(modelId, queryId, "level_1")
 		}
 
 		if count%dumpPeriod == 0 {

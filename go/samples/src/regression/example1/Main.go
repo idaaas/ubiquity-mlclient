@@ -128,7 +128,7 @@ func example1() int {
 
 		// 4.5 Sending back a positive feedback of level 0 to the cluster to execute the query.
 		// After calling the feedback level 0, no cancellation is allowed
-		clientHandle.Train(modelId, queryId, 0)
+		clientHandle.Train(modelId, queryId, "level_0")
 
 		if count%dumpPeriod == 0 {
 			fmt.Printf("Total queries = %d, last response: prediction response = %d\n", count, predictionResponse)

@@ -240,7 +240,7 @@ def main(api_token, cluster_id, num_queries):
 
             # 4.5 Sending back a positive feedback of level 0 to the cluster to execute the query.
             # After calling the feedback level 0, no cancellation is allowed
-            client_handle.train(model_id, query_id, 0)  # Notify execution
+            client_handle.train(model_id, query_id, "level_0")  # Notify execution
 
             if count % dump_period == 0:
                 print(f"Total queries = {count}, last response: classification response = {prediction_response}", flush=True)

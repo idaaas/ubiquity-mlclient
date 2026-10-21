@@ -120,7 +120,7 @@ namespace Ubiquity {
                 void startBinaryClassification(void) noexcept;
                 void startRegression(void) noexcept;
                 void startTrafficShaping(void) noexcept;
-                int32_t train(const char *modelId, int64_t queryId, const uint16_t feedbackLevel) noexcept;
+                int32_t train(const char *modelId, int64_t queryId, const char *feedbackName) noexcept;
                 int32_t cancel(const char *modelId, int64_t queryId) noexcept;
                 const char *getDiagnosticString() noexcept;
                 void setLogLevel(const int32_t level) noexcept;

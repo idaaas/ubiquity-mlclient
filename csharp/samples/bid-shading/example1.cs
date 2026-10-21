@@ -68,7 +68,7 @@ namespace ai.ubiquity.samples.bidshading
                 // once your positive feedback is received, use it 
                 Console.WriteLine($"Received a feedback notification for WinAuction");
                 // Only call train when you win the auction (feedback level is always 0 for bid shading feedbacks)
-                client.train(modelId, queryId, 0);
+                client.train(modelId, queryId, "win");
             }
             finally 
             {

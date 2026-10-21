@@ -92,13 +92,6 @@ status_code_t client_handle_train(
         const char* const encoded_feedback_name
         ) noexcept;
 
-status_code_t client_handle_train_with_level(
-        client_handle_t *const client_handle,
-        const char *encoded_model_id,
-        int64_t query_id,
-        const uint16_t feedback_level
-        ) noexcept;
-
 status_code_t client_handle_cancel(
         client_handle_t *const client_handle,
         const char *encoded_model_id,

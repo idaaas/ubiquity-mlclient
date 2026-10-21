@@ -215,7 +215,7 @@ int main(const int argc, const char **argv) {
 
             // 4.5 Sending back a positive feedback of level_0 to the cluster to execute the query.
             // After calling the feedback level 0, no cancellation is allowed
-            clientHandle.train(modelId, queryId, 0);
+            clientHandle.train(modelId, queryId, "level_0");
 
             if (count % DUMP_PERIOD == 0) {
                 std::cout << "Total queries = " << count << ", last response: classification result = " << classificationResult << std::endl;

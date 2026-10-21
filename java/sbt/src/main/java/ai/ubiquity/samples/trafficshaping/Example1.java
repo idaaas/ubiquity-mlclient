@@ -146,10 +146,10 @@ public class Example1 {
           queryId = clientHandle.getQueryId();
           feedback = feedbackHashMap.get(queryId);
           // 4.5.1 send a positive feedback of level 0 indicating that the DSP participated to an auction.
-          clientHandle.train(modelId, queryId, 0);
+          clientHandle.train(modelId, queryId, "bid");
           // 4.5.2 send a positive feedback of level 1 indicating that the DSP won the auction.
           if (feedback.getLevel1())
-            clientHandle.train(modelId, queryId, 1);
+            clientHandle.train(modelId, queryId, "win");
 
           if (count % DUMP_PERIOD == 0) {
             System.out.printf(

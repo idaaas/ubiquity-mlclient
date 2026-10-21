@@ -237,10 +237,10 @@ int main(const int argc, const char **argv) {
             auto feedback = feedbackHashMap[queryId];
 
             // 4.5.1 send a positive feedback of level 0 to the cluster indicating that the DSP participated in the auction.
-            clientHandle.train(modelId, queryId, 0);
+            clientHandle.train(modelId, queryId, "bid");
             // 4.5.2. Try to send feedback of level 1 to the cluster indicating that the DSP won the auction.
             if (feedback["level1"].boolean) {
-                clientHandle.train(modelId, queryId, 1);
+                clientHandle.train(modelId, queryId, "win");
             }
 
             if (count % DUMP_PERIOD == 0) {

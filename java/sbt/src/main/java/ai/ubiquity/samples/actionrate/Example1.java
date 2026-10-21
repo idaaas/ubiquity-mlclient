@@ -40,7 +40,7 @@ public class Example1 {
       System.err.println("You need to provide API token and cluster ID to run the example");
       System.exit(2);
     }
-    final String apiToken;apiToken = args[0];
+    final String apiToken = args[0];
     final String clusterId = args[1];
     final int numQueries = args.length >= 3 ? Integer.parseInt(args[2]) : DEFAULT_NUM_QUERIES;
 
@@ -161,13 +161,13 @@ public class Example1 {
             feedback = feedbackHashMap.get(queryId);
             // 4.5.1 send a positive feedback of level 0 to the cluster notifyong it that
             // the auction has been won, incurring an impression.
-            clientHandle.train(modelId, queryId, 0);
+            clientHandle.train(modelId, queryId, "imp");
             // 4.5.2 send a positive feedback of level 1 only when it is positive
             if (feedback.getLevel1())
-              clientHandle.train(modelId, queryId, 1);
+              clientHandle.train(modelId, queryId, "view");
             // 4.5.3 send a positive feedback of level 2 only when it is positive
             if (feedback.getLevel2())
-              clientHandle.train(modelId, queryId, 2);
+              clientHandle.train(modelId, queryId, "install");
           }
 
           if (count % DUMP_PERIOD == 0) {

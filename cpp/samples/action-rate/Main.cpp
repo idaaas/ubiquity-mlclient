@@ -276,14 +276,14 @@ int main(const int argc, const char **argv) {
             auto feedback = feedbackHashMap[queryId];
 
             // 4.5.1 send a positive feedback of level 0 to the cluster notifying it that the auction has been won, incurring an impression.
-            clientHandle.train(modelId, queryId, 0);
+            clientHandle.train(modelId, queryId, "imp");
             // 4.5.2. Try to send feedback of level 1
             if (feedback["level1"].boolean) {
-                clientHandle.train(modelId, queryId, 1);
+                clientHandle.train(modelId, queryId, "view");
             }
             // 4.5.3. Try to send feedback of level 2
             if (feedback["level2"].boolean) {
-                clientHandle.train(modelId, queryId, 2);
+                clientHandle.train(modelId, queryId, "install");
             }
             }
 

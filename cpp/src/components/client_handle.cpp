@@ -623,8 +623,7 @@ static inline status_code_t client_handle_train_impl(
         client_handle_t *const client_handle,
         const char *encoded_model_id,
         int64_t query_id,
-        const char* const feedback_name,
-        const uint16_t feedback_level
+        const char* const feedback_name
         ) noexcept
 {
     client_handle_prepare_common_header(
@@ -635,13 +634,11 @@ static inline status_code_t client_handle_train_impl(
             );
     model_info_t *model_info = client_handle_get_model_info(client_handle);
     client_handle->message.common.version = SERIALIZATION_VERSION;
-    size_t level = feedback_level;
-    if (MAXIMUM_FEEDBACK_LEVEL == level) {
-        level = model_info_find_feedback_level(
-                model_info,
-                feedback_name
-                );
-    }
+    size_t level = model_info_find_feedback_level(
+                    model_info,
+                    feedback_name
+                    );
+
     client_handle->message.application.feedback_level_or_feature_list_length = level;
     client_handle->state = handle_state_t::TRAINED;
     client_handle->error_origin = error_origin_t::TRAIN;
@@ -693,22 +690,6 @@ static inline status_code_t client_handle_train_impl(
     return client_handle->status_code;
 }
 
-status_code_t client_handle_train_with_level(
-        client_handle_t *const client_handle,
-        const char *encoded_model_id,
-        int64_t query_id,
-        const uint16_t feedback_level
-        ) noexcept
-{
-    return client_handle_train_impl(
-            client_handle,
-            encoded_model_id,
-            query_id,
-            "",
-            feedback_level
-            );
-}
-
 status_code_t client_handle_train(
         client_handle_t *const client_handle,
         const char *encoded_model_id,
@@ -720,8 +701,7 @@ status_code_t client_handle_train(
             client_handle,
             encoded_model_id,
             query_id,
-            feedback_name,
-            MAXIMUM_FEEDBACK_LEVEL
+            feedback_name
             );
 }
 

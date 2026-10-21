@@ -144,7 +144,7 @@ public class Example1 {
 
           // 4.5 send a positive feedback of level_0 to the cluster.
           // After calling the feedback level 0, no cancellation is allowed
-          clientHandle.train(modelId, queryId, 0);
+          clientHandle.train(modelId, queryId, "level_0");
 
           if (count % DUMP_PERIOD == 0) {
             System.out.printf(

@@ -2030,8 +2030,8 @@ int test_poll_traffic_shaping_success(void)
     const uint64_t model_id = 1;
     const uint64_t query_id = 123;
     const float action = ACTION_SEND;
-
     char encoded_model_id[14];
+
     base_32C_encode(encoded_model_id, &model_id);
 
     // Expects a new handle to be created, increasing use count of the cluster client.

@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="https://ubiquity.ai">
-    <img alt="Ubiquity for Ad Networks" src="banners/UbiquityAI.png" width="80%">
+  <a href="https://idaaas.com/fr/">
+    <img alt="IDAaas for Ad Networks" src="banners/idaaas_logo.svg" width="80%">
   </a>
 </p>
 
