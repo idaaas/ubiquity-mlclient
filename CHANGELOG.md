@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.1] - 2026-10-26
+
+### Changed
+
+- **[Breaking]** `ClientHandle.train()` method signature has been changed. The field `feedbackLevel` of type integer has been replaced by `feedbackName` of type string that represents the identifier of the expected event.
+    - **Before**: `train(modelId, queryId, feedbackLevel)`
+    - **After**: `train(modelId, queryId, feedbackName)`
+
 ## [v1.1.0] - 2026-10-19
 
 ### Added
@@ -17,11 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Implement code examples for new models in all supported languages.
 
-### Changed
-
-- **[Breaking]** `ClientHandle.train()` method signature has been changed. The field `feedbackLevel` of type integer has been replaced by `feedbackName` of type string that represents the identifier of the expected event.
-    - **Before**: `train(modelId, queryId, feedbackLevel)`
-    - **After**: `train(modelId, queryId, feedbackName)`
 
 ## [v1.0.1] - 2026-07-03
 
