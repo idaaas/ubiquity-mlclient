@@ -53,7 +53,8 @@ jobs:
           env:
             DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
             DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
-          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+          run: |
+            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 20.04
@@ -77,7 +78,9 @@ jobs:
           env:
             DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
             DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
-          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+          run: |
+            echo "username: $DOCKERHUB_USERNAME"
+            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 22.04
