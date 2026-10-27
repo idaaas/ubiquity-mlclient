@@ -33,7 +33,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Ubuntu 16.04 go 1.16
           run: earthly --ci +deploy --lang=go --os=ubuntu:16.04 --token=${{ secrets.secret_token }} --version=${{ inputs.new-tag }}
           # trigger go build only if we are tagging main
@@ -49,7 +52,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 20.04 go 1.16
@@ -66,7 +72,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 22.04 go 1.16
@@ -83,7 +92,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 24.04 go 1.16

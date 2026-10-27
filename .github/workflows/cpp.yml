@@ -28,7 +28,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Ubuntu 16.04
           run: earthly --push +build --lang=cpp --os=ubuntu:16.04
         - name: Upload artifact
@@ -47,7 +50,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 20.04
@@ -68,7 +74,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 22.04
@@ -89,7 +98,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 24.04

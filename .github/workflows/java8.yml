@@ -41,7 +41,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Ubuntu 16.04 java 8
           run: earthly --ci +deploy --lang=java --os=ubuntu:16.04 --release=8 --token=${{ secrets.GITHUB_TOKEN }} --version=${{ inputs.new-tag }} --repo=${{ inputs.repo-name }} --snap=${{ inputs.snap }} --private=${{ inputs.private }}
     
@@ -55,7 +58,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 20.04 java 8
@@ -71,7 +77,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 22.04 java 8
@@ -87,7 +96,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Earthly version
           run: earthly --version
         - name: Ubuntu 24.04 java 8

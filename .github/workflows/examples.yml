@@ -33,7 +33,10 @@ jobs:
           with:
             ref: ${{ github.ref }}
         - name: Docker Login
-          run: docker login --username "$dockerhub_username" --password "$dockerhub_token"
+          env:
+            DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+            DOCKERHUB_TOKEN: ${{ secrets.dockerhub_token }}
+          run: echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         - name: Populate private prefix value
           run: |
             PRIVATE_PREFIX=$(if [ "${{ inputs.private }}" = "true" ]; then echo "private-"; else echo ""; fi)
@@ -41,7 +44,9 @@ jobs:
             DEV_SUFFIX=$(if [ "${{ inputs.release }}" = "true" ]; then echo ""; else echo "-dev"; fi)
             echo "DEV_SUFFIX=$DEV_SUFFIX" >> $GITHUB_ENV
         - name: Login to github registry
-          run: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
         - name: Build & Push Examples
           run: earthly --push --ci +all-examples --imagePrefix=ghcr.io/idaaas/${{ env.PRIVATE_PREFIX }} --imageSuffix=${{ inputs.new-tag }}${{ env.DEV_SUFFIX }}
           if: inputs.release == 'false'
